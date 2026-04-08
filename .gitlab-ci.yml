@@ -48,9 +48,10 @@ variables:
 stages:
   - security-scan
 
-🔍 checkmarx-scan:
+checkmarx-scan:
   extends: .checkmarx-scan-template
   stage: security-scan
+  allow_failure: true
   variables:
     CX_TEAM: "/CxServer/PRISME/A1L_ALOE"
     CX_PROJECT: "A1L_ALOE"

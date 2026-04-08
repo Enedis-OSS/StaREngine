@@ -64,4 +64,5 @@ stages:
   script:
     - !reference [".checkmarx-scan-template", "script"]
   rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
     - if: $SCAN_CHECKMARX == 'True' && $ENVIRONMENT == 'DEV'

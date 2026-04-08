@@ -60,6 +60,7 @@ checkmarx-scan:
     CHECKMARX_LOG_LEVEL: "DEBUG"
     REST_LOG_LEVEL: "DEBUG"
     KYSS_EXPORT: "false"
+    CX_FLOW_BUG_TRACKER: "None"
   before_script:
     - rm -rf .git 
   script:

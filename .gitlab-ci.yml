@@ -60,7 +60,7 @@ stages:
     REST_LOG_LEVEL: "DEBUG"
     KYSS_EXPORT: "false"
   before_script:
-    - rm -rf .git # Temporary measure
+    - rm -rf .git 
   script:
     - !reference [".checkmarx-scan-template", "script"]
   rules:

@@ -53,7 +53,7 @@ checkmarx-scan:
   stage: security-scan
   allow_failure: true
   variables:
-    CX_TEAM: "/CxServer/PRISME/A1L_ALOE"
+    CX_TEAM: "/CxServer/SI-RESEAU-ELECTRIQUE/A1L_ALOE"
     CX_PROJECT: "A1L_ALOE"
     CHECKMARX_EXCLUDE_FOLDERS: ".gitlab,./public/kit_com,./public/fonts,./public/GEVerif_package,./.git"
     CX_FLOW_ZIP_EXCLUDE: ".css,.tff,.docx,.zip,.pdf,.png,.jpg,.mp4,.pptx,.csv"

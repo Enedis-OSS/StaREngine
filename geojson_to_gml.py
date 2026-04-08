@@ -4,7 +4,7 @@ Convertit des fichiers GeoJSON RPD_* vers un fichier GML RecoStaR unique.
 Conforme au schéma XSD StaR-Elec RecoStaR v1.0.
 
 Entrée : Dossier contenant des fichiers GeoJSON (RPD_CableElectrique_Reco.geojson, etc.)
-Sortie : Fichier GML unique avec métadonnées et relations préservées.
+Sortie : Fichier GML unique avec métadonnées et relations préservées
 
 """
 

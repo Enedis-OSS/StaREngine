@@ -1,0 +1,67 @@
+
+include:
+  - project: "dev/commun/templates"
+    ref: "v2"
+    file: "templates/node-npm-build.yml"
+  - project: "dev/commun/templates"
+    ref: "v2"
+    file: "templates/sonarcli-scan.yml"
+  - project: 'dev/commun/templates'
+    ref: 'v2'
+    file: 'templates/artifactory-push.yml'
+  - project: "dev/commun/templates"
+    ref: "v2"
+    file: "templates/checkmarx-scan.yml"
+  - project: 'dev/commun/templates'
+    file: 'setup/id-tokens-setup.yml'
+    ref: 'v2'
+  - project: 'dev/commun/templates'
+    file: 'setup/aws-sm-setup.yml'
+    ref: 'v2'
+variables:
+  ENVIRONMENT:
+    description: "Environnement sur lequel déployer"
+    value: "DEV"
+    options:
+      - "DEV"
+      - "PROD"
+  DEPLOY_ALOE:
+    description: "Déployer l'application Aloé ?"
+    value: "False"
+    options:
+      - "True"
+      - "False"
+  VERSION:
+    description: "Version de l'application à déployer. ex 2.4.2"
+  SCAN_CHECKMARX:
+    description: Lancer un scan Checkmarx
+    value: "False"
+    options:
+      - "True"
+      - "False"
+  SCAN_SONARQUBE:
+    description: Lancer un scan Sonarqube
+    value: "False"
+    options:
+      - "True"
+      - "False"
+stages:
+  - security-scan
+
+🔍 checkmarx-scan:
+  extends: .checkmarx-scan-template
+  stage: security-scan
+  variables:
+    CX_TEAM: "/CxServer/PRISME/A1L_ALOE"
+    CX_PROJECT: "A1L_ALOE"
+    CHECKMARX_EXCLUDE_FOLDERS: ".gitlab,./public/kit_com,./public/fonts,./public/GEVerif_package,./.git"
+    CX_FLOW_ZIP_EXCLUDE: ".css,.tff,.docx,.zip,.pdf,.png,.jpg,.mp4,.pptx,.csv"
+    CHECKMARX_LOG_LEVEL: "DEBUG"
+    REST_LOG_LEVEL: "DEBUG"
+    KYSS_EXPORT: "false"
+  before_script:
+    - rm -rf .git # Temporary measure
+  script:
+    - !reference [".checkmarx-scan-template", "script"]
+  rules:
+    - if: $SCAN_CHECKMARX == 'True' && $ENVIRONMENT == 'DEV'

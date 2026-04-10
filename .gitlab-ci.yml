@@ -58,7 +58,7 @@ variables:
       - "False"
 stages:
   - security-scan
-  - sbom
+  - Hermine
 
 checkmarx-scan:
   extends: .checkmarx-scan-template
@@ -83,14 +83,14 @@ checkmarx-scan:
 
 generate-sbom:
   extends: .ort-sbom-generate
-  stage: sbom
+  stage: Hermine
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
     - if: $GENERATE_SBOM == 'True'
 
 hermine-sbom-upload:
   extends: .hermine-sbom-upload
-  stage: sbom
+  stage: Hermine
   needs:
     - generate-sbom
   variables:

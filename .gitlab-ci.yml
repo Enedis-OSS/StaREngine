@@ -18,6 +18,11 @@ include:
   - project: 'dev/commun/templates'
     file: 'setup/aws-sm-setup.yml'
     ref: 'v2'
+  - project: "dev/commun/templates"
+    ref: "v3"
+    file:
+      - "templates/ort-sbom-generate.yml"
+      - "templates/hermine-sbom-upload.yml"
 variables:
   ENVIRONMENT:
     description: "Environnement sur lequel déployer"
@@ -45,8 +50,15 @@ variables:
     options:
       - "True"
       - "False"
+  GENERATE_SBOM:
+    description: Générer et importer le SBOM (Hermine)
+    value: "False"
+    options:
+      - "True"
+      - "False"
 stages:
   - security-scan
+  - sbom
 
 checkmarx-scan:
   extends: .checkmarx-scan-template
@@ -68,3 +80,23 @@ checkmarx-scan:
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
     - if: $SCAN_CHECKMARX == 'True' && $ENVIRONMENT == 'DEV'
+
+generate-sbom:
+  extends: .ort-sbom-generate
+  stage: sbom
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $GENERATE_SBOM == 'True'
+
+hermine-sbom-upload:
+  extends: .hermine-sbom-upload
+  stage: sbom
+  needs:
+    - generate-sbom
+  variables:
+    HERMINE_HOST: https://hermine.web-enedis.fr
+    HERMINE_RELEASE: 18
+    HERMINE_REPLACE_ALL_COMPONENTS: "false"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $GENERATE_SBOM == 'True'

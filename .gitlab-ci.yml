@@ -57,9 +57,9 @@ variables:
       - "True"
       - "False"
 stages:
+  - REUSE
   - security-scan
   - Hermine
-  - REUSE
 
 reuse-compliance-check:
   stage: REUSE
@@ -92,6 +92,7 @@ checkmarx-scan:
     - !reference [".checkmarx-scan-template", "script"]
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $SCAN_CHECKMARX == 'True' && $ENVIRONMENT == 'DEV'
 
 generate-sbom:
@@ -99,6 +100,7 @@ generate-sbom:
   stage: Hermine
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $GENERATE_SBOM == 'True'
 
 hermine-sbom-upload:
@@ -114,4 +116,5 @@ hermine-sbom-upload:
     HERMINE_REPLACE_ALL_COMPONENTS: "false"
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $GENERATE_SBOM == 'True'

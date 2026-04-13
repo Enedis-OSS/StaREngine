@@ -57,9 +57,9 @@ variables:
       - "True"
       - "False"
 stages:
-  - REUSE
   - security-scan
   - Hermine
+  - REUSE
 
 reuse-compliance-check:
   stage: REUSE

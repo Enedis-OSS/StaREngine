@@ -1,0 +1,122 @@
+
+include:
+  - project: "dev/commun/templates"
+    ref: "v2"
+    file: "templates/node-npm-build.yml"
+  - project: "dev/commun/templates"
+    ref: "v2"
+    file: "templates/sonarcli-scan.yml"
+  - project: 'dev/commun/templates'
+    ref: 'v2'
+    file: 'templates/artifactory-push.yml'
+  - project: "dev/commun/templates"
+    ref: "v2"
+    file: "templates/checkmarx-scan.yml"
+  - project: 'dev/commun/templates'
+    file: 'setup/id-tokens-setup.yml'
+    ref: 'v2'
+  - project: 'dev/commun/templates'
+    file: 'setup/aws-sm-setup.yml'
+    ref: 'v2'
+  - project: "dev/commun/templates"
+    ref: "v3"
+    file:
+      - "templates/ort-sbom-generate.yml"
+      - "templates/hermine-sbom-upload.yml"
+variables:
+  ENVIRONMENT:
+    description: "Environnement sur lequel déployer"
+    value: "DEV"
+    options:
+      - "DEV"
+      - "PROD"
+  DEPLOY_ALOE:
+    description: "Déployer l'application Aloé ?"
+    value: "False"
+    options:
+      - "True"
+      - "False"
+  VERSION:
+    description: "Version de l'application à déployer. ex 2.4.2"
+  SCAN_CHECKMARX:
+    description: Lancer un scan Checkmarx
+    value: "False"
+    options:
+      - "True"
+      - "False"
+  SCAN_SONARQUBE:
+    description: Lancer un scan Sonarqube
+    value: "False"
+    options:
+      - "True"
+      - "False"
+  GENERATE_SBOM:
+    description: Générer et importer le SBOM (Hermine)
+    value: "False"
+    options:
+      - "True"
+      - "False"
+stages:
+  - REUSE
+  - security-scan
+  - Hermine
+
+reuse-compliance-check:
+  stage: REUSE
+  image:
+    name: fsfe/reuse:latest
+    entrypoint: [""]
+  allow_failure: true
+  script:
+    - reuse lint
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+checkmarx-scan:
+  extends: .checkmarx-scan-template
+  stage: security-scan
+  allow_failure: true
+  variables:
+    CX_TEAM: "/CxServer/SI-RESEAU-ELECTRIQUE/A1L_ALOE"
+    CX_PROJECT: "A1L_ALOE_RECOSTAR"
+    CHECKMARX_EXCLUDE_FOLDERS: ".gitlab,./public/kit_com,./public/fonts,./public/GEVerif_package,./.git"
+    CX_FLOW_ZIP_EXCLUDE: ".css,.tff,.docx,.zip,.pdf,.png,.jpg,.mp4,.pptx,.csv"
+    CHECKMARX_LOG_LEVEL: "DEBUG"
+    REST_LOG_LEVEL: "DEBUG"
+    KYSS_EXPORT: "false"
+    CX_FLOW_BUG_TRACKER: "None"
+  before_script:
+    - rm -rf .git 
+  script:
+    - !reference [".checkmarx-scan-template", "script"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $SCAN_CHECKMARX == 'True' && $ENVIRONMENT == 'DEV'
+
+generate-sbom:
+  extends: .ort-sbom-generate
+  stage: Hermine
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $GENERATE_SBOM == 'True'
+
+hermine-sbom-upload:
+  extends: .hermine-sbom-upload
+  stage: Hermine
+  needs:
+    - generate-sbom
+  variables:
+    HERMINE_HOST: https://hermine.web-enedis.fr
+    HERMINE_SBOM_TYPE: "ort"
+    HERMINE_SBOM_FILE_PATH: "sbom/evaluated-model.json"
+    HERMINE_REPLACE_ALL_COMPONENTS: "true"
+  before_script:
+    - export HERMINE_RELEASE=$(cat .hermine-release)
+    - echo "Using HERMINE_RELEASE=$HERMINE_RELEASE"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $GENERATE_SBOM == 'True'

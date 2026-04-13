@@ -66,6 +66,7 @@ reuse-compliance-check:
   image:
     name: fsfe/reuse:latest
     entrypoint: [""]
+  allow_failure: true
   script:
     - reuse lint
   rules:

@@ -110,10 +110,12 @@ hermine-sbom-upload:
     - generate-sbom
   variables:
     HERMINE_HOST: https://hermine.web-enedis.fr
-    HERMINE_RELEASE: 19
     HERMINE_SBOM_TYPE: "ort"
     HERMINE_SBOM_FILE_PATH: "sbom/evaluated-model.json"
-    HERMINE_REPLACE_ALL_COMPONENTS: "false"
+    HERMINE_REPLACE_ALL_COMPONENTS: "true"
+  before_script:
+    - export HERMINE_RELEASE=$(cat .hermine-release)
+    - echo "Using HERMINE_RELEASE=$HERMINE_RELEASE"
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"

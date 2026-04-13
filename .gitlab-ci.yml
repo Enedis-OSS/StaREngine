@@ -57,8 +57,20 @@ variables:
       - "True"
       - "False"
 stages:
+  - REUSE
   - security-scan
   - Hermine
+
+reuse-compliance-check:
+  stage: REUSE
+  image:
+    name: fsfe/reuse:latest
+    entrypoint: [""]
+  script:
+    - reuse lint
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 checkmarx-scan:
   extends: .checkmarx-scan-template

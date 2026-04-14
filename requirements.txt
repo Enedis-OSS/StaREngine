@@ -1,0 +1,4 @@
+defusedxml
+pyproj
+reportlab
+pytest

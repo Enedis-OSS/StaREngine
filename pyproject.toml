@@ -23,5 +23,5 @@ requests = "2.32.5"
 pytest = "9.0.2"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

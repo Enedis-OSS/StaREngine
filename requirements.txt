@@ -1,5 +1,0 @@
-Cython
-defusedxml
-pyproj
-reportlab
-pytest

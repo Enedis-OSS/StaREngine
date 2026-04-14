@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "star-engine"
+version = "0.1.0"
+description = "Moteur de traitements pour les données de réseaux électriques au format GML (RecoStaR)"
+license = "MIT"
+readme = "README.md"
+authors = ["Enedis"]
+packages = [
+    { include = "conversion" },
+    { include = "controles" },
+    { include = "traitements" },
+    { include = "pipelines" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+defusedxml = "0.7.1"
+pyproj = "3.7.2"
+reportlab = "4.4.10"
+requests = "2.32.5"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "9.0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

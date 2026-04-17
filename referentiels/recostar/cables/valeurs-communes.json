@@ -1,0 +1,14 @@
+{
+  "domainesTension": ["BT", "HTA", "HTB"],
+  "statuts": [
+    "UnderCommissionning",
+    "Functional",
+    "OutOfOrder",
+    "Decommissioned"
+  ],
+  "precisions": ["A", "B", "C"],
+  "fonctionsCable": ["DistributionEnergie", "Eclairage", "Autre"],
+  "typePose": ["Enterre", "Aerien", "Facade"],
+  "isolants": ["Reticulee", "PVC", "EPR", "Nu"],
+  "materiaux": ["Alu", "Cuivre", "Alm", "AluAcier", "AlmAcier"]
+}

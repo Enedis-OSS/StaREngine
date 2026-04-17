@@ -22,9 +22,12 @@ from calcul_longueur import (  # type: ignore[import-not-found]
     calculer_corrections_cable,
     construire_ensemble_cables_aeriens,
     construire_index_entites,
+    construire_index_statuts,
     executer_calcul,
     _calculer_centroide,
     _calculer_longueur_3d,
+    _corriger_z_nuls,
+    _extraire_coordonnees_cable,
     _extraire_ids_cables,
     _extraire_position_entite,
     _obtenir_correction,
@@ -39,12 +42,12 @@ class TestCalculerLongueur3D:
 
     def test_segment_horizontal(self):
         """Segment horizontal (dz=0) : longueur = distance 2D."""
-        coords = [[0.0, 0.0, 0.0], [3.0, 4.0, 0.0]]
+        coords = [[0.0, 0.0, 10.0], [3.0, 4.0, 10.0]]
         assert _calculer_longueur_3d(coords) == pytest.approx(5.0)
 
     def test_segment_3d(self):
         """Segment 3D avec composante Z."""
-        coords = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 1.0]]
+        coords = [[0.0, 0.0, 10.0], [1.0, 0.0, 10.0], [1.0, 1.0, 11.0]]
         # Premier segment : 1.0, deuxieme : sqrt(0 + 1 + 1) = sqrt(2)
         attendu = 1.0 + math.sqrt(2.0)
         assert _calculer_longueur_3d(coords) == pytest.approx(attendu)
@@ -62,10 +65,10 @@ class TestCalculerLongueur3D:
     def test_polyligne_multi_segments(self):
         """Polyligne de 4 sommets 3D."""
         coords = [
-            [0.0, 0.0, 0.0],
-            [3.0, 4.0, 0.0],
-            [3.0, 4.0, 12.0],
-            [3.0, 4.0, 12.0],
+            [0.0, 0.0, 10.0],
+            [3.0, 4.0, 10.0],
+            [3.0, 4.0, 22.0],
+            [3.0, 4.0, 22.0],
         ]
         # 5.0 + 12.0 + 0.0
         assert _calculer_longueur_3d(coords) == pytest.approx(17.0)
@@ -75,8 +78,69 @@ class TestCalculerLongueur3D:
         coords = [[5.0, 5.0, 5.0], [5.0, 5.0, 5.0]]
         assert _calculer_longueur_3d(coords) == pytest.approx(0.0)
 
+    def test_z_nul_interpole_debut(self):
+        """Z=0.0 en debut : corrige par le Z suivant valide, dz quasi nul."""
+        coords = [[0.0, 0.0, 0.0], [3.0, 4.0, 300.0]]
+        # Z corrige : [300.0, 300.0] → dz=0 → longueur = 5.0
+        assert _calculer_longueur_3d(coords) == pytest.approx(5.0)
 
-# --- Tests de _calculer_centroide ---
+    def test_z_nul_milieu_polyligne(self):
+        """Z=0.0 au milieu : corrige par propagation du Z precedent."""
+        coords = [
+            [0.0, 0.0, 10.0],
+            [3.0, 4.0, 0.0],
+            [6.0, 8.0, 12.0],
+        ]
+        # Z corrige : [10.0, 10.0, 12.0] → seg0: dz=0 → 5.0, seg1: dz=2 → sqrt(9+16+4)
+        attendu = 5.0 + math.sqrt(29.0)
+        assert _calculer_longueur_3d(coords) == pytest.approx(attendu)
+
+
+# --- Tests de _corriger_z_nuls ---
+
+
+class TestCorrigerZNuls:
+    """Tests de la correction des valeurs Z nulles par propagation."""
+
+    def test_aucun_z_nul(self):
+        """Aucun Z a corriger : les valeurs restent identiques."""
+        coords = [[0.0, 0.0, 10.0], [1.0, 1.0, 20.0], [2.0, 2.0, 30.0]]
+        assert _corriger_z_nuls(coords) == [10.0, 20.0, 30.0]
+
+    def test_z_nul_debut(self):
+        """Z=0.0 en debut : corrige par le premier Z valide suivant."""
+        coords = [[0.0, 0.0, 0.0], [1.0, 1.0, 15.0], [2.0, 2.0, 20.0]]
+        assert _corriger_z_nuls(coords) == [15.0, 15.0, 20.0]
+
+    def test_z_nul_fin(self):
+        """Z=0.0 en fin : corrige par le dernier Z valide precedent."""
+        coords = [[0.0, 0.0, 10.0], [1.0, 1.0, 20.0], [2.0, 2.0, 0.0]]
+        assert _corriger_z_nuls(coords) == [10.0, 20.0, 20.0]
+
+    def test_z_nul_milieu(self):
+        """Z=0.0 au milieu : corrige par propagation avant (Z precedent)."""
+        coords = [[0.0, 0.0, 10.0], [1.0, 1.0, 0.0], [2.0, 2.0, 30.0]]
+        assert _corriger_z_nuls(coords) == [10.0, 10.0, 30.0]
+
+    def test_tous_z_nuls(self):
+        """Tous les Z a 0.0 : aucun Z valide, tout reste a 0.0."""
+        coords = [[0.0, 0.0, 0.0], [1.0, 1.0, 0.0]]
+        assert _corriger_z_nuls(coords) == [0.0, 0.0]
+
+    def test_plusieurs_z_nuls_consecutifs(self):
+        """Plusieurs Z=0.0 consecutifs : propages par le Z precedent valide."""
+        coords = [
+            [0.0, 0.0, 10.0],
+            [1.0, 1.0, 0.0],
+            [2.0, 2.0, 0.0],
+            [3.0, 3.0, 25.0],
+        ]
+        assert _corriger_z_nuls(coords) == [10.0, 10.0, 10.0, 25.0]
+
+    def test_sans_composante_z(self):
+        """Coordonnees 2D sans Z : traites comme Z=0.0."""
+        coords = [[0.0, 0.0], [1.0, 1.0, 10.0]]
+        assert _corriger_z_nuls(coords) == [10.0, 10.0]
 
 
 class TestCalculerCentroide:
@@ -92,6 +156,49 @@ class TestCalculerCentroide:
     def test_anneau_vide(self):
         """Anneau vide : retourne [0, 0]."""
         assert _calculer_centroide([]) == [0.0, 0.0]
+
+
+# --- Tests de _extraire_coordonnees_cable ---
+
+
+class TestExtraireCoordonnesCable:
+    """Tests de l'extraction des coordonnees de cable."""
+
+    def test_linestring(self):
+        """LineString : retourne une liste contenant une seule polyligne."""
+        geom = {"type": "LineString", "coordinates": [[0.0, 0.0], [1.0, 1.0]]}
+        resultat = _extraire_coordonnees_cable(geom)
+        assert resultat == [[[0.0, 0.0], [1.0, 1.0]]]
+
+    def test_multilinestring(self):
+        """MultiLineString : retourne une liste de polylignes separees."""
+        geom = {
+            "type": "MultiLineString",
+            "coordinates": [
+                [[0.0, 0.0], [1.0, 1.0]],
+                [[5.0, 5.0], [6.0, 6.0]],
+            ],
+        }
+        resultat = _extraire_coordonnees_cable(geom)
+        assert resultat is not None
+        assert len(resultat) == 2
+        assert resultat[0] == [[0.0, 0.0], [1.0, 1.0]]
+        assert resultat[1] == [[5.0, 5.0], [6.0, 6.0]]
+
+    def test_type_non_supporte(self):
+        """Type non supporte (Point) : retourne None."""
+        geom = {"type": "Point", "coordinates": [0.0, 0.0]}
+        assert _extraire_coordonnees_cable(geom) is None
+
+    def test_linestring_un_seul_sommet(self):
+        """LineString avec un seul sommet : retourne None."""
+        geom = {"type": "LineString", "coordinates": [[0.0, 0.0]]}
+        assert _extraire_coordonnees_cable(geom) is None
+
+    def test_multilinestring_vide(self):
+        """MultiLineString vide : retourne None."""
+        geom = {"type": "MultiLineString", "coordinates": []}
+        assert _extraire_coordonnees_cable(geom) is None
 
 
 # --- Tests de _extraire_position_entite ---
@@ -290,8 +397,8 @@ class TestAnalyserCable:
         assert resultat["correction_aerien"] == pytest.approx(0.0)
         assert resultat["taux_aerien"] == pytest.approx(0.0)
 
-    def test_cable_longueurs_arrondies_entier_superieur(self):
-        """Les longueurs sont arrondies a l'entier superieur (math.ceil)."""
+    def test_cable_longueur_geo_arrondie_une_decimale(self):
+        """La longueur geographique est arrondie a une decimale."""
         cable = {
             "type": "Feature",
             "properties": {"id": "c_ceil", "DomaineTension": "BT"},
@@ -302,13 +409,13 @@ class TestAnalyserCable:
         }
         resultat = analyser_cable(cable, {})
         assert resultat is not None
-        # longueur 3D = 5.0, ceil(5.0) = 5
-        assert resultat["longueur_geographique"] == 5
+        # longueur 3D = 5.0, round(5.0, 1) = 5.0
+        assert resultat["longueur_geographique"] == pytest.approx(5.0)
         assert resultat["longueur_electrique"] == 5
-        assert isinstance(resultat["longueur_geographique"], int)
+        assert isinstance(resultat["longueur_geographique"], float)
 
-    def test_cable_longueur_ceil_non_entiere(self):
-        """Longueur non entiere arrondie vers le haut."""
+    def test_cable_longueur_geo_non_entiere(self):
+        """Longueur geographique non entiere arrondie a une decimale."""
         cable = {
             "type": "Feature",
             "properties": {"id": "c_ceil2", "DomaineTension": "HTA"},
@@ -319,8 +426,8 @@ class TestAnalyserCable:
         }
         resultat = analyser_cable(cable, {})
         assert resultat is not None
-        # longueur 3D = sqrt(2) ≈ 1.414, ceil = 2
-        assert resultat["longueur_geographique"] == 2
+        # longueur 3D = sqrt(2) ≈ 1.414, round(_, 1) = 1.4
+        assert resultat["longueur_geographique"] == pytest.approx(1.4)
 
     def test_cable_sans_id(self):
         """Cable sans identifiant : retourne None."""
@@ -343,6 +450,29 @@ class TestAnalyserCable:
         }
         assert analyser_cable(cable, {}) is None
 
+    def test_cable_multilinestring(self):
+        """Cable MultiLineString : sous-lignes calculees separement puis sommees."""
+        cable = {
+            "type": "Feature",
+            "properties": {
+                "id": "c_multi",
+                "DomaineTension": "BT",
+                "HierarchieBT": "",
+                "Isolant": "",
+            },
+            "geometry": {
+                "type": "MultiLineString",
+                "coordinates": [
+                    [[0.0, 0.0, 10.0], [3.0, 0.0, 10.0]],
+                    [[10.0, 10.0, 10.0], [10.0, 14.0, 10.0]],
+                ],
+            },
+        }
+        resultat = analyser_cable(cable, {})
+        assert resultat is not None
+        # 3.0 + 4.0 = 7.0 (pas de segment fantome entre les deux sous-lignes)
+        assert resultat["longueur_geographique"] == pytest.approx(7.0)
+
     def test_cable_un_seul_point(self):
         """Cable avec un seul sommet : retourne None."""
         cable = {
@@ -358,7 +488,6 @@ class TestAnalyserCable:
         assert resultat is not None
         assert resultat["correction_depart"] == pytest.approx(0.0)
         assert resultat["correction_arrivee"] == pytest.approx(0.0)
-        assert resultat["longueur_electrique"] == resultat["longueur_geographique"]
         assert resultat["type_entite_depart"] == ""
         assert resultat["type_entite_arrivee"] == ""
 
@@ -366,8 +495,8 @@ class TestAnalyserCable:
         """Cable 2D : longueur calculee sans composante Z."""
         resultat = analyser_cable(cable_2d, {})
         assert resultat is not None
-        attendu = math.ceil(math.hypot(3.0, 4.0))
-        assert resultat["longueur_geographique"] == attendu
+        attendu = round(math.hypot(3.0, 4.0), 1)
+        assert resultat["longueur_geographique"] == pytest.approx(attendu)
 
     def test_cable_bt_avec_hierarchie(self):
         """Cable BT avec HierarchieBT : le champ est restitue."""
@@ -386,6 +515,78 @@ class TestAnalyserCable:
         resultat = analyser_cable(cable, {})
         assert resultat is not None
         assert resultat["hierarchie_bt"] == "BT_400V"
+
+    def test_cable_statut_avec_alias(self):
+        """Cable avec Statut connu : le champ statut contient l'alias."""
+        cable = {
+            "type": "Feature",
+            "properties": {
+                "id": "c_statut",
+                "DomaineTension": "BT",
+                "Statut": "Functional",
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[0.0, 0.0], [10.0, 0.0]],
+            },
+        }
+        index_statuts = {"Functional": "En service", "Projected": "En projet"}
+        resultat = analyser_cable(cable, {}, index_statuts=index_statuts)
+        assert resultat is not None
+        assert resultat["statut"] == "En service"
+
+    def test_cable_statut_sans_alias(self):
+        """Cable avec Statut inconnu du referentiel : valeur brute conservee."""
+        cable = {
+            "type": "Feature",
+            "properties": {
+                "id": "c_statut2",
+                "DomaineTension": "BT",
+                "Statut": "InconnuXYZ",
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[0.0, 0.0], [10.0, 0.0]],
+            },
+        }
+        resultat = analyser_cable(cable, {}, index_statuts={})
+        assert resultat is not None
+        assert resultat["statut"] == "InconnuXYZ"
+
+    def test_cable_sans_statut(self, cable_bt_3d):
+        """Cable sans attribut Statut : le champ statut est vide."""
+        resultat = analyser_cable(cable_bt_3d, {})
+        assert resultat is not None
+        assert resultat["statut"] == ""
+
+
+# --- Tests de construire_index_statuts ---
+
+
+class TestConstruireIndexStatuts:
+    """Tests de la construction de l'index des alias de statuts."""
+
+    def test_referentiel_existant(self):
+        """Le referentiel par defaut est charge et contient les statuts attendus."""
+        index = construire_index_statuts()
+        # Le referentiel doit contenir au minimum ces valeurs
+        assert "Functional" in index
+        assert index["Functional"] == "En service"
+        assert "UnderCommissionning" in index
+        assert "Decommissioned" in index
+
+    def test_referentiel_inexistant(self, tmp_path):
+        """Referentiel inexistant : retourne un dict vide."""
+        chemin = str(tmp_path / "inexistant.json")
+        index = construire_index_statuts(chemin)
+        assert index == {}
+
+    def test_referentiel_sans_cable(self, tmp_path):
+        """Referentiel sans objet Cable : retourne un dict vide."""
+        chemin = tmp_path / "ref.json"
+        chemin.write_text('{"objets": {}}', encoding="utf-8")
+        index = construire_index_statuts(str(chemin))
+        assert index == {}
 
 
 # --- Tests de construire_index_entites ---
@@ -493,7 +694,7 @@ class TestExecuterCalcul:
         assert cable_res["correction_arrivee"] == pytest.approx(5.0)
         assert cable_res["type_entite_depart"] == "remontee_aero_souterraine"
         assert cable_res["type_entite_arrivee"] == "poste"
-        assert isinstance(cable_res["longueur_geographique"], int)
+        assert isinstance(cable_res["longueur_geographique"], float)
         assert isinstance(cable_res["longueur_electrique"], int)
 
     def test_cable_bt_ras_et_coffret(
@@ -534,7 +735,6 @@ class TestExecuterCalcul:
         assert resultat["succes"] is True
 
         cable_res = resultat["resultats"][0]
-        assert cable_res["longueur_electrique"] == cable_res["longueur_geographique"]
         assert cable_res["type_entite_depart"] == ""
         assert cable_res["type_entite_arrivee"] == ""
 
@@ -753,8 +953,8 @@ class TestAnalyserCableAerien:
         assert resultat["correction_aerien"] == pytest.approx(0.0)
         assert resultat["longueur_electrique"] == 100
 
-    def test_cable_aerien_avec_corrections_extremites(self):
-        """Cable aerien cumule correction aerienne et corrections aux extremites."""
+    def test_cable_aerien_sans_corrections_extremites(self):
+        """Cable aerien : les corrections aux extremites ne sont pas appliquees."""
         cable = {
             "type": "Feature",
             "properties": {
@@ -777,12 +977,15 @@ class TestAnalyserCableAerien:
 
         resultat = analyser_cable(cable, index, cables_aeriens)
         assert resultat is not None
-        # geo = 100, RAS depart = 11, poste arrivee = 5, aerien = 100 * 0.03 = 3
-        assert resultat["correction_depart"] == pytest.approx(11.0)
-        assert resultat["correction_arrivee"] == pytest.approx(5.0)
+        # Cable aerien : pas de correction aux extremites
+        assert resultat["correction_depart"] == pytest.approx(0.0)
+        assert resultat["correction_arrivee"] == pytest.approx(0.0)
+        assert resultat["type_entite_depart"] == ""
+        assert resultat["type_entite_arrivee"] == ""
+        # Correction aerienne seule : 100 * 0.03 = 3
         assert resultat["correction_aerien"] == pytest.approx(3.0)
-        # Attendu : ceil(100 + 11 + 5 + 3) soit 119
-        assert resultat["longueur_electrique"] == 119
+        # Attendu : ceil(100 + 3) soit 103
+        assert resultat["longueur_electrique"] == 103
 
     def test_cable_aerien_sans_cables_aeriens_none(self):
         """Cable analyse sans ensemble aerien (None) : pas de correction."""

@@ -1,12 +1,16 @@
 """
 Controle des extremites des cables electriques.
-Verifie que chaque extremite de cable est liee a une jonction, un support,
-un coffret ou un poste electrique.
+Verifie que chaque extremite de cable est reliee a un noeud du reseau
+via la relation attributaire cables_href.
 
-Criteres de liaison selon le type d'entite :
-- Jonctions et supports : cables_href + proximite geometrique (≤ seuil).
-- Coffrets : proximite geometrique uniquement.
-- Postes electriques : cables_href uniquement (structure de grande emprise).
+La validation repose exclusivement sur les liens explicites (cables_href)
+entre noeuds et cables. Aucune notion de proximite geometrique n'est
+utilisee, ce qui elimine les faux positifs lies aux positions spatiales.
+
+Types de noeuds verifies (tous porteurs de cables_href) :
+- Jonction, CoupeCircuitAFusibles, PointDeComptage
+- PosteElectrique, JeuBarres, SupportModules
+- OuvrageCollectifBranchement
 
 Usage CLI : python controle_extremites.py --repertoire <chemin> [--sortie <chemin>]
 Sorties : rapport_controle_extremites.json + ecarts_extremites.geojson
@@ -14,20 +18,20 @@ Sorties : rapport_controle_extremites.json + ecarts_extremites.geojson
 
 import argparse
 import json
-import math
 import os
 import sys
 from typing import Any
 
-SEUIL_DISTANCE: float = 0.5
-
-FICHIERS_NOEUDS_AVEC_CABLES_HREF: list[str] = [
+# Fichiers de noeuds possedant la propriete cables_href (relation CableElectrique_NoeudReseau)
+FICHIERS_NOEUDS: tuple[str, ...] = (
+    "RPD_CoupeCircuitAFusibles_Reco.geojson",
+    "RPD_JeuBarres_Reco.geojson",
     "RPD_Jonction_Reco.geojson",
-    "RPD_Support_Reco.geojson",
-]
-
-FICHIER_COFFRETS: str = "RPD_Coffret_Reco.geojson"
-FICHIER_POSTES_ELECTRIQUES: str = "RPD_PosteElectrique_Reco.geojson"
+    "RPD_OuvrageCollectifBranchement_Reco.geojson",
+    "RPD_PointDeComptage_Reco.geojson",
+    "RPD_PosteElectrique_Reco.geojson",
+    "RPD_SupportModules_Reco.geojson",
+)
 
 
 def lire_geojson(chemin: str) -> dict[str, Any] | None:
@@ -45,24 +49,6 @@ def obtenir_id_feature(feature: dict[str, Any]) -> str | int | None:
     if id_val is not None:
         return id_val
     return feature.get("id")
-
-
-def extraire_coordonnees(feature: dict[str, Any]) -> list[float] | None:
-    """Extrait les coordonnees d'une feature ponctuelle."""
-    geometrie = feature.get("geometry")
-    if geometrie is None:
-        return None
-    coords = geometrie.get("coordinates")
-    if not isinstance(coords, list) or len(coords) < 2:
-        return None
-    return coords
-
-
-def calculer_distance_2d(coords1: list[float], coords2: list[float]) -> float:
-    """Calcule la distance euclidienne 2D entre deux points."""
-    dx = coords1[0] - coords2[0]
-    dy = coords1[1] - coords2[1]
-    return math.sqrt(dx * dx + dy * dy)
 
 
 def extraire_ids_cables_href(feature: dict[str, Any]) -> set[str]:
@@ -88,12 +74,6 @@ def extraire_ids_cables_href(feature: dict[str, Any]) -> set[str]:
     return ids
 
 
-def cable_est_lie_dans_href(feature: dict[str, Any], id_cable: str | int) -> bool:
-    """Verifie si un cable est reference dans le cables_href d'une feature."""
-    ids = extraire_ids_cables_href(feature)
-    return str(id_cable) in ids
-
-
 # Fichier des cables electriques
 FICHIER_CABLES: str = "RPD_CableElectrique_Reco.geojson"
 
@@ -102,188 +82,78 @@ FICHIER_RAPPORT_JSON: str = "rapport_controle_extremites.json"
 FICHIER_ECARTS_GEOJSON: str = "ecarts_extremites.geojson"
 
 
+def _extraire_type_entite(nom_fichier: str) -> str:
+    """Derive le type d'entite depuis le nom du fichier GeoJSON."""
+    return nom_fichier.replace("RPD_", "").replace("_Reco.geojson", "")
+
+
 def _creer_entite_liee(
     id_feature: str | int,
     nom_fichier: str,
-    distance: float,
     domaine_tension: str | None = None,
 ) -> dict[str, Any]:
     """Cree un dictionnaire representant une entite liee a une extremite de cable."""
-    type_entite = nom_fichier.replace("RPD_", "").replace("_Reco.geojson", "")
     entite: dict[str, Any] = {
         "id": id_feature,
-        "type": type_entite,
+        "type": _extraire_type_entite(nom_fichier),
         "nom_fichier": nom_fichier,
-        "distance": round(distance, 6),
     }
     if domaine_tension is not None:
         entite["domaine_tension"] = domaine_tension
     return entite
 
 
-def _evaluer_noeud_lie(
-    feature: dict[str, Any],
-    coordonnees: list[float],
-    id_cable: str | int,
-    nom_fichier: str,
-) -> dict[str, Any] | None:
-    """Evalue si un noeud est lie a une extremite de cable.
-
-    Retourne l'entite liee ou None si les criteres ne sont pas remplis.
-    """
-    if not cable_est_lie_dans_href(feature, id_cable):
-        return None
-
-    coords_entite = extraire_coordonnees(feature)
-    if coords_entite is None:
-        return None
-
-    distance = calculer_distance_2d(coordonnees, coords_entite)
-    if distance > SEUIL_DISTANCE:
-        return None
-
-    id_feature = obtenir_id_feature(feature)
-    if id_feature is None:
-        return None
-
-    valeur_tension = feature.get("properties", {}).get("DomaineTension")
-    domaine_tension = valeur_tension if isinstance(valeur_tension, str) else None
-
-    return _creer_entite_liee(id_feature, nom_fichier, distance, domaine_tension)
-
-
-def _rechercher_noeuds_lies(
-    coordonnees: list[float],
-    id_cable: str | int,
+def _construire_index_cables(
     collections_noeuds: dict[str, list[dict[str, Any]]],
-) -> list[dict[str, Any]]:
-    """Recherche les noeuds lies a une extremite via cables_href et proximite."""
-    entites_liees: list[dict[str, Any]] = []
+) -> dict[str, list[dict[str, Any]]]:
+    """Construit un index inverse cable_id -> liste d'entites liees.
+
+    Parcourt toutes les collections de noeuds et indexe chaque noeud
+    par les identifiants de cables references dans son cables_href.
+    """
+    index: dict[str, list[dict[str, Any]]] = {}
 
     for nom_fichier, features in collections_noeuds.items():
         for feature in features:
-            entite = _evaluer_noeud_lie(feature, coordonnees, id_cable, nom_fichier)
-            if entite is not None:
-                entites_liees.append(entite)
+            id_noeud = obtenir_id_feature(feature)
+            if id_noeud is None:
+                continue
 
-    return entites_liees
+            ids_cables = extraire_ids_cables_href(feature)
+            if not ids_cables:
+                continue
 
+            props = feature.get("properties", {})
+            valeur_tension = props.get("DomaineTension")
+            domaine_tension = (
+                valeur_tension if isinstance(valeur_tension, str) else None
+            )
+            entite = _creer_entite_liee(id_noeud, nom_fichier, domaine_tension)
 
-def _rechercher_postes_lies(
-    coordonnees: list[float],
-    id_cable: str | int,
-    features_postes: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Recherche les postes electriques lies a un cable via cables_href.
+            for id_cable in ids_cables:
+                index.setdefault(id_cable, []).append(entite)
 
-    La validation se fait par cables_href uniquement, sans contrainte de
-    proximite, car les postes sont des structures de grande emprise dont
-    le point de reference ne coincide pas avec les extremites des cables.
-    """
-    entites_liees: list[dict[str, Any]] = []
-    distance_2d = calculer_distance_2d
-
-    for feature in features_postes:
-        if not cable_est_lie_dans_href(feature, id_cable):
-            continue
-
-        id_feature = obtenir_id_feature(feature)
-        if id_feature is None:
-            continue
-
-        coords_poste = extraire_coordonnees(feature)
-        distance = (
-            distance_2d(coordonnees, coords_poste) if coords_poste is not None else 0.0
-        )
-
-        entites_liees.append(
-            _creer_entite_liee(id_feature, FICHIER_POSTES_ELECTRIQUES, distance)
-        )
-
-    return entites_liees
-
-
-def _rechercher_coffrets_proches(
-    coordonnees: list[float],
-    features_coffrets: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Recherche les coffrets proches d'une extremite par proximite uniquement."""
-    entites_liees: list[dict[str, Any]] = []
-
-    for feature in features_coffrets:
-        coords_entite = extraire_coordonnees(feature)
-        if coords_entite is None:
-            continue
-
-        distance = calculer_distance_2d(coordonnees, coords_entite)
-        if distance > SEUIL_DISTANCE:
-            continue
-
-        id_feature = obtenir_id_feature(feature)
-        if id_feature is None:
-            continue
-
-        entites_liees.append(_creer_entite_liee(id_feature, FICHIER_COFFRETS, distance))
-
-    return entites_liees
+    return index
 
 
 def _valider_extremite(
     coordonnees: list[float],
-    id_cable: str | int,
-    collections_noeuds: dict[str, list[dict[str, Any]]],
-    features_coffrets: list[dict[str, Any]],
-    features_postes: list[dict[str, Any]],
+    id_cable: str,
+    index_cables: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
-    """Valide une extremite de cable en cherchant les entites liees."""
-    noeuds_lies = _rechercher_noeuds_lies(coordonnees, id_cable, collections_noeuds)
-    coffrets_proches = _rechercher_coffrets_proches(coordonnees, features_coffrets)
-    postes_lies = _rechercher_postes_lies(coordonnees, id_cable, features_postes)
-    toutes_entites = noeuds_lies + coffrets_proches + postes_lies
+    """Valide une extremite de cable via l'index des relations cables_href."""
+    entites_liees = index_cables.get(id_cable, [])
 
     return {
         "coordonnees": coordonnees,
-        "entites_liees": toutes_entites,
-        "lien_valide": len(toutes_entites) > 0,
+        "entites_liees": entites_liees,
+        "lien_valide": len(entites_liees) > 0,
     }
-
-
-def _charger_postes_electriques(repertoire: str) -> list[dict[str, Any]]:
-    """Charge les features des postes electriques."""
-    chemin = os.path.join(repertoire, FICHIER_POSTES_ELECTRIQUES)
-    collection = lire_geojson(chemin)
-    if collection is None:
-        return []
-    return collection.get("features", [])
-
-
-def _charger_collections_noeuds(
-    repertoire: str,
-) -> dict[str, list[dict[str, Any]]]:
-    """Charge les collections GeoJSON des noeuds (jonctions, supports)."""
-    collections: dict[str, list[dict[str, Any]]] = {}
-    for nom_fichier in FICHIERS_NOEUDS_AVEC_CABLES_HREF:
-        chemin = os.path.join(repertoire, nom_fichier)
-        collection = lire_geojson(chemin)
-        if collection is not None:
-            collections[nom_fichier] = collection.get("features", [])
-    return collections
-
-
-def _charger_coffrets(repertoire: str) -> list[dict[str, Any]]:
-    """Charge les features des coffrets."""
-    chemin = os.path.join(repertoire, FICHIER_COFFRETS)
-    collection = lire_geojson(chemin)
-    if collection is None:
-        return []
-    return collection.get("features", [])
 
 
 def _valider_cable(
     cable: dict[str, Any],
-    collections_noeuds: dict[str, list[dict[str, Any]]],
-    features_coffrets: list[dict[str, Any]],
-    features_postes: list[dict[str, Any]],
+    index_cables: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any] | None:
     """Valide les extremites d'un cable individuel.
 
@@ -304,12 +174,8 @@ def _valider_cable(
     coords_depart = coordonnees[0]
     coords_arrivee = coordonnees[-1]
 
-    extremite_depart = _valider_extremite(
-        coords_depart, id_cable, collections_noeuds, features_coffrets, features_postes
-    )
-    extremite_arrivee = _valider_extremite(
-        coords_arrivee, id_cable, collections_noeuds, features_coffrets, features_postes
-    )
+    extremite_depart = _valider_extremite(coords_depart, str(id_cable), index_cables)
+    extremite_arrivee = _valider_extremite(coords_arrivee, str(id_cable), index_cables)
 
     return {
         "id_cable": id_cable,
@@ -321,17 +187,16 @@ def _valider_cable(
 def controler_extremites(
     cables: list[dict[str, Any]],
     collections_noeuds: dict[str, list[dict[str, Any]]],
-    features_coffrets: list[dict[str, Any]],
-    features_postes: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Execute le controle des extremites sur tous les cables.
 
-    Retourne la liste des resultats par cable.
+    Construit un index inverse des relations cables_href puis valide
+    chaque cable par consultation de cet index en O(1).
     """
-    postes = features_postes if features_postes is not None else []
+    index_cables = _construire_index_cables(collections_noeuds)
     resultats: list[dict[str, Any]] = []
     for cable in cables:
-        resultat = _valider_cable(cable, collections_noeuds, features_coffrets, postes)
+        resultat = _valider_cable(cable, index_cables)
         if resultat is not None:
             resultats.append(resultat)
     return resultats
@@ -407,6 +272,19 @@ def _ecrire_json(donnees: dict[str, Any], chemin: str) -> None:
         json.dump(donnees, fichier, ensure_ascii=False, indent=2)
 
 
+def _charger_collections_noeuds(
+    repertoire: str,
+) -> dict[str, list[dict[str, Any]]]:
+    """Charge les collections GeoJSON de tous les noeuds avec cables_href."""
+    collections: dict[str, list[dict[str, Any]]] = {}
+    for nom_fichier in FICHIERS_NOEUDS:
+        chemin = os.path.join(repertoire, nom_fichier)
+        collection = lire_geojson(chemin)
+        if collection is not None:
+            collections[nom_fichier] = collection.get("features", [])
+    return collections
+
+
 def executer_controle_cli(
     repertoire: str,
     sortie: str | None = None,
@@ -430,15 +308,11 @@ def executer_controle_cli(
     cables = collection_cables.get("features", [])
     crs = collection_cables.get("crs")
 
-    # Chargement des collections de reference
+    # Chargement de tous les noeuds avec cables_href
     collections_noeuds = _charger_collections_noeuds(repertoire)
-    features_coffrets = _charger_coffrets(repertoire)
-    features_postes = _charger_postes_electriques(repertoire)
 
     # Controle des extremites
-    resultats = controler_extremites(
-        cables, collections_noeuds, features_coffrets, features_postes
-    )
+    resultats = controler_extremites(cables, collections_noeuds)
 
     # Generation du rapport JSON
     rapport = construire_rapport_json(resultats)

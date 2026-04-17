@@ -17,7 +17,7 @@ import sys
 from typing import Any
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm, mm
 from reportlab.platypus import (
@@ -28,8 +28,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-# Dimensions de la page
-LARGEUR_PAGE, HAUTEUR_PAGE = A4
+# Dimensions de la page (paysage pour le tableau large)
+LARGEUR_PAGE, HAUTEUR_PAGE = landscape(A4)
 MARGE = 2.0 * cm
 
 # Labels lisibles pour les types d'entites
@@ -69,6 +69,13 @@ def _creer_styles() -> dict[str, ParagraphStyle]:
             leading=10,
             wordWrap="CJK",
         ),
+        "entete": ParagraphStyle(
+            "EnteteTableau",
+            fontSize=8,
+            leading=10,
+            wordWrap="CJK",
+            textColor=colors.white,
+        ),
     }
 
 
@@ -102,7 +109,7 @@ def _construire_statistiques(
     )
     elements.append(
         Paragraph(
-            f"Longueur geographique totale : <b>{longueur_geo_totale} m</b>",
+            f"Longueur geographique totale : <b>{longueur_geo_totale:.1f} m</b>",
             styles["normal"],
         )
     )
@@ -145,19 +152,22 @@ def _construire_tableau_cables(
     elements: list[Any] = []
     elements.append(Paragraph("Detail par cable", styles["sous_titre"]))
 
+    style_entete = styles["entete"]
+
     # En-tete
     donnees: list[list[Any]] = [
         [
-            "Cable",
-            "Domaine",
-            "Hierarchie BT",
-            "Long. geo (m)",
-            "Long. elec (m)",
-            "Corr. depart",
-            "Type depart",
-            "Corr. arrivee",
-            "Type arrivee",
-            "Corr. aerien",
+            Paragraph("Cable", style_entete),
+            Paragraph("Domaine", style_entete),
+            Paragraph("Hierarchie BT", style_entete),
+            Paragraph("Statut", style_entete),
+            Paragraph("Long. geo (m)", style_entete),
+            Paragraph("Long. elec (m)", style_entete),
+            Paragraph("Corr. depart", style_entete),
+            Paragraph("Type depart", style_entete),
+            Paragraph("Corr. arrivee", style_entete),
+            Paragraph("Type arrivee", style_entete),
+            Paragraph("Corr. aerien", style_entete),
         ]
     ]
 
@@ -165,6 +175,7 @@ def _construire_tableau_cables(
 
     for resultat in resultats:
         hierarchie = resultat.get("hierarchie_bt", "")
+        statut = resultat.get("statut", "")
         type_dep = _formater_type_entite(resultat.get("type_entite_depart", ""))
         type_arr = _formater_type_entite(resultat.get("type_entite_arrivee", ""))
         corr_dep = resultat.get("correction_depart", 0)
@@ -177,7 +188,8 @@ def _construire_tableau_cables(
                 Paragraph(str(resultat.get("id", "")), style_cellule),
                 resultat.get("domaine_tension", ""),
                 Paragraph(hierarchie if hierarchie else "-", style_cellule),
-                str(resultat.get("longueur_geographique", 0)),
+                Paragraph(statut if statut else "-", style_cellule),
+                f"{resultat.get('longueur_geographique', 0):.1f}",
                 str(resultat.get("longueur_electrique", 0)),
                 f"+{corr_dep:.0f} m" if corr_dep > 0 else "-",
                 type_dep,
@@ -187,20 +199,42 @@ def _construire_tableau_cables(
             ]
         )
 
+    # Alias du statut de mise en service pour la coloration conditionnelle
+    STATUT_MISE_EN_SERVICE = "En attente de mise en service"
+    COULEUR_MISE_EN_SERVICE = colors.HexColor("#D1FAE5")
+
     largeurs = [
+        3.8 * cm,
+        1.6 * cm,
+        2.0 * cm,
         3.0 * cm,
-        1.3 * cm,
+        2.0 * cm,
+        2.0 * cm,
         1.8 * cm,
         1.8 * cm,
         1.8 * cm,
-        1.6 * cm,
-        1.6 * cm,
-        1.6 * cm,
-        1.6 * cm,
-        1.6 * cm,
+        1.8 * cm,
+        1.8 * cm,
     ]
     tableau = Table(donnees, colWidths=largeurs)
     tableau.setStyle(_style_tableau())
+
+    # Fond vert leger pour les lignes dont le statut est "En attente de mise en service"
+    for idx_ligne, resultat in enumerate(resultats, start=1):
+        if resultat.get("statut") == STATUT_MISE_EN_SERVICE:
+            tableau.setStyle(
+                TableStyle(
+                    [
+                        (
+                            "BACKGROUND",
+                            (0, idx_ligne),
+                            (-1, idx_ligne),
+                            COULEUR_MISE_EN_SERVICE,
+                        ),
+                    ]
+                )
+            )
+
     elements.append(tableau)
 
     return elements
@@ -222,7 +256,7 @@ def generer_rapport_longueur(
 
     doc = SimpleDocTemplate(
         chemin_pdf,
-        pagesize=A4,
+        pagesize=landscape(A4),
         leftMargin=MARGE,
         rightMargin=MARGE,
         topMargin=MARGE,

@@ -35,20 +35,6 @@ def _creer_geojson_ecarts(
     return {"type": "FeatureCollection", "features": features}
 
 
-def _feature_geometrie(identifiant: str) -> dict[str, Any]:
-    """Feature d'ecart geometrique minimale."""
-    return {
-        "type": "Feature",
-        "properties": {
-            "id_cable": identifiant,
-            "erreur": "geometrie absente",
-            "type_anomalie": "geometrie_invalide",
-            "priorite": "bloquant",
-        },
-        "geometry": None,
-    }
-
-
 def _feature_extremite(identifiant: str) -> dict[str, Any]:
     """Feature d'ecart extremite minimale."""
     return {
@@ -82,18 +68,18 @@ class TestCollecterResultatsControles:
 
     def test_fichier_avec_anomalies(self, tmp_path: Any) -> None:
         """Les anomalies sont correctement comptees."""
-        geojson = _creer_geojson_ecarts([_feature_geometrie("C1")])
-        chemin = os.path.join(str(tmp_path), "ecarts_geometrie.geojson")
+        geojson = _creer_geojson_ecarts([_feature_extremite("C1")])
+        chemin = os.path.join(str(tmp_path), "ecarts_extremites.geojson")
         with open(chemin, "w", encoding="utf-8") as f:
             json.dump(geojson, f)
 
         resultats = collecter_resultats_controles(str(tmp_path))
 
-        resultat_geo = next(
-            r for r in resultats if r["fichier"] == "ecarts_geometrie.geojson"
+        resultat_ext = next(
+            r for r in resultats if r["fichier"] == "ecarts_extremites.geojson"
         )
-        assert resultat_geo["disponible"] is True
-        assert resultat_geo["nombre_anomalies"] == 1
+        assert resultat_ext["disponible"] is True
+        assert resultat_ext["nombre_anomalies"] == 1
 
     def test_fichier_sans_anomalie(self, tmp_path: Any) -> None:
         """Un fichier vide est disponible mais avec 0 anomalies."""
@@ -121,22 +107,18 @@ class TestGenererRapportPdf:
 
     def test_generation_pdf_avec_ecarts(self, tmp_path: Any) -> None:
         """Le PDF est genere avec des anomalies presentes."""
-        geojson = _creer_geojson_ecarts(
-            [_feature_geometrie("C1"), _feature_extremite("C2")]
-        )
-        chemin_geo = os.path.join(str(tmp_path), "ecarts_geometrie.geojson")
+        geojson = _creer_geojson_ecarts([_feature_extremite("C1")])
         chemin_ext = os.path.join(str(tmp_path), "ecarts_extremites.geojson")
-        for chemin in (chemin_geo, chemin_ext):
-            with open(chemin, "w", encoding="utf-8") as f:
-                json.dump(geojson, f)
+        with open(chemin_ext, "w", encoding="utf-8") as f:
+            json.dump(geojson, f)
 
         chemin_pdf = os.path.join(str(tmp_path), "rapport.pdf")
         resultat = generer_rapport_pdf(str(tmp_path), chemin_pdf)
 
         assert resultat["succes"] is True
         assert os.path.isfile(chemin_pdf)
-        assert resultat["nombre_total_anomalies"] == 4
-        assert resultat["controles_disponibles"] == 2
+        assert resultat["nombre_total_anomalies"] == 1
+        assert resultat["controles_disponibles"] == 1
 
     def test_generation_pdf_sans_ecarts(self, tmp_path: Any) -> None:
         """Le PDF est genere meme sans fichier d'ecarts."""
@@ -168,8 +150,8 @@ class TestExecuterRapportCli:
         repertoire_sortie = os.path.join(str(tmp_path), "sortie")
         os.makedirs(repertoire_entree)
 
-        geojson = _creer_geojson_ecarts([_feature_geometrie("C1")])
-        chemin = os.path.join(repertoire_entree, "ecarts_geometrie.geojson")
+        geojson = _creer_geojson_ecarts([_feature_extremite("C1")])
+        chemin = os.path.join(repertoire_entree, "ecarts_extremites.geojson")
         with open(chemin, "w", encoding="utf-8") as f:
             json.dump(geojson, f)
 

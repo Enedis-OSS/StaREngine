@@ -1,0 +1,2152 @@
+{
+  "description": "Catalogue de materiel pour les jonctions et derivations electriques",
+  "version": "1.0.0",
+  "fichierSource": "Catalogue_Materiel_Boite_Jonction-Derivation.csv",
+  "domainesTension": ["BT", "HTA"],
+  "fabricants": [
+    "3M",
+    "MAEC",
+    "MICHAUD",
+    "NEXANS",
+    "NKT",
+    "PRYSMIAN",
+    "SICAME",
+    "TE Connectivity"
+  ],
+  "modeles": {
+    "HTA": [
+      "DTIM-PS-RSM-24-50(50)/240 AL/CU",
+      "J3UP-Cpt-RF-RSM-24-50/240 AL/CU",
+      "J3UP-RF-DE-RSM-24-50/240 AL/CU",
+      "D3UP-RF-RSM-24-95(50)/240 AL/CU",
+      "D3UP-TH-RSM-24-50(50)/240 AL/CU",
+      "JTR3-HYB-RSM-24-50/240 AL/CU",
+      "JTR3-RSM-24-50/240 AL/CU ceint",
+      "E3UBPS-CC-RF-RSM-24-50/240 AL/CU",
+      "3 JUR3-HYB-RSM-24-50/240 AL/CU",
+      "J3RRUMP-RF-RSM-24-95/240 AL/CU",
+      "E3UBPS-RF-RSM-24-50/240 AL/CU",
+      "J3RRUP-RF-RSM-24-50/240 AL/CU",
+      "JRRTMP-RF-RSM-24-95/240 AL/CU",
+      "J3UMP-RF-RSM-24-95/240 AL/CU",
+      "J3UMP-TH-RSM24-50/240 AL/CU",
+      "JTMP-RF-RSM-24-95/240 AL/CU",
+      "3 JUR3-RSM-24-50/240 AL/CU",
+      "JTMP-TH-RSM24-50/240 AL/CU",
+      "JTR3-RSM-24-50/240 AL/CU",
+      "JTR0-RSM-24-25/95 AL/CU",
+      "EBPT-CPI-RSM-24-50/240",
+      "J3UP-RF-24-500/630",
+      "JUP-RF-24-500/630"
+    ],
+    "BT": [
+      "BPR Papier DIPH-TRIP 100-150",
+      "ENS BT NJAS 150-70/240S-95",
+      "DDI-CPI 240-35(50) v19",
+      "SDI-CPI 240-35(50) v19",
+      "JNI-CPI 240-240 v2006",
+      "JNI-CPI 240-150 v2006",
+      "DDI-CPI 240-35 v2006",
+      "SDI-CPI 240-35 v2006",
+      "BP ISO RF BT 95-240",
+      "JNI-CPI 240-240 v19",
+      "JNI-CPI 240-150 v19",
+      "JNI-CPI 95-95 v2006",
+      "DDI 240-35(50) v19",
+      "BP ISO RF BT 10-50",
+      "JNI 240-240 v2006",
+      "JNI 240-150 v2006",
+      "JNC 240-240 v2006",
+      "JNC 240-150 v2006",
+      "JNI-CPI 95-95 v19",
+      "DDI 240-35 V2006",
+      "SDI 240-35 V2006",
+      "JRDDB 240-35(50)",
+      "DDC 240-35 v2006",
+      "JNI 240-240 v19",
+      "JNI 240-150 v19",
+      "JNI 95-95 v2006",
+      "JNI 95-95 v19",
+      "JRDR 50-240",
+      "JRCR 50-240",
+      "JRB 10-50"
+    ]
+  },
+  "correspondancesParDomaine": {
+    "HTA": {
+      "fabricants": [
+        "3M",
+        "MAEC",
+        "MICHAUD",
+        "NEXANS",
+        "NKT",
+        "PRYSMIAN",
+        "SICAME",
+        "TE Connectivity"
+      ],
+      "modeles": [
+        "DTIM-PS-RSM-24-50(50)/240 AL/CU",
+        "J3UP-Cpt-RF-RSM-24-50/240 AL/CU",
+        "J3UP-RF-DE-RSM-24-50/240 AL/CU",
+        "D3UP-RF-RSM-24-95(50)/240 AL/CU",
+        "D3UP-TH-RSM-24-50(50)/240 AL/CU",
+        "JTR3-HYB-RSM-24-50/240 AL/CU",
+        "JTR3-RSM-24-50/240 AL/CU ceint",
+        "E3UBPS-CC-RF-RSM-24-50/240 AL/CU",
+        "3 JUR3-HYB-RSM-24-50/240 AL/CU",
+        "J3RRUMP-RF-RSM-24-95/240 AL/CU",
+        "E3UBPS-RF-RSM-24-50/240 AL/CU",
+        "J3RRUP-RF-RSM-24-50/240 AL/CU",
+        "JRRTMP-RF-RSM-24-95/240 AL/CU",
+        "J3UMP-RF-RSM-24-95/240 AL/CU",
+        "J3UMP-TH-RSM24-50/240 AL/CU",
+        "JTMP-RF-RSM-24-95/240 AL/CU",
+        "3 JUR3-RSM-24-50/240 AL/CU",
+        "JTMP-TH-RSM24-50/240 AL/CU",
+        "JTR3-RSM-24-50/240 AL/CU",
+        "JTR0-RSM-24-25/95 AL/CU",
+        "EBPT-CPI-RSM-24-50/240",
+        "J3UP-RF-24-500/630",
+        "JUP-RF-24-500/630"
+      ]
+    },
+    "BT": {
+      "fabricants": [
+        "3M",
+        "MAEC",
+        "MICHAUD",
+        "NEXANS",
+        "NKT",
+        "PRYSMIAN",
+        "SICAME",
+        "TE Connectivity"
+      ],
+      "modeles": [
+        "BPR Papier DIPH-TRIP 100-150",
+        "ENS BT NJAS 150-70/240S-95",
+        "DDI-CPI 240-35(50) v19",
+        "SDI-CPI 240-35(50) v19",
+        "JNI-CPI 240-240 v2006",
+        "JNI-CPI 240-150 v2006",
+        "DDI-CPI 240-35 v2006",
+        "SDI-CPI 240-35 v2006",
+        "BP ISO RF BT 95-240",
+        "JNI-CPI 240-240 v19",
+        "JNI-CPI 240-150 v19",
+        "JNI-CPI 95-95 v2006",
+        "DDI 240-35(50) v19",
+        "BP ISO RF BT 10-50",
+        "JNI 240-240 v2006",
+        "JNI 240-150 v2006",
+        "JNC 240-240 v2006",
+        "JNC 240-150 v2006",
+        "JNI-CPI 95-95 v19",
+        "DDI 240-35 V2006",
+        "SDI 240-35 V2006",
+        "JRDDB 240-35(50)",
+        "DDC 240-35 v2006",
+        "JNI 240-240 v19",
+        "JNI 240-150 v19",
+        "JNI 95-95 v2006",
+        "JNI 95-95 v19",
+        "JRDR 50-240",
+        "JRCR 50-240",
+        "JRB 10-50"
+      ]
+    }
+  },
+  "entrees": [
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "DTIM-PS-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "DTIM-PS-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "DTIM-PS-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "DTIM-PS-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "DTIM-PS-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "DTIM-PS-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "DTIM-PS-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "DTIM-PS-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "J3UP-Cpt-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "J3UP-Cpt-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "J3UP-Cpt-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "J3UP-Cpt-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "J3UP-Cpt-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "J3UP-Cpt-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "J3UP-Cpt-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "J3UP-Cpt-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "J3UP-RF-DE-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "J3UP-RF-DE-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "J3UP-RF-DE-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "J3UP-RF-DE-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "J3UP-RF-DE-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "J3UP-RF-DE-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "J3UP-RF-DE-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "J3UP-RF-DE-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "D3UP-RF-RSM-24-95(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "D3UP-RF-RSM-24-95(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "D3UP-RF-RSM-24-95(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "D3UP-RF-RSM-24-95(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "D3UP-RF-RSM-24-95(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "D3UP-RF-RSM-24-95(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "D3UP-RF-RSM-24-95(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "D3UP-RF-RSM-24-95(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "D3UP-TH-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "D3UP-TH-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "D3UP-TH-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "D3UP-TH-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "D3UP-TH-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "D3UP-TH-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "D3UP-TH-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "D3UP-TH-RSM-24-50(50)/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "JTR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "JTR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "JTR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "JTR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "JTR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "JTR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "JTR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "JTR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "JTR3-RSM-24-50/240 AL/CU ceint"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "JTR3-RSM-24-50/240 AL/CU ceint"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "JTR3-RSM-24-50/240 AL/CU ceint"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "JTR3-RSM-24-50/240 AL/CU ceint"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "JTR3-RSM-24-50/240 AL/CU ceint"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "JTR3-RSM-24-50/240 AL/CU ceint"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "JTR3-RSM-24-50/240 AL/CU ceint"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "JTR3-RSM-24-50/240 AL/CU ceint"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "E3UBPS-CC-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "E3UBPS-CC-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "E3UBPS-CC-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "E3UBPS-CC-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "E3UBPS-CC-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "E3UBPS-CC-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "E3UBPS-CC-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "E3UBPS-CC-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "3 JUR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "3 JUR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "3 JUR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "3 JUR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "3 JUR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "3 JUR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "3 JUR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "3 JUR3-HYB-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "J3RRUMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "J3RRUMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "J3RRUMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "J3RRUMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "J3RRUMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "J3RRUMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "J3RRUMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "J3RRUMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "E3UBPS-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "E3UBPS-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "E3UBPS-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "E3UBPS-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "E3UBPS-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "E3UBPS-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "E3UBPS-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "E3UBPS-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "J3RRUP-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "J3RRUP-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "J3RRUP-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "J3RRUP-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "J3RRUP-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "J3RRUP-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "J3RRUP-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "J3RRUP-RF-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "JRRTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "JRRTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "JRRTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "JRRTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "JRRTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "JRRTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "JRRTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "JRRTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "J3UMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "J3UMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "J3UMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "J3UMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "J3UMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "J3UMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "J3UMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "J3UMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "J3UMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "J3UMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "J3UMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "J3UMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "J3UMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "J3UMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "J3UMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "J3UMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "JTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "JTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "JTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "JTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "JTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "JTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "JTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "JTMP-RF-RSM-24-95/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "3 JUR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "3 JUR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "3 JUR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "3 JUR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "3 JUR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "3 JUR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "3 JUR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "3 JUR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "JTMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "JTMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "JTMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "JTMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "JTMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "JTMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "JTMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "JTMP-TH-RSM24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "JTR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "JTR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "JTR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "JTR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "JTR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "JTR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "JTR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "JTR3-RSM-24-50/240 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "JTR0-RSM-24-25/95 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "JTR0-RSM-24-25/95 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "JTR0-RSM-24-25/95 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "JTR0-RSM-24-25/95 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "JTR0-RSM-24-25/95 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "JTR0-RSM-24-25/95 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "JTR0-RSM-24-25/95 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "JTR0-RSM-24-25/95 AL/CU"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "EBPT-CPI-RSM-24-50/240"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "EBPT-CPI-RSM-24-50/240"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "EBPT-CPI-RSM-24-50/240"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "EBPT-CPI-RSM-24-50/240"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "EBPT-CPI-RSM-24-50/240"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "EBPT-CPI-RSM-24-50/240"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "EBPT-CPI-RSM-24-50/240"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "EBPT-CPI-RSM-24-50/240"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "J3UP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "J3UP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "J3UP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "J3UP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "J3UP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "J3UP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "J3UP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "J3UP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "3M",
+      "modele": "JUP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MAEC",
+      "modele": "JUP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "MICHAUD",
+      "modele": "JUP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NEXANS",
+      "modele": "JUP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "NKT",
+      "modele": "JUP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "PRYSMIAN",
+      "modele": "JUP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "SICAME",
+      "modele": "JUP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "HTA",
+      "fabricant": "TE Connectivity",
+      "modele": "JUP-RF-24-500/630"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "BPR Papier DIPH-TRIP 100-150"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "BPR Papier DIPH-TRIP 100-150"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "BPR Papier DIPH-TRIP 100-150"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "BPR Papier DIPH-TRIP 100-150"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "BPR Papier DIPH-TRIP 100-150"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "BPR Papier DIPH-TRIP 100-150"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "BPR Papier DIPH-TRIP 100-150"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "BPR Papier DIPH-TRIP 100-150"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "ENS BT NJAS 150-70/240S-95"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "ENS BT NJAS 150-70/240S-95"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "ENS BT NJAS 150-70/240S-95"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "ENS BT NJAS 150-70/240S-95"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "ENS BT NJAS 150-70/240S-95"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "ENS BT NJAS 150-70/240S-95"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "ENS BT NJAS 150-70/240S-95"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "ENS BT NJAS 150-70/240S-95"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "DDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "SDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "DDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "SDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "DDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "SDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "DDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "SDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "DDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "SDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "DDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "SDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "DDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "SDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "DDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "SDI-CPI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNI-CPI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNI-CPI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI-CPI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI-CPI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI-CPI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI-CPI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI-CPI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI-CPI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNI-CPI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNI-CPI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI-CPI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI-CPI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI-CPI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI-CPI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI-CPI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI-CPI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "DDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "SDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "DDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "SDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "DDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "SDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "DDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "SDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "DDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "SDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "DDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "SDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "DDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "SDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "DDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "SDI-CPI 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "BP ISO RF BT 95-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNI-CPI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNI-CPI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNI-CPI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "BP ISO RF BT 95-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI-CPI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI-CPI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI-CPI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "BP ISO RF BT 95-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI-CPI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI-CPI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI-CPI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "BP ISO RF BT 95-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI-CPI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI-CPI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI-CPI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "BP ISO RF BT 95-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNI-CPI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNI-CPI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNI-CPI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "BP ISO RF BT 95-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI-CPI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI-CPI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI-CPI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "BP ISO RF BT 95-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI-CPI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI-CPI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI-CPI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "BP ISO RF BT 95-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI-CPI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI-CPI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI-CPI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "DDI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "BP ISO RF BT 10-50"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "DDI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "BP ISO RF BT 10-50"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "DDI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "BP ISO RF BT 10-50"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "DDI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "BP ISO RF BT 10-50"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "DDI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "BP ISO RF BT 10-50"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "DDI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "BP ISO RF BT 10-50"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "DDI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "BP ISO RF BT 10-50"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "DDI 240-35(50) v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "BP ISO RF BT 10-50"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNC 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNC 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "3M",
+      "modele": "JNI-CPI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNC 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNC 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI-CPI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNC 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNC 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI-CPI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNC 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNC 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI-CPI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNC 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNC 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JNI-CPI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNC 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNC 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI-CPI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNC 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNC 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI-CPI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNC 240-240 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNC 240-150 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI-CPI 95-95 v19"
+    },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "DDI 240-35 V2006" },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "SDI 240-35 V2006" },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "JRDDB 240-35(50)" },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "DDC 240-35 v2006" },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "DDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "SDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JRDDB 240-35(50)"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "DDC 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "DDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "SDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JRDDB 240-35(50)"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "DDC 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "DDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "SDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JRDDB 240-35(50)"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "DDC 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "DDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "SDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "JRDDB 240-35(50)"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NKT",
+      "modele": "DDC 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "DDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "SDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JRDDB 240-35(50)"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "DDC 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "DDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "SDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JRDDB 240-35(50)"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "DDC 240-35 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "DDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "SDI 240-35 V2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JRDDB 240-35(50)"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "DDC 240-35 v2006"
+    },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "JNI 240-240 v19" },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "JNI 240-150 v19" },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "JNI 95-95 v2006" },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MAEC",
+      "modele": "JNI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI 95-95 v2006"
+    },
+    { "domaineTension": "BT", "fabricant": "NKT", "modele": "JNI 240-240 v19" },
+    { "domaineTension": "BT", "fabricant": "NKT", "modele": "JNI 240-150 v19" },
+    { "domaineTension": "BT", "fabricant": "NKT", "modele": "JNI 95-95 v2006" },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI 95-95 v2006"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI 240-240 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI 240-150 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI 95-95 v2006"
+    },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "JNI 95-95 v19" },
+    { "domaineTension": "BT", "fabricant": "MAEC", "modele": "JNI 95-95 v19" },
+    {
+      "domaineTension": "BT",
+      "fabricant": "MICHAUD",
+      "modele": "JNI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "NEXANS",
+      "modele": "JNI 95-95 v19"
+    },
+    { "domaineTension": "BT", "fabricant": "NKT", "modele": "JNI 95-95 v19" },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JNI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "SICAME",
+      "modele": "JNI 95-95 v19"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JNI 95-95 v19"
+    },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "JRDR 50-240" },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "JRCR 50-240" },
+    { "domaineTension": "BT", "fabricant": "MAEC", "modele": "JRDR 50-240" },
+    { "domaineTension": "BT", "fabricant": "MAEC", "modele": "JRCR 50-240" },
+    { "domaineTension": "BT", "fabricant": "MICHAUD", "modele": "JRDR 50-240" },
+    { "domaineTension": "BT", "fabricant": "MICHAUD", "modele": "JRCR 50-240" },
+    { "domaineTension": "BT", "fabricant": "NEXANS", "modele": "JRDR 50-240" },
+    { "domaineTension": "BT", "fabricant": "NEXANS", "modele": "JRCR 50-240" },
+    { "domaineTension": "BT", "fabricant": "NKT", "modele": "JRDR 50-240" },
+    { "domaineTension": "BT", "fabricant": "NKT", "modele": "JRCR 50-240" },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JRDR 50-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "PRYSMIAN",
+      "modele": "JRCR 50-240"
+    },
+    { "domaineTension": "BT", "fabricant": "SICAME", "modele": "JRDR 50-240" },
+    { "domaineTension": "BT", "fabricant": "SICAME", "modele": "JRCR 50-240" },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JRDR 50-240"
+    },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JRCR 50-240"
+    },
+    { "domaineTension": "BT", "fabricant": "3M", "modele": "JRB 10-50" },
+    { "domaineTension": "BT", "fabricant": "MAEC", "modele": "JRB 10-50" },
+    { "domaineTension": "BT", "fabricant": "MICHAUD", "modele": "JRB 10-50" },
+    { "domaineTension": "BT", "fabricant": "NEXANS", "modele": "JRB 10-50" },
+    { "domaineTension": "BT", "fabricant": "NKT", "modele": "JRB 10-50" },
+    { "domaineTension": "BT", "fabricant": "PRYSMIAN", "modele": "JRB 10-50" },
+    { "domaineTension": "BT", "fabricant": "SICAME", "modele": "JRB 10-50" },
+    {
+      "domaineTension": "BT",
+      "fabricant": "TE Connectivity",
+      "modele": "JRB 10-50"
+    }
+  ]
+}

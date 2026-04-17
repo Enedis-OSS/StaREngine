@@ -1,14 +1,15 @@
 """
-Generation du rapport PDF de synthese des controles des noeuds.
+Generation du rapport PDF de synthese des controles GML.
 
 Produit un document PDF recapitulatif des resultats de l'ensemble des
-controles des noeuds (extremites, domaine de tension, coherence terre). Le rapport presente une synthese globale, un tableau recapitulatif
-par controle, puis le detail des entites en ecart avec leurs identifiants.
+controles GML (unicite des identifiants, conformite des valeurs XSD).
+Le rapport presente une synthese globale, un tableau recapitulatif par
+controle, puis le detail des entites en ecart avec leurs identifiants.
 
 Usage CLI :
-    python rapport_pdf_noeud.py --repertoire <chemin> [--sortie <chemin>]
+    python rapport_pdf_gml.py --repertoire <chemin> [--sortie <chemin>]
 
-Sortie : rapport_controles_noeud.pdf
+Sortie : rapport_controles_gml.pdf
 """
 
 from __future__ import annotations
@@ -32,61 +33,43 @@ from reportlab.platypus import (
 )
 
 # Nom du fichier PDF de sortie
-FICHIER_RAPPORT: str = "rapport_controles_noeud.pdf"
+FICHIER_RAPPORT: str = "rapport_controles_gml.pdf"
 
 # Dimensions de la page
 LARGEUR_PAGE, HAUTEUR_PAGE = A4
 MARGE = 2.0 * cm
 
-# Label commun pour l'en-tete de colonne identifiant
-_LABEL_ID_CABLE: str = "ID cable"
-
-# Label commun pour l'en-tete de colonne type d'anomalie
-_LABEL_TYPE_ANOMALIE: str = "Type anomalie"
-
 # Configuration des colonnes de detail par controle
 # Chaque entree : (cle_propriete, en_tete_colonne, largeur_cm)
-_COLONNES_EXTREMITES: tuple[tuple[str, str, float], ...] = (
-    ("id_cable", _LABEL_ID_CABLE, 5.0),
-    ("extremite", "Extremite", 3.5),
-    ("type_anomalie", _LABEL_TYPE_ANOMALIE, 4.0),
-    ("priorite", "Priorite", 2.5),
-)
-
-_COLONNES_TENSION: tuple[tuple[str, str, float], ...] = (
-    ("id_cable", _LABEL_ID_CABLE, 3.5),
-    ("id_jonction", "ID jonction", 3.5),
-    ("tension_cable", "Tension cable", 2.5),
-    ("tension_jonction", "Tension jonction", 2.5),
-    ("priorite", "Priorite", 2.5),
-)
-
-_COLONNES_TERRE: tuple[tuple[str, str, float], ...] = (
-    ("id_cable", _LABEL_ID_CABLE, 4.5),
-    ("type_anomalie", _LABEL_TYPE_ANOMALIE, 4.5),
+_COLONNES_UNICITE_ID: tuple[tuple[str, str, float], ...] = (
+    ("id_duplique", "ID duplique", 4.5),
+    ("fichier_source", "Fichier source", 5.0),
+    ("type_anomalie", "Type anomalie", 3.0),
     ("message", "Message", 4.0),
-    ("priorite", "Priorite", 2.5),
+    ("priorite", "Priorite", 2.0),
+)
+
+_COLONNES_VALEUR_XSD: tuple[tuple[str, str, float], ...] = (
+    ("id_entite", "ID entite", 4.0),
+    ("fichier_source", "Fichier source", 4.5),
+    ("type_anomalie", "Type anomalie", 3.0),
+    ("message", "Message", 5.0),
+    ("priorite", "Priorite", 2.0),
 )
 
 # Correspondance entre fichier d'ecarts et configuration du controle
 CONTROLES: tuple[tuple[str, str, str, tuple[tuple[str, str, float], ...]], ...] = (
     (
-        "ecarts_extremites.geojson",
-        "Extremites des cables",
-        "Extremites de cables non liees a un noeud du reseau",
-        _COLONNES_EXTREMITES,
+        "ecarts_unicite_id.geojson",
+        "Unicite des identifiants",
+        "Identifiants dupliques dans les fichiers RPD_*.geojson",
+        _COLONNES_UNICITE_ID,
     ),
     (
-        "ecarts_domaine_tension.geojson",
-        "Domaine de tension",
-        "Incoherences de tension entre cables et jonctions",
-        _COLONNES_TENSION,
-    ),
-    (
-        "ecarts_coherence_terre.geojson",
-        "Coherence terre",
-        "Cables terre presents sans aucun noeud terre",
-        _COLONNES_TERRE,
+        "ecarts_valeur_xsd.geojson",
+        "Conformite des valeurs XSD",
+        "Valeurs non conformes aux listes autorisees du modele RecoStaR",
+        _COLONNES_VALEUR_XSD,
     ),
 )
 
@@ -348,7 +331,7 @@ def generer_rapport_pdf(
     repertoire: str,
     chemin_pdf: str,
 ) -> dict[str, Any]:
-    """Genere le rapport PDF de synthese des controles des noeuds.
+    """Genere le rapport PDF de synthese des controles GML.
 
     Retourne un dictionnaire avec le statut de la generation.
     """
@@ -367,7 +350,7 @@ def generer_rapport_pdf(
     elements: list[Any] = []
 
     # Titre
-    elements.append(Paragraph("Rapport des controles des noeuds", styles["titre"]))
+    elements.append(Paragraph("Rapport des controles GML", styles["titre"]))
     elements.append(Spacer(1, 6 * mm))
 
     # Synthese globale
@@ -419,7 +402,7 @@ def executer_rapport_cli(
 def main() -> None:
     """Point d'entree CLI de la generation du rapport PDF."""
     parseur = argparse.ArgumentParser(
-        description="Generation du rapport PDF des controles des noeuds"
+        description="Generation du rapport PDF des controles GML"
     )
     parseur.add_argument(
         "--repertoire",

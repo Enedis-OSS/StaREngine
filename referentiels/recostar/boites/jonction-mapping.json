@@ -1,0 +1,233 @@
+{
+  "description": "Mapping complet des jonctions electriques pour RecoStaR",
+  "version": "1.0.0",
+  "fichierGeoJSON": "RPD_Jonction_Reco.geojson",
+  "nomCouche": "RPD_Jonction_Reco",
+
+  "typesJonction": {
+    "Derivation": {
+      "code": "Derivation",
+      "labelFR": "Dérivation",
+      "labelCourt": "BD",
+      "champsFabricantModele": true,
+      "description": "Point de dérivation électrique"
+    },
+    "Jonction": {
+      "code": "Jonction",
+      "labelFR": "Jonction",
+      "labelCourt": "BJ",
+      "champsFabricantModele": true,
+      "description": "Point de jonction électrique"
+    },
+    "ExtremiteReseau": {
+      "code": "ExtremiteReseau",
+      "labelFR": "Extrémité de réseau",
+      "labelCourt": "BP",
+      "champsFabricantModele": false,
+      "description": "Extrémité du réseau électrique"
+    }
+  },
+
+  "domainesTension": {
+    "BT": {
+      "code": "BT",
+      "labelFR": "Basse Tension",
+      "labelComplet": "BT - Basse Tension",
+      "couleur": "#00008B"
+    },
+    "HTA": {
+      "code": "HTA",
+      "labelFR": "Haute Tension A",
+      "labelComplet": "HTA - Haute Tension A",
+      "couleur": "#FF0000"
+    },
+    "HTB": {
+      "code": "HTB",
+      "labelFR": "Haute Tension B",
+      "labelComplet": "HTB - Haute Tension B",
+      "couleur": "#FF0000"
+    }
+  },
+
+  "statuts": {
+    "Functional": {
+      "code": "Functional",
+      "labelFR": "En service",
+      "description": "Jonction en service et fonctionnelle"
+    },
+    "Decommissioned": {
+      "code": "Decommissioned",
+      "labelFR": "Hors service",
+      "description": "Jonction mise hors service"
+    },
+    "Dismantled": {
+      "code": "Dismantled",
+      "labelFR": "Déposé",
+      "description": "Jonction déposée/retirée"
+    },
+    "UnderCommissionning": {
+      "code": "UnderCommissionning",
+      "labelFR": "En attente de mise en service",
+      "description": "Jonction en attente de mise en service"
+    },
+    "Projected": {
+      "code": "Projected",
+      "labelFR": "En projet",
+      "description": "Jonction en phase de projet"
+    }
+  },
+
+  "precisions": {
+    "XY": {
+      "A": {
+        "code": "A",
+        "labelFR": "Classe A",
+        "tolerance": "±40 cm"
+      },
+      "B": {
+        "code": "B",
+        "labelFR": "Classe B",
+        "tolerance": "±1.5 m"
+      },
+      "C": {
+        "code": "C",
+        "labelFR": "Classe C",
+        "tolerance": "±5 m"
+      }
+    },
+    "Z": {
+      "A": {
+        "code": "A",
+        "labelFR": "Classe A",
+        "tolerance": "±10 cm"
+      },
+      "B": {
+        "code": "B",
+        "labelFR": "Classe B",
+        "tolerance": "±40 cm"
+      },
+      "C": {
+        "code": "C",
+        "labelFR": "Classe C",
+        "tolerance": "±1 m"
+      }
+    }
+  },
+
+  "proprietesGeoJSON": {
+    "fid": {
+      "type": "number",
+      "description": "Identifiant sequentiel de la feature",
+      "exemple": 1
+    },
+    "ogr_pkid": {
+      "type": "string",
+      "format": "RPD_Jonction_Reco_{index}",
+      "description": "Cle primaire OGR",
+      "exemple": "RPD_Jonction_Reco_0"
+    },
+    "id": {
+      "type": "string",
+      "format": "id{uuid}",
+      "description": "Identifiant unique UUID",
+      "exemple": "id550e8400-e29b-41d4-a716-446655440000"
+    },
+    "DomaineTension": {
+      "type": "string",
+      "valeurs": ["BT", "HTA", "HTB"],
+      "description": "Domaine de tension electrique"
+    },
+    "TypeJonction": {
+      "type": "string",
+      "valeurs": ["Derivation", "Jonction", "ExtremiteReseau"],
+      "description": "Type de jonction"
+    },
+    "Aerien": {
+      "type": "boolean",
+      "defaut": false,
+      "description": "Indique si la jonction est aerienne (true) ou souterraine (false)"
+    },
+    "Fabricant": {
+      "type": "string|null",
+      "description": "Fabricant du materiel (null pour ExtremiteReseau)",
+      "exemple": "3M"
+    },
+    "Modele": {
+      "type": "string|null",
+      "description": "Modele du materiel (null pour ExtremiteReseau)",
+      "exemple": "DTIM-PS-RSM-24-50(50)/240 AL/CU"
+    },
+    "NumeroLot": {
+      "type": "string|null",
+      "description": "Numero de lot (null pour ExtremiteReseau)",
+      "exemple": "LOT-2024-001"
+    },
+    "NumeroSerie": {
+      "type": "string|null",
+      "description": "Numero de serie (null pour ExtremiteReseau)",
+      "exemple": "SN-12345"
+    },
+    "PrecisionXY": {
+      "type": "string",
+      "valeurs": ["A", "B", "C"],
+      "description": "Classe de precision horizontale"
+    },
+    "PrecisionZ": {
+      "type": "string",
+      "valeurs": ["A", "B", "C"],
+      "description": "Classe de precision verticale"
+    },
+    "Statut": {
+      "type": "string",
+      "valeurs": [
+        "Functional",
+        "Decommissioned",
+        "Dismantled",
+        "UnderCommissionning",
+        "Projected"
+      ],
+      "description": "Statut de la jonction"
+    },
+    "angle": {
+      "type": "number|null",
+      "description": "Angle de rotation de la jonction",
+      "defaut": null
+    },
+    "materiel_href": {
+      "type": "string",
+      "format": "id{uuid}",
+      "description": "Reference unique du materiel"
+    },
+    "conteneur_href": {
+      "type": "string|null",
+      "description": "Reference vers le conteneur/support (poteau, facade)",
+      "defaut": null
+    },
+    "cables_href": {
+      "type": "string|null",
+      "format": "id1,id2,id3",
+      "description": "Liste des IDs de cables connectes, separes par des virgules",
+      "defaut": null
+    }
+  },
+
+  "geometrie": {
+    "type": "Point",
+    "coordonnees": {
+      "format": "[x, y, z]",
+      "crs": "EPSG:2154",
+      "description": "Coordonnees en Lambert 93"
+    }
+  },
+
+  "catalogueMateriel": {
+    "fichierSource": "Catalogue_Materiel_Boite_Jonction-Derivation.csv",
+    "encodage": "ISO-8859-1",
+    "separateur": ";",
+    "colonnes": {
+      "Domainetension": "Domaine de tension (BT, HTA)",
+      "Fabricant": "Nom du fabricant",
+      "Modele": "Reference du modele"
+    }
+  }
+}

@@ -1277,6 +1277,23 @@ class GMLConverter:
             if feat.get("properties", {}).get("id")
         }
 
+    def _construire_index_tension_cables(
+        self, features_by_type: Dict[str, List[Dict]]
+    ) -> Dict[str, str]:
+        """Construit un index id_cable -> DomaineTension.
+
+        Permet, lors de la propagation conteneur, de filtrer les câbles propagés
+        à une jonction en fonction de son propre DomaineTension.
+        """
+        index_tension: Dict[str, str] = {}
+        for feat in features_by_type.get("RPD_CableElectrique_Reco", []):
+            props = feat.get("properties", {})
+            id_cable = props.get("id")
+            tension = props.get("DomaineTension")
+            if id_cable and isinstance(tension, str):
+                index_tension[id_cable] = tension
+        return index_tension
+
     def _regrouper_noeuds_par_conteneur(
         self,
         features_by_type: Dict[str, List[Dict]],
@@ -1326,10 +1343,83 @@ class GMLConverter:
             props.pop("cables_href", None)
         return True
 
+    def _filtrer_cables_par_tension_jonction(
+        self,
+        cables_electriques: set,
+        tension_jonction: Optional[str],
+        index_tension_cables: Dict[str, str],
+    ) -> set:
+        """Restreint les câbles propagés à ceux dont le DomaineTension
+        correspond à celui de la jonction.
+
+        Si la jonction n'a pas de DomaineTension renseigné, aucun filtrage
+        n'est appliqué afin de conserver le comportement historique.
+        """
+        if not isinstance(tension_jonction, str):
+            return cables_electriques
+        return {
+            id_cable
+            for id_cable in cables_electriques
+            if index_tension_cables.get(id_cable) == tension_jonction
+        }
+
+    def _propager_cables_jonction(
+        self,
+        props: Dict,
+        cables_electriques: set,
+        index_tension_cables: Dict[str, str],
+    ) -> int:
+        """Propage cables_href sur une jonction en filtrant par DomaineTension.
+
+        Retourne 1 si la propagation a modifié la valeur, sinon 0.
+        """
+        cables_filtres = self._filtrer_cables_par_tension_jonction(
+            cables_electriques,
+            props.get("DomaineTension"),
+            index_tension_cables,
+        )
+        nouvelle_valeur = ",".join(sorted(cables_filtres)) if cables_filtres else None
+        if nouvelle_valeur is None:
+            # Aucun câble compatible : on retire l'attribut pour éviter
+            # toute incohérence de domaine de tension.
+            return 1 if props.pop("cables_href", None) is not None else 0
+        if props.get("cables_href") == nouvelle_valeur:
+            return 0
+        props["cables_href"] = nouvelle_valeur
+        return 1
+
+    def _mettre_a_jour_cables_noeud(
+        self,
+        type_entite: str,
+        props: Dict,
+        contexte: Dict,
+    ) -> Tuple[int, int]:
+        """Met à jour cables_href d'un nœud selon son type.
+
+        Retourne (nb_propagations, nb_nettoyages_terre).
+        """
+        if type_entite == "RPD_Terre_Reco":
+            if self._nettoyer_cables_noeud_terre(props, contexte["cable_terre_ids"]):
+                return 0, 1
+            return 0, 0
+        if type_entite == "RPD_Jonction_Reco":
+            propagation = self._propager_cables_jonction(
+                props,
+                contexte["cables_electriques"],
+                contexte["index_tension_cables"],
+            )
+            return propagation, 0
+        cables_str = contexte["cables_str"]
+        if props.get("cables_href") != cables_str:
+            props["cables_href"] = cables_str
+            return 1, 0
+        return 0, 0
+
     def _appliquer_propagation_conteneur(
         self,
         noeuds: List[Tuple[str, Dict]],
         cable_terre_ids: set,
+        index_tension_cables: Dict[str, str],
     ) -> Tuple[int, int]:
         """Applique la propagation des câbles pour un conteneur donné.
 
@@ -1341,17 +1431,19 @@ class GMLConverter:
         if not cables_electriques:
             return 0, 0
 
-        cables_str = ",".join(sorted(cables_electriques))
+        contexte = {
+            "cables_electriques": cables_electriques,
+            "cables_str": ",".join(sorted(cables_electriques)),
+            "cable_terre_ids": cable_terre_ids,
+            "index_tension_cables": index_tension_cables,
+        }
         propagation_count = 0
         nettoyage_terre_count = 0
 
         for type_entite, props in noeuds:
-            if type_entite == "RPD_Terre_Reco":
-                if self._nettoyer_cables_noeud_terre(props, cable_terre_ids):
-                    nettoyage_terre_count += 1
-            elif props.get("cables_href") != cables_str:
-                props["cables_href"] = cables_str
-                propagation_count += 1
+            prop, nett = self._mettre_a_jour_cables_noeud(type_entite, props, contexte)
+            propagation_count += prop
+            nettoyage_terre_count += nett
 
         return propagation_count, nettoyage_terre_count
 
@@ -1374,6 +1466,7 @@ class GMLConverter:
         )
 
         cable_terre_ids = self._collecter_ids_cables_terre(features_by_type)
+        index_tension_cables = self._construire_index_tension_cables(features_by_type)
         conteneur_noeuds = self._regrouper_noeuds_par_conteneur(
             features_by_type, noeud_types
         )
@@ -1382,7 +1475,9 @@ class GMLConverter:
         nettoyage_terre_count = 0
 
         for noeuds in conteneur_noeuds.values():
-            prop, nett = self._appliquer_propagation_conteneur(noeuds, cable_terre_ids)
+            prop, nett = self._appliquer_propagation_conteneur(
+                noeuds, cable_terre_ids, index_tension_cables
+            )
             propagation_count += prop
             nettoyage_terre_count += nett
 
@@ -1556,38 +1651,95 @@ class GMLConverter:
                 f"creee(s) pour les supports (V1.0)"
             )
 
+    def _transferer_proprietes_manquantes(
+        self, feature_cible: Dict, feature_source: Dict
+    ):
+        """Transfère les propriétés manquantes de la source vers la cible.
+
+        Copie chaque propriété présente dans la source mais absente ou None
+        dans la cible, sans écraser les valeurs existantes.
+        Les identifiants (fid, ogr_pkid, id) ne sont pas transférés.
+        """
+        identifiants_exclus = {"fid", "ogr_pkid", "id"}
+        props_cible = feature_cible["properties"]
+        props_source = feature_source["properties"]
+
+        for cle, valeur in props_source.items():
+            if cle in identifiants_exclus:
+                continue
+            if valeur is not None and props_cible.get(cle) is None:
+                props_cible[cle] = valeur
+
+    def _selectionner_feature_prioritaire(
+        self, features_groupe: List[Dict]
+    ) -> Tuple[Dict, List[Dict]]:
+        """Sélectionne la feature prioritaire parmi un groupe de doublons.
+
+        Règle métier : l'entité avec ChargeGeneratrice est prioritaire
+        sur celle sans (AltitudeGeneratrice). Si aucune n'a ChargeGeneratrice
+        ou si plusieurs en ont, la première occurrence est conservée.
+
+        Retourne la feature conservée et la liste des features supprimées.
+        """
+        # Recherche de la première entité avec ChargeGeneratrice
+        idx_charge = None
+        for i, feature in enumerate(features_groupe):
+            if feature["properties"].get("ChargeGeneratrice") is not None:
+                idx_charge = i
+                break
+
+        if idx_charge is not None and idx_charge > 0:
+            # ChargeGeneratrice trouvée mais pas en première position
+            conservee = features_groupe[idx_charge]
+            supprimees = [f for i, f in enumerate(features_groupe) if i != idx_charge]
+        else:
+            # Première occurrence conservée (déjà ChargeGeneratrice ou aucune)
+            conservee = features_groupe[0]
+            supprimees = features_groupe[1:]
+
+        return conservee, supprimees
+
     def _supprimer_doublons_geographiques_plor(
         self, features_by_type: Dict[str, List[Dict]]
     ):
         """Supprime les doublons géographiques des RPD_PointLeveOuvrageReseau_Reco.
 
         Deux entités sont considérées en doublon si elles ont des coordonnées
-        strictement identiques. Seule la première occurrence est conservée.
-        Les entités sans géométrie sont toujours conservées.
+        strictement identiques. Les entités sans géométrie sont toujours conservées.
+
+        Règle métier : entre un doublon ChargeGeneratrice et AltitudeGeneratrice,
+        l'entité ChargeGeneratrice est conservée et les propriétés pertinentes
+        de l'entité supprimée sont transférées vers l'entité conservée.
         """
         type_cible = "RPD_PointLeveOuvrageReseau_Reco"
         features = features_by_type.get(type_cible)
         if not features:
             return
 
-        coordonnees_vues: set = set()
-        features_uniques: List[Dict] = []
+        # Regroupement des features par coordonnées
+        groupes: Dict[tuple, List[Dict]] = {}
+        features_sans_geom: List[Dict] = []
 
         for feature in features:
-            geometry = feature.get("geometry")
-            if geometry is None:
-                features_uniques.append(feature)
+            cle = self._extraire_cle_coordonnees(feature)
+            if cle is None:
+                features_sans_geom.append(feature)
+            else:
+                groupes.setdefault(cle, []).append(feature)
+
+        # Résolution des doublons avec priorité ChargeGeneratrice
+        features_uniques: List[Dict] = list(features_sans_geom)
+        for features_groupe in groupes.values():
+            if len(features_groupe) == 1:
+                features_uniques.append(features_groupe[0])
                 continue
 
-            coords = geometry.get("coordinates")
-            if coords is None:
-                features_uniques.append(feature)
-                continue
-
-            cle_coords = tuple(coords)
-            if cle_coords not in coordonnees_vues:
-                coordonnees_vues.add(cle_coords)
-                features_uniques.append(feature)
+            conservee, supprimees = self._selectionner_feature_prioritaire(
+                features_groupe
+            )
+            for feature_supprimee in supprimees:
+                self._transferer_proprietes_manquantes(conservee, feature_supprimee)
+            features_uniques.append(conservee)
 
         nb_doublons = len(features) - len(features_uniques)
         if nb_doublons > 0:
@@ -1596,6 +1748,19 @@ class GMLConverter:
                 f"  [OK] {nb_doublons} doublon(s) geographique(s) "
                 f"supprime(s) pour {type_cible}"
             )
+
+    def _extraire_cle_coordonnees(self, feature: Dict) -> Optional[tuple]:
+        """Extrait la clé de coordonnées d'une feature pour la déduplication.
+
+        Retourne None si la feature n'a pas de géométrie ou de coordonnées.
+        """
+        geometry = feature.get("geometry")
+        if geometry is None:
+            return None
+        coords = geometry.get("coordinates")
+        if coords is None:
+            return None
+        return tuple(coords)
 
     def _write_geojson_files(self, features_by_type: dict, output_dir: Path):
         """Écrit les fichiers GeoJSON par type d'entité et le fichier _metadata.json."""

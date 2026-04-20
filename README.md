@@ -1,5 +1,7 @@
 # Star Engine
 
+[![REUSE Compliance](https://img.shields.io/badge/reuse-compliant-green.svg)](https://reuse.software/)
+
 Moteur de traitements pour les données de réseaux électriques au format GML (RecoStaR).
 
 ## Structure du projet
@@ -30,18 +32,32 @@ star_engine/
 
 ### Dépendances principales
 
-| Librairie   | Version | Licence    | Usage                                        |
-| ----------- | ------- | ---------- | -------------------------------------------- |
-| defusedxml  | 0.7.1   | PSFL       | Parsing XML sécurisé (protection XXE)        |
-| pyproj      | 3.7.2   | MIT        | Transformations de coordonnées géographiques |
-| reportlab   | 4.4.10  | BSD        | Génération des rapports PDF                  |
-| requests    | 2.32.5  | Apache-2.0 | Requêtes HTTP (API IGN altimétrie)           |
+| Librairie   | Version | Licence      | Usage                                        |
+| ----------- | ------- | ------------ | -------------------------------------------- |
+| defusedxml  | 0.7.1   | PSF-2.0      | Parsing XML sécurisé (protection XXE)        |
+| pillow      | 12.2.0  | MIT-CMU      | Manipulation d'images pour les rapports PDF  |
+| pyproj      | 3.7.2   | MIT          | Transformations de coordonnées géographiques |
+| reportlab   | 4.4.10  | BSD-3-Clause | Génération des rapports PDF                  |
+| requests    | 2.32.5  | Apache-2.0   | Requêtes HTTP (API IGN altimétrie)           |
+
+### Dépendances transitives
+
+| Librairie          | Version  | Licence      | Dépendance de |
+| ------------------ | -------- | ------------ | ------------- |
+| certifi            | 2026.2.25| MPL-2.0      | requests      |
+| charset-normalizer | 3.4.7    | MIT          | requests      |
+| idna               | 3.11     | BSD-3-Clause | requests      |
+| packaging          | 26.1     | Apache-2.0   | pytest        |
+| urllib3            | 2.6.3    | MIT          | requests      |
 
 ### Dépendances de développement
 
-| Librairie | Version | Licence | Usage                        |
-| --------- | ------- | ------- | ---------------------------- |
-| pytest    | 9.0.2   | MIT     | Exécution de tests unitaires |
+| Librairie | Version | Licence      | Usage                        |
+| --------- | ------- | ------------ | ---------------------------- |
+| iniconfig | 2.3.0   | MIT          | Configuration pytest         |
+| pluggy    | 1.6.0   | MIT          | Système de plugins pytest    |
+| pygments  | 2.20.0  | BSD-2-Clause | Coloration syntaxique        |
+| pytest    | 9.0.2   | MIT          | Exécution de tests unitaires |
 
 ### Bibliothèque standard Python
 

@@ -3,11 +3,12 @@ Tests unitaires du controle des extremites des cables.
 
 Couvre les cas nominaux et les cas limites :
 - construction du GeoJSON d'ecarts avec le champ priorite
-- extremite liee a une jonction
-- extremite liee a un poste electrique (cables_href seul, sans proximite)
+- extremite liee a une jonction via cables_href
+- extremite liee a un poste electrique via cables_href
+- extremite liee a un coupe-circuit a fusibles via cables_href
+- extremite liee a un point de comptage via cables_href
 - cables_href au format chaine separee par virgules
-- extremite non liee
-- retrocompatibilite sans postes electriques
+- extremite non liee (aucun noeud ne reference le cable)
 - execution CLI bout en bout via tmp_path
 """
 
@@ -45,31 +46,18 @@ def _construire_cable(
     }
 
 
-def _construire_jonction(
+def _construire_noeud(
     identifiant: str,
     coordonnees: list[float],
     cables_href: list[str] | str | None = None,
+    domaine_tension: str | None = None,
 ) -> dict[str, Any]:
-    """Construit une feature jonction minimale pour les tests."""
+    """Construit une feature noeud minimale pour les tests."""
     props: dict[str, Any] = {"id": identifiant}
     if cables_href is not None:
         props["cables_href"] = cables_href
-    return {
-        "type": "Feature",
-        "properties": props,
-        "geometry": {"type": "Point", "coordinates": coordonnees},
-    }
-
-
-def _construire_poste_electrique(
-    identifiant: str,
-    coordonnees: list[float],
-    cables_href: str | None = None,
-) -> dict[str, Any]:
-    """Construit une feature poste electrique minimale pour les tests."""
-    props: dict[str, Any] = {"id": identifiant}
-    if cables_href is not None:
-        props["cables_href"] = cables_href
+    if domaine_tension is not None:
+        props["DomaineTension"] = domaine_tension
     return {
         "type": "Feature",
         "properties": props,
@@ -209,111 +197,156 @@ class TestPrioriteGeojsonEcarts:
 
 
 class TestControlerExtremites:
-    """Verifie la validation des extremites de cables."""
+    """Verifie la validation des extremites de cables par cables_href."""
 
     def test_extremite_liee_a_jonction(self) -> None:
-        """Un cable dont les deux extremites sont liees a des jonctions est conforme."""
+        """Un cable reference dans cables_href de jonctions est conforme."""
         cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
-        jonction_depart = _construire_jonction("J1", [0.0, 0.0], cables_href=["C1"])
-        jonction_arrivee = _construire_jonction("J2", [10.0, 0.0], cables_href=["C1"])
+        jonction_depart = _construire_noeud("J1", [0.0, 0.0], cables_href=["C1"])
+        jonction_arrivee = _construire_noeud("J2", [10.0, 0.0], cables_href=["C1"])
         collections_noeuds = {
             "RPD_Jonction_Reco.geojson": [jonction_depart, jonction_arrivee]
         }
 
-        resultats = controler_extremites([cable], collections_noeuds, [])
+        resultats = controler_extremites([cable], collections_noeuds)
 
         assert len(resultats) == 1
         assert resultats[0]["extremite_depart"]["lien_valide"] is True
         assert resultats[0]["extremite_arrivee"]["lien_valide"] is True
 
     def test_extremite_isolee(self) -> None:
-        """Un cable sans entite proche a une extremite non valide."""
+        """Un cable non reference par aucun noeud est non valide."""
         cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
 
-        resultats = controler_extremites([cable], {}, [])
+        resultats = controler_extremites([cable], {})
 
         assert len(resultats) == 1
         assert resultats[0]["extremite_depart"]["lien_valide"] is False
         assert resultats[0]["extremite_arrivee"]["lien_valide"] is False
 
-    def test_retrocompatibilite_sans_postes(self) -> None:
-        """Le controle fonctionne sans postes electriques (parametre optionnel)."""
+    def test_lien_par_cables_href_sans_proximite(self) -> None:
+        """Un noeud eloigne referencant le cable valide l'extremite."""
+        cable = _construire_cable("C1", [[0.0, 0.0], [100.0, 0.0]])
+        # Noeud tres eloigne geometriquement mais referencant le cable
+        noeud = _construire_noeud("N1", [999.0, 999.0], cables_href="C1")
+        collections = {"RPD_Jonction_Reco.geojson": [noeud]}
+
+        resultats = controler_extremites([cable], collections)
+
+        assert resultats[0]["extremite_depart"]["lien_valide"] is True
+        assert resultats[0]["extremite_arrivee"]["lien_valide"] is True
+
+    def test_coupe_circuit_a_fusibles_valide(self) -> None:
+        """Un cable reference par un coupe-circuit a fusibles est conforme."""
         cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
-        jonction = _construire_jonction("J1", [0.0, 0.0], cables_href=["C1"])
-        collections_noeuds = {"RPD_Jonction_Reco.geojson": [jonction]}
+        ccf = _construire_noeud("CCF1", [50.0, 50.0], cables_href="C1")
+        collections = {"RPD_CoupeCircuitAFusibles_Reco.geojson": [ccf]}
 
-        resultats = controler_extremites([cable], collections_noeuds, [])
+        resultats = controler_extremites([cable], collections)
 
-        assert len(resultats) == 1
         assert resultats[0]["extremite_depart"]["lien_valide"] is True
 
+    def test_point_de_comptage_valide(self) -> None:
+        """Un cable reference par un point de comptage est conforme."""
+        cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
+        pdc = _construire_noeud("PDC1", [50.0, 50.0], cables_href="C1")
+        collections = {"RPD_PointDeComptage_Reco.geojson": [pdc]}
 
-# --------------------------------------------------------------------------- #
-# Tests de l'integration des postes electriques
-# --------------------------------------------------------------------------- #
+        resultats = controler_extremites([cable], collections)
 
+        assert resultats[0]["extremite_depart"]["lien_valide"] is True
 
-class TestPostesElectriques:
-    """Verifie l'integration des postes electriques dans le controle."""
-
-    def test_extremite_liee_a_poste_par_cables_href(self) -> None:
-        """Un poste referencant le cable valide l'extremite sans contrainte de distance."""
+    def test_poste_electrique_valide(self) -> None:
+        """Un poste referencant le cable valide l'extremite."""
         cable = _construire_cable("C1", [[0.0, 0.0], [100.0, 0.0]])
-        # Poste eloigne (> seuil de 0.5m) mais referencant le cable
-        poste = _construire_poste_electrique("P1", [50.0, 50.0], cables_href="C1")
+        poste = _construire_noeud("P1", [50.0, 50.0], cables_href="C1")
+        collections = {"RPD_PosteElectrique_Reco.geojson": [poste]}
 
-        resultats = controler_extremites([cable], {}, [], features_postes=[poste])
+        resultats = controler_extremites([cable], collections)
 
-        assert len(resultats) == 1
-        # Les deux extremites sont validees par le poste via cables_href
         assert resultats[0]["extremite_depart"]["lien_valide"] is True
         assert resultats[0]["extremite_arrivee"]["lien_valide"] is True
 
     def test_poste_sans_reference_cable_ne_valide_pas(self) -> None:
         """Un poste qui ne reference pas le cable ne valide pas l'extremite."""
         cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
-        poste = _construire_poste_electrique("P1", [0.0, 0.0], cables_href="AUTRE")
+        poste = _construire_noeud("P1", [0.0, 0.0], cables_href="AUTRE")
+        collections = {"RPD_PosteElectrique_Reco.geojson": [poste]}
 
-        resultats = controler_extremites([cable], {}, [], features_postes=[poste])
+        resultats = controler_extremites([cable], collections)
 
         assert resultats[0]["extremite_depart"]["lien_valide"] is False
 
-    def test_poste_avec_cables_href_csv(self) -> None:
-        """Un poste avec cables_href en CSV valide les cables references."""
+    def test_cables_href_csv(self) -> None:
+        """Un noeud avec cables_href en CSV valide les cables references."""
         cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
-        poste = _construire_poste_electrique("P1", [5.0, 5.0], cables_href="C1,C2,C3")
+        noeud = _construire_noeud("N1", [5.0, 5.0], cables_href="C1,C2,C3")
+        collections = {"RPD_Jonction_Reco.geojson": [noeud]}
 
-        resultats = controler_extremites([cable], {}, [], features_postes=[poste])
+        resultats = controler_extremites([cable], collections)
 
         assert resultats[0]["extremite_depart"]["lien_valide"] is True
 
-    def test_entite_liee_type_poste_electrique(self) -> None:
-        """L'entite liee de type poste porte le bon type et la distance informative."""
+    def test_entite_liee_type_correct(self) -> None:
+        """L'entite liee porte le bon type et identifiant."""
         cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
-        poste = _construire_poste_electrique("P1", [3.0, 4.0], cables_href="C1")
+        noeud = _construire_noeud("J1", [3.0, 4.0], cables_href="C1")
+        collections = {"RPD_Jonction_Reco.geojson": [noeud]}
 
-        resultats = controler_extremites([cable], {}, [], features_postes=[poste])
+        resultats = controler_extremites([cable], collections)
 
-        entites_depart = resultats[0]["extremite_depart"]["entites_liees"]
-        assert len(entites_depart) == 1
-        assert entites_depart[0]["type"] == "PosteElectrique"
-        assert entites_depart[0]["id"] == "P1"
-        assert abs(entites_depart[0]["distance"] - 5.0) < 1e-9
+        entites = resultats[0]["extremite_depart"]["entites_liees"]
+        assert len(entites) == 1
+        assert entites[0]["type"] == "Jonction"
+        assert entites[0]["id"] == "J1"
+        assert "distance" not in entites[0]
 
-    def test_jonction_csv_et_poste_combines(self) -> None:
-        """Jonction (cables_href CSV) et poste valident des extremites differentes."""
-        cable = _construire_cable("C1", [[0.0, 0.0], [100.0, 0.0]])
-        jonction = _construire_jonction("J1", [0.0, 0.0], cables_href="C1,C2")
-        poste = _construire_poste_electrique("P1", [200.0, 200.0], cables_href="C1")
-        collections_noeuds = {"RPD_Jonction_Reco.geojson": [jonction]}
-
-        resultats = controler_extremites(
-            [cable], collections_noeuds, [], features_postes=[poste]
+    def test_domaine_tension_propage(self) -> None:
+        """Le domaine de tension est propage dans l'entite liee."""
+        cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
+        noeud = _construire_noeud(
+            "J1", [0.0, 0.0], cables_href="C1", domaine_tension="BT"
         )
+        collections = {"RPD_Jonction_Reco.geojson": [noeud]}
 
-        # Depart: lie par jonction (proche + href) ET poste (href seul)
+        resultats = controler_extremites([cable], collections)
+
+        entites = resultats[0]["extremite_depart"]["entites_liees"]
+        assert entites[0]["domaine_tension"] == "BT"
+
+    def test_jonction_et_poste_combines(self) -> None:
+        """Jonction et poste referencant le meme cable apparaissent tous les deux."""
+        cable = _construire_cable("C1", [[0.0, 0.0], [100.0, 0.0]])
+        jonction = _construire_noeud("J1", [0.0, 0.0], cables_href="C1")
+        poste = _construire_noeud("P1", [200.0, 200.0], cables_href="C1")
+        collections = {
+            "RPD_Jonction_Reco.geojson": [jonction],
+            "RPD_PosteElectrique_Reco.geojson": [poste],
+        }
+
+        resultats = controler_extremites([cable], collections)
+
         assert resultats[0]["extremite_depart"]["lien_valide"] is True
-        # Arrivee: lie par poste uniquement (href seul, sans contrainte de distance)
+        assert resultats[0]["extremite_arrivee"]["lien_valide"] is True
+        # Les deux entites sont presentes
+        entites = resultats[0]["extremite_depart"]["entites_liees"]
+        types = {e["type"] for e in entites}
+        assert "Jonction" in types
+        assert "PosteElectrique" in types
+
+    def test_types_noeuds_multiples(self) -> None:
+        """Differents types de noeuds peuvent valider un meme cable."""
+        cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
+        ccf = _construire_noeud("CCF1", [0.0, 0.0], cables_href="C1")
+        pdc = _construire_noeud("PDC1", [10.0, 0.0], cables_href="C1")
+        collections = {
+            "RPD_CoupeCircuitAFusibles_Reco.geojson": [ccf],
+            "RPD_PointDeComptage_Reco.geojson": [pdc],
+        }
+
+        resultats = controler_extremites([cable], collections)
+
+        assert resultats[0]["extremite_depart"]["lien_valide"] is True
         assert resultats[0]["extremite_arrivee"]["lien_valide"] is True
 
 
@@ -374,7 +407,7 @@ class TestExecuterControleCli:
     def test_cli_avec_poste_electrique(self, tmp_path: Any) -> None:
         """Le CLI charge et utilise les postes electriques."""
         cable = _construire_cable("C1", [[0.0, 0.0], [100.0, 0.0]])
-        poste = _construire_poste_electrique("P1", [50.0, 50.0], cables_href="C1")
+        poste = _construire_noeud("P1", [50.0, 50.0], cables_href="C1")
 
         for nom, donnees in [
             (
@@ -398,5 +431,34 @@ class TestExecuterControleCli:
             rapport = json.load(f)
 
         # Le cable est conforme grace au poste
+        assert rapport["cables_conformes"] == 1
+        assert rapport["cables_non_conformes"] == 0
+
+    def test_cli_avec_coupe_circuit_a_fusibles(self, tmp_path: Any) -> None:
+        """Le CLI charge et utilise les coupe-circuits a fusibles."""
+        cable = _construire_cable("C1", [[0.0, 0.0], [10.0, 0.0]])
+        ccf = _construire_noeud("CCF1", [50.0, 50.0], cables_href="C1")
+
+        for nom, donnees in [
+            (
+                "RPD_CableElectrique_Reco.geojson",
+                {"type": "FeatureCollection", "features": [cable]},
+            ),
+            (
+                "RPD_CoupeCircuitAFusibles_Reco.geojson",
+                {"type": "FeatureCollection", "features": [ccf]},
+            ),
+        ]:
+            chemin = os.path.join(str(tmp_path), nom)
+            with open(chemin, "w", encoding="utf-8") as f:
+                json.dump(donnees, f)
+
+        resultat = executer_controle_cli(str(tmp_path))
+        assert resultat["succes"] is True
+
+        chemin_rapport = resultat["rapport"]
+        with open(chemin_rapport, "r", encoding="utf-8") as f:
+            rapport = json.load(f)
+
         assert rapport["cables_conformes"] == 1
         assert rapport["cables_non_conformes"] == 0

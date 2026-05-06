@@ -1,0 +1,997 @@
+{
+  "version": "V1.1",
+  "objets": {
+    "Câble": {
+      "section": "12.1",
+      "types": {
+        "DomaineTensionValue": {
+          "categorie": "Enumeration",
+          "section": "12.1.1",
+          "valeurs": [
+            {
+              "valeur": "BT",
+              "alias": "Basse Tension"
+            },
+            {
+              "valeur": "HTA",
+              "alias": "Haute Tension A"
+            },
+            {
+              "valeur": "HTB",
+              "alias": "Haute Tension B"
+            },
+            {
+              "valeur": "Inconnu",
+              "alias": "Tension inconnue (ouvrages désaffectés par exemple)"
+            },
+            {
+              "valeur": "TBT",
+              "alias": "Très Basse Tension"
+            }
+          ]
+        },
+        "IsolantValueReco": {
+          "categorie": "Enumeration",
+          "section": "12.1.2",
+          "valeurs": [
+            {
+              "valeur": "Thermodurcissable",
+              "alias": "Isolation thermodurcissable"
+            },
+            {
+              "valeur": "Reticulee",
+              "alias": "Isolation réticulée"
+            },
+            {
+              "valeur": "Nu",
+              "alias": "Câble sans isolant"
+            }
+          ]
+        },
+        "CableMaterialTypeValue": {
+          "categorie": "Enumeration",
+          "section": "12.1.3",
+          "valeurs": [
+            {
+              "valeur": "Alu",
+              "alias": "Aluminium"
+            },
+            {
+              "valeur": "Cuivre",
+              "alias": "Cuivre"
+            },
+            {
+              "valeur": "Alm",
+              "alias": "Almélec (câble uniforme d'alliage d'aluminium AAAC)"
+            },
+            {
+              "valeur": "AluAcier",
+              "alias": "Alu-Acier (câble bimétallique ACSR)"
+            },
+            {
+              "valeur": "AlmAcier",
+              "alias": "Alm-Acier (câble bimétallique AACSR)"
+            }
+          ]
+        },
+        "HierarchieBTValue": {
+          "categorie": "Enumeration",
+          "section": "12.1.4",
+          "valeurs": [
+            {
+              "valeur": "Reseau",
+              "alias": "Réseau"
+            },
+            {
+              "valeur": "LiaisonReseau",
+              "alias": "Liaison Réseau du branchement"
+            },
+            {
+              "valeur": "DerivationIndividuelle",
+              "alias": "Dérivation Individuelle du branchement"
+            },
+            {
+              "valeur": "TronconCommun",
+              "alias": "Tronçon Commun du collectif"
+            }
+          ]
+        },
+        "ConditionOfFacilityValueReco": {
+          "categorie": "Enumeration",
+          "section": "12.1.5",
+          "valeurs": [
+            {
+              "valeur": "Decommissioned",
+              "alias": "Hors service"
+            },
+            {
+              "valeur": "Dismantled",
+              "alias": "Déposé"
+            },
+            {
+              "valeur": "Functional",
+              "alias": "En service"
+            },
+            {
+              "valeur": "UnderCommissionning",
+              "alias": "En attente de mise en service"
+            },
+            {
+              "valeur": "Projected",
+              "alias": "En projet"
+            }
+          ]
+        },
+        "FonctionCableElectriqueValue": {
+          "categorie": "CodeList",
+          "section": "12.1.6",
+          "valeurs": [
+            {
+              "valeur": "Autre",
+              "alias": "Autre"
+            },
+            {
+              "valeur": "Communication",
+              "alias": "Communication"
+            },
+            {
+              "valeur": "DistributionEnergie",
+              "alias": "Distribution d'énergie"
+            },
+            {
+              "valeur": "MiseTerre",
+              "alias": "Mise à la terre"
+            },
+            {
+              "valeur": "Equipotentialite",
+              "alias": "Equipotentialité"
+            },
+            {
+              "valeur": "MaltEquipot",
+              "alias": "Mise à la terre & équipotentialité"
+            },
+            {
+              "valeur": "ProtectionCathodique",
+              "alias": "Protection cathodique"
+            },
+            {
+              "valeur": "TransportEnergie",
+              "alias": "Transport de l'énergie"
+            }
+          ]
+        },
+        "FonctionTelecomValue": {
+          "categorie": "CodeList",
+          "section": "12.1.7",
+          "valeurs": [
+            {
+              "valeur": "RRTT",
+              "alias": "Réseau Régional de Télétransmission"
+            },
+            {
+              "valeur": "TLC",
+              "alias": "Téléconduite (fonctions de pilotage et de supervision de l’état des postes HTA /BT)"
+            }
+          ]
+        },
+        "TelecomCableTechnoValue": {
+          "categorie": "Autre",
+          "section": "12.1.8",
+          "valeurs": [
+            {
+              "valeur": "Cuivre",
+              "alias": "Cable en cuivre"
+            },
+            {
+              "valeur": "Fibre",
+              "alias": "Fibre optique"
+            }
+          ]
+        },
+        "ConducteurProtectionValue": {
+          "categorie": "CodeList",
+          "section": "12.1.9",
+          "valeurs": [
+            {
+              "valeur": "CuivreNu",
+              "alias": "Cuivre nu"
+            },
+            {
+              "valeur": "CuivreIsol",
+              "alias": "Cuivre isolé"
+            },
+            {
+              "valeur": "Sans",
+              "alias": "Sans"
+            },
+            {
+              "valeur": "VertJaune",
+              "alias": "Vert-jaune"
+            }
+          ]
+        },
+        "RaccordementValue": {
+          "categorie": "Autre",
+          "section": "12.1.10",
+          "valeurs": [
+            {
+              "valeur": "Raccorde",
+              "alias": "Raccordé à une Unité Fonctionnelle ou à une émergence"
+            },
+            {
+              "valeur": "Capote",
+              "alias": "Capoté"
+            },
+            {
+              "valeur": "CapoteCCMALT",
+              "alias": "Capoté, en court-circuit et mis à la terre"
+            },
+            {
+              "valeur": "EpanouiIsoleCapote",
+              "alias": "Epanoui, isolé et capoté"
+            },
+            {
+              "valeur": "EpanouiIsoleMALT",
+              "alias": "Epanoui, isolé et mis à la terre"
+            },
+            {
+              "valeur": "Ancre",
+              "alias": "Ancré à un armement"
+            },
+            {
+              "valeur": "PiedSupport",
+              "alias": "En attente au pied du support, repris mécaniquement par un crayon"
+            }
+          ]
+        }
+      }
+    },
+    "Cheminement": {
+      "section": "12.2",
+      "types": {
+        "ProtectionMaterialTypeValueReco": {
+          "categorie": "Enumeration",
+          "section": "12.2.1",
+          "valeurs": [
+            {
+              "valeur": "CastIron",
+              "alias": "Fonte"
+            },
+            {
+              "valeur": "Concrete",
+              "alias": "Béton"
+            },
+            {
+              "valeur": "Masonry",
+              "alias": "Maçonnerie"
+            },
+            {
+              "valeur": "Other",
+              "alias": "Autre"
+            },
+            {
+              "valeur": "PE",
+              "alias": "Polyéthylène (PE)"
+            },
+            {
+              "valeur": "PEX",
+              "alias": "Polyéthylène réticulé à haute densité (PEX)"
+            },
+            {
+              "valeur": "PVC",
+              "alias": "PVC"
+            },
+            {
+              "valeur": "Steel",
+              "alias": "Acier"
+            }
+          ]
+        },
+        "ClassePrecisionReseauValue": {
+          "categorie": "Enumeration",
+          "section": "12.2.2",
+          "valeurs": [
+            {
+              "valeur": "A",
+              "alias": "Classe A"
+            },
+            {
+              "valeur": "B",
+              "alias": "Classe B"
+            },
+            {
+              "valeur": "C",
+              "alias": "Classe C"
+            }
+          ]
+        },
+        "EtatCoupeTypeValueReco": {
+          "categorie": "Enumeration",
+          "section": "12.2.3",
+          "valeurs": [
+            {
+              "valeur": "Provisoire",
+              "alias": "Provisoire"
+            },
+            {
+              "valeur": "Definitive",
+              "alias": "Définitive"
+            }
+          ]
+        },
+        "ModePoseValue": {
+          "categorie": "Enumeration",
+          "section": "12.2.4",
+          "valeurs": [
+            {
+              "valeur": "EnFacade",
+              "alias": "En façade"
+            },
+            {
+              "valeur": "Supporte",
+              "alias": "Supporté"
+            },
+            {
+              "valeur": "SurLeSol",
+              "alias": "Sur le sol"
+            }
+          ]
+        }
+      }
+    },
+    "Conteneur": {
+      "section": "12.3",
+      "types": {
+        "ImplantationArmoireValue": {
+          "categorie": "CodeList",
+          "section": "12.3.1",
+          "valeurs": [
+            {
+              "valeur": "Encastree",
+              "alias": "Encastrée"
+            },
+            {
+              "valeur": "IntegreeDansLocal",
+              "alias": "Intégrée dans le local"
+            },
+            {
+              "valeur": "Saillie",
+              "alias": "Saillie"
+            },
+            {
+              "valeur": "SurSocleAluminium",
+              "alias": "Sur socle en aluminium"
+            },
+            {
+              "valeur": "SurSocleBeton",
+              "alias": "Sur socle béton"
+            },
+            {
+              "valeur": "SurSoclePolyester",
+              "alias": "Sur socle polyester"
+            }
+          ]
+        },
+        "TypeCoffretValue": {
+          "categorie": "CodeList",
+          "section": "12.3.2",
+          "valeurs": [
+            {
+              "valeur": "RMBT300",
+              "alias": "Coffret RMBT 300 (6 plages)"
+            },
+            {
+              "valeur": "RMBT450",
+              "alias": "Coffret RMBT 450 (9 plages)"
+            },
+            {
+              "valeur": "RMBT600",
+              "alias": "Coffret RMBT 600 (12 plages)"
+            },
+            {
+              "valeur": "CIBE",
+              "alias": "Coffret Individuel de Branchement Electrique"
+            },
+            {
+              "valeur": "CGV",
+              "alias": "Coffret Individuel de Branchement Electrique Grand Volume"
+            },
+            {
+              "valeur": "ECP2D",
+              "alias": "Coffret ECP2D"
+            },
+            {
+              "valeur": "ECP3D",
+              "alias": "Coffret ECP3D"
+            },
+            {
+              "valeur": "ArmoireComptage",
+              "alias": "Armoire de comptage"
+            },
+            {
+              "valeur": "Telecom",
+              "alias": "Coffret de télécommunication"
+            },
+            {
+              "valeur": "Autre",
+              "alias": "Type de coffret non listé (anciens standards)"
+            }
+          ]
+        },
+        "FonctionCoffretValue": {
+          "categorie": "CodeList",
+          "section": "12.3.3",
+          "valeurs": [
+            {
+              "valeur": "Manoeuvrable",
+              "alias": "Coffret manœuvrable en charge grâce à la présence d’un moyen de coupure dans le coffret (couteau ou fusible)"
+            },
+            {
+              "valeur": "Separable",
+              "alias": "Tous les autres cas. Nécessité de dévisser les raccords pour séparer un câble (travaux hors charge)"
+            }
+          ]
+        },
+        "NatureSupportValue": {
+          "categorie": "CodeList",
+          "section": "12.3.4",
+          "valeurs": [
+            {
+              "valeur": "Poteau",
+              "alias": "Tous types de poteau dédié au supportage de réseau"
+            },
+            {
+              "valeur": "Facade",
+              "alias": "Mur ou façade de bâti"
+            },
+            {
+              "valeur": "Autre",
+              "alias": "Tout autre type de support"
+            }
+          ]
+        },
+        "MatiereValue": {
+          "categorie": "CodeList",
+          "section": "12.3.5",
+          "valeurs": [
+            {
+              "valeur": "Autre",
+              "alias": "Autre"
+            },
+            {
+              "valeur": "Beton",
+              "alias": "Béton"
+            },
+            {
+              "valeur": "Bois",
+              "alias": "Bois"
+            },
+            {
+              "valeur": "Metal",
+              "alias": "Métal"
+            }
+          ]
+        },
+        "ClasseSupportValue": {
+          "categorie": "CodeList",
+          "section": "12.3.6",
+          "valeurs": [
+            {
+              "valeur": "A",
+              "alias": "Ancien poteau béton simple"
+            },
+            {
+              "valeur": "B",
+              "alias": "Ancien poteau béton simple"
+            },
+            {
+              "valeur": "C",
+              "alias": "Ancien poteau béton simple"
+            },
+            {
+              "valeur": "CFX",
+              "alias": "Contrefiché bois calé"
+            },
+            {
+              "valeur": "CFY",
+              "alias": "Contrefiché bois"
+            },
+            {
+              "valeur": "CFZ",
+              "alias": "Contrefiché bois"
+            },
+            {
+              "valeur": "CH",
+              "alias": "Chevron bois"
+            },
+            {
+              "valeur": "D",
+              "alias": "Béton simple rectangulaire"
+            },
+            {
+              "valeur": "E",
+              "alias": "Béton simple carré"
+            },
+            {
+              "valeur": "ER",
+              "alias": "Béton simple rond"
+            },
+            {
+              "valeur": "HS",
+              "alias": "Haubanné bois"
+            },
+            {
+              "valeur": "JA",
+              "alias": "Ancien poteau béton jumelé"
+            },
+            {
+              "valeur": "JB",
+              "alias": "Ancien poteau béton jumelé"
+            },
+            {
+              "valeur": "JC",
+              "alias": "Ancien poteau béton jumelé"
+            },
+            {
+              "valeur": "JD",
+              "alias": "Béton rectangulaire jumelé"
+            },
+            {
+              "valeur": "JE",
+              "alias": "Béton carré jumelé"
+            },
+            {
+              "valeur": "JER",
+              "alias": "Béton rond jumelé"
+            },
+            {
+              "valeur": "JS",
+              "alias": "Jumelé bois"
+            },
+            {
+              "valeur": "M",
+              "alias": "Simple métallique"
+            },
+            {
+              "valeur": "PA",
+              "alias": "Ancien portique béton"
+            },
+            {
+              "valeur": "PB",
+              "alias": "Ancien portique béton"
+            },
+            {
+              "valeur": "PC",
+              "alias": "Ancien portique béton"
+            },
+            {
+              "valeur": "PCH",
+              "alias": "Portique chevron"
+            },
+            {
+              "valeur": "PCHX",
+              "alias": "Portique chevron croisilloné"
+            },
+            {
+              "valeur": "PD",
+              "alias": "Portique béton rectangulaire"
+            },
+            {
+              "valeur": "PE",
+              "alias": "Portique béton carré"
+            },
+            {
+              "valeur": "PER",
+              "alias": "Portique béton rond"
+            },
+            {
+              "valeur": "PJA",
+              "alias": "Ancien portique jumelé béton"
+            },
+            {
+              "valeur": "PJB",
+              "alias": "Ancien portique jumelé béton"
+            },
+            {
+              "valeur": "PJC",
+              "alias": "Ancien portique jumelé béton"
+            },
+            {
+              "valeur": "PJD",
+              "alias": "Portique jumelé béton rectang."
+            },
+            {
+              "valeur": "PJE",
+              "alias": "Portique jumelé béton carré."
+            },
+            {
+              "valeur": "PJER",
+              "alias": "Portique jumelé béton rond."
+            },
+            {
+              "valeur": "PJS",
+              "alias": "Portique jumelé bois"
+            },
+            {
+              "valeur": "PJX",
+              "alias": "Portique bois jumelé croisillo"
+            },
+            {
+              "valeur": "PM",
+              "alias": "Portique métallique"
+            },
+            {
+              "valeur": "PS",
+              "alias": "Portique bois"
+            },
+            {
+              "valeur": "PX",
+              "alias": "Portique bois croisilloné"
+            },
+            {
+              "valeur": "S",
+              "alias": "Simple bois"
+            }
+          ]
+        }
+      }
+    },
+    "Nœuds": {
+      "section": "12.4",
+      "types": {
+        "TypeJonctionValueReco": {
+          "categorie": "Enumeration",
+          "section": "12.4.1",
+          "valeurs": [
+            {
+              "valeur": "Derivation",
+              "alias": "Dérivation"
+            },
+            {
+              "valeur": "ExtremiteReseau",
+              "alias": "Extrémité du réseau"
+            },
+            {
+              "valeur": "Jonction",
+              "alias": "Jonction"
+            },
+            {
+              "valeur": "RemonteeAeroSouterraine",
+              "alias": "Remontée aéro-souterraine"
+            },
+            {
+              "valeur": "EpanouissementHTA",
+              "alias": "Epanouissement des conducteurs d’un câble HTA"
+            },
+            {
+              "valeur": "Telecom",
+              "alias": "Jonction de câble de télécommunication"
+            }
+          ]
+        },
+        "NatureTerreValue": {
+          "categorie": "CodeList",
+          "section": "12.4.2",
+          "valeurs": [
+            {
+              "valeur": "TerreMasses",
+              "alias": "Terre des masses métalliques"
+            },
+            {
+              "valeur": "TerreNeutre",
+              "alias": "Terre du neutre de la distribution"
+            }
+          ]
+        },
+        "CategoriesPosteValue": {
+          "categorie": "CodeList",
+          "section": "12.4.3",
+          "valeurs": [
+            {
+              "valeur": "Distribution",
+              "alias": "Poste de distribution"
+            },
+            {
+              "valeur": "Manoeuvre",
+              "alias": "Poste de manœuvre"
+            },
+            {
+              "valeur": "PosteSource",
+              "alias": "Poste source"
+            },
+            {
+              "valeur": "RepartitionHTA",
+              "alias": "Poste de répartition HTA"
+            }
+          ]
+        },
+        "TypePosteValue": {
+          "categorie": "CodeList",
+          "section": "12.4.4",
+          "valeurs": [
+            {
+              "valeur": "ACM",
+              "alias": "Armoire de Coupure Manuelle"
+            },
+            {
+              "valeur": "ACMD",
+              "alias": "Armoire de Coupure Manuelle avec Dérivation"
+            },
+            {
+              "valeur": "AC3M",
+              "alias": "Armoire de Coupure à 3 directions Manuelle"
+            },
+            {
+              "valeur": "ACT",
+              "alias": "Armoire de Coupure Télécommandée"
+            },
+            {
+              "valeur": "AC3T",
+              "alias": "Armoire de Coupure à 3 directions Télécommandée"
+            },
+            {
+              "valeur": "CB",
+              "alias": "Cabine Basse"
+            },
+            {
+              "valeur": "CC",
+              "alias": "Cabine de chantier"
+            },
+            {
+              "valeur": "CH",
+              "alias": "Cabine haute"
+            },
+            {
+              "valeur": "IM",
+              "alias": "En Immeuble"
+            },
+            {
+              "valeur": "EN",
+              "alias": "En Terre"
+            },
+            {
+              "valeur": "PSSA",
+              "alias": "Poste au Sol Simplifié de Type A"
+            },
+            {
+              "valeur": "PSSB",
+              "alias": "Poste au Sol Simplifié de Type B"
+            },
+            {
+              "valeur": "PRCS",
+              "alias": "Poste Rural Compact Socle"
+            },
+            {
+              "valeur": "PUIE",
+              "alias": "Poste Urbain Intégré à son Environnement"
+            },
+            {
+              "valeur": "H6",
+              "alias": "Poteau H61"
+            },
+            {
+              "valeur": "PO",
+              "alias": "Poteau non H61"
+            },
+            {
+              "valeur": "RC",
+              "alias": "Rural Compact"
+            },
+            {
+              "valeur": "RS",
+              "alias": "Rural Socle"
+            },
+            {
+              "valeur": "UC",
+              "alias": "Urbain Compact"
+            },
+            {
+              "valeur": "UP",
+              "alias": "Urbain Portable (PAC)"
+            },
+            {
+              "valeur": "GRSC",
+              "alias": "Poste Source Groupe SC (Sans Classification)"
+            },
+            {
+              "valeur": "GR1",
+              "alias": "Poste Source Groupe 1"
+            },
+            {
+              "valeur": "GR2A",
+              "alias": "Poste Source Groupe 2A"
+            },
+            {
+              "valeur": "GR2B",
+              "alias": "Poste Source Groupe 2B"
+            },
+            {
+              "valeur": "GR2C",
+              "alias": "Poste Source Groupe 2C"
+            },
+            {
+              "valeur": "GR2D",
+              "alias": "Poste Source Groupe 2D"
+            },
+            {
+              "valeur": "GR2E",
+              "alias": "Poste Source Groupe 2E"
+            },
+            {
+              "valeur": "GR2F",
+              "alias": "Poste Source Groupe 2F"
+            },
+            {
+              "valeur": "GR3",
+              "alias": "Poste Source Groupe 3"
+            },
+            {
+              "valeur": "GHTA",
+              "alias": "Poste de répartition HTA"
+            }
+          ]
+        }
+      }
+    },
+    "PLOR": {
+      "section": "12.5",
+      "types": {
+        "LeveTypeValue": {
+          "categorie": "Enumeration",
+          "section": "12.5.1",
+          "valeurs": [
+            {
+              "valeur": "AltitudeGeneratrice",
+              "alias": "Altitude à la génératrice"
+            },
+            {
+              "valeur": "ChargeGeneratrice",
+              "alias": "Charge à la génératrice"
+            }
+          ]
+        }
+      }
+    },
+    "Métadonnées": {
+      "section": "12.6",
+      "types": {
+        "SRSValue": {
+          "categorie": "Enumeration",
+          "section": "12.6.1",
+          "valeurs": [
+            {
+              "valeur": "EPSG:3942",
+              "alias": "CC42"
+            },
+            {
+              "valeur": "EPSG:3943",
+              "alias": "CC43"
+            },
+            {
+              "valeur": "EPSG:3944",
+              "alias": "CC44"
+            },
+            {
+              "valeur": "EPSG:3945",
+              "alias": "CC45"
+            },
+            {
+              "valeur": "EPSG:3946",
+              "alias": "CC46"
+            },
+            {
+              "valeur": "EPSG:3947",
+              "alias": "CC47"
+            },
+            {
+              "valeur": "EPSG:3948",
+              "alias": "CC48"
+            },
+            {
+              "valeur": "EPSG:3949",
+              "alias": "CC49"
+            },
+            {
+              "valeur": "EPSG:3950",
+              "alias": "CC50"
+            },
+            {
+              "valeur": "EPSG:9842",
+              "alias": "CC42 V2b"
+            },
+            {
+              "valeur": "EPSG:9843",
+              "alias": "CC43 V2b"
+            },
+            {
+              "valeur": "EPSG:9844",
+              "alias": "CC44 V2b"
+            },
+            {
+              "valeur": "EPSG:9845",
+              "alias": "CC45 V2b"
+            },
+            {
+              "valeur": "EPSG:9846",
+              "alias": "CC46 V2b"
+            },
+            {
+              "valeur": "EPSG:9847",
+              "alias": "CC47 V2b"
+            },
+            {
+              "valeur": "EPSG:9848",
+              "alias": "CC48 V2b"
+            },
+            {
+              "valeur": "EPSG:9849",
+              "alias": "CC49 V2b"
+            },
+            {
+              "valeur": "EPSG:9850",
+              "alias": "CC50 V2b"
+            },
+            {
+              "valeur": "EPSG:2154",
+              "alias": "RGF93LAMB93"
+            },
+            {
+              "valeur": "EPSG:9794",
+              "alias": "RGF93LAMB93 V2b"
+            },
+            {
+              "valeur": "EPSG:5490",
+              "alias": "RGAF09UTM20"
+            },
+            {
+              "valeur": "EPSG:2972",
+              "alias": "RGFG95UTM22"
+            },
+            {
+              "valeur": "EPSG:2975",
+              "alias": "RGR92UTM40S"
+            },
+            {
+              "valeur": "EPSG:4471",
+              "alias": "RGM04UTM38S"
+            },
+            {
+              "valeur": "EPSG:4467",
+              "alias": "RGSPM06U21"
+            }
+          ]
+        },
+        "NatureReseauValue": {
+          "categorie": "Autre",
+          "section": "12.6.2",
+          "valeurs": [
+            {
+              "valeur": "ELEC",
+              "alias": "Electricité"
+            },
+            {
+              "valeur": "ELECECL",
+              "alias": "Eclairage public"
+            },
+            {
+              "valeur": "ELECSLT",
+              "alias": "Signalisation électrique tricolore basse tension"
+            },
+            {
+              "valeur": "ELECTRD",
+              "alias": "Electricité transport/distribution"
+            },
+            {
+              "valeur": "MULT",
+              "alias": "Multi réseaux"
+            },
+            {
+              "valeur": "INC",
+              "alias": "Non défini"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

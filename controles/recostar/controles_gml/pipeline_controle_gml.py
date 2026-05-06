@@ -1,18 +1,17 @@
 """
-Pipeline de controle des noeuds du reseau electrique.
+Pipeline de controle des fichiers GML/GeoJSON.
 
-Orchestre l'execution sequentielle de l'ensemble des controles des noeuds
-puis genere un rapport PDF de synthese. Chaque controle est execute via sa
-fonction `executer_controle_cli` et les resultats sont centralises.
+Orchestre l'execution sequentielle de l'ensemble des controles GML
+et centralise les resultats. Chaque controle est execute via sa
+fonction `executer_controle_cli`.
 
 Controles enchaines :
-    1. Extremites des cables (controle_extremites)
-    2. Domaine de tension (controle_domaine_tension)
-    3. Coherence terre (controle_coherence_terre)
-    4. Generation du rapport PDF (rapport_pdf_noeud)
+    1. Unicite des identifiants (controle_unicite_id)
+    2. Conformite des valeurs aux listes XSD (controle_valeur_xsd)
+    3. Generation du rapport PDF (rapport_pdf_gml)
 
 Usage CLI :
-    python pipeline_controle_noeud.py --repertoire <chemin> [--sortie <chemin>]
+    python pipeline_controle_gml.py --repertoire <chemin> [--sortie <chemin>]
 """
 
 from __future__ import annotations
@@ -23,23 +22,9 @@ import os
 import sys
 from typing import Any
 
-from controle_coherence_terre import (
-    executer_controle_cli as executer_controle_terre,
-)
-from controle_domaine_tension import (
-    executer_controle_cli as executer_controle_tension,
-)
-from controle_extremites import (
-    executer_controle_cli as executer_controle_extremites,
-)
-from rapport_pdf_noeud import executer_rapport_cli
-
-# Noms des controles dans l'ordre d'execution
-NOMS_CONTROLES: tuple[str, ...] = (
-    "controle_extremites",
-    "controle_domaine_tension",
-    "controle_coherence_terre",
-)
+from controle_unicite_id import executer_controle_cli as executer_controle_unicite
+from controle_valeur_xsd import executer_controle_cli as executer_controle_valeur_xsd
+from rapport_pdf_gml import executer_rapport_cli
 
 
 def _compter_anomalies_depuis_ecarts(chemin_ecarts: str) -> int:
@@ -55,11 +40,10 @@ def executer_pipeline(
     repertoire: str,
     sortie: str | None = None,
 ) -> dict[str, Any]:
-    """Execute l'ensemble des controles des noeuds puis genere le rapport.
+    """Execute l'ensemble des controles GML et centralise les resultats.
 
     Chaque controle est execute independamment ; un echec n'empeche pas
-    l'execution des controles suivants. Le rapport PDF est genere dans
-    le repertoire de sortie, en lisant les fichiers d'ecarts produits.
+    l'execution des controles suivants.
     """
     if not os.path.isdir(repertoire):
         return {"succes": False, "erreur": f"Repertoire introuvable : {repertoire}"}
@@ -67,11 +51,10 @@ def executer_pipeline(
     dossier_sortie = sortie if sortie is not None else repertoire
     os.makedirs(dossier_sortie, exist_ok=True)
 
-    # Association nom → fonction d'execution
+    # Association nom -> fonction d'execution
     fonctions_controles: tuple[tuple[str, Any], ...] = (
-        ("controle_extremites", executer_controle_extremites),
-        ("controle_domaine_tension", executer_controle_tension),
-        ("controle_coherence_terre", executer_controle_terre),
+        ("controle_unicite_id", executer_controle_unicite),
+        ("controle_valeur_xsd", executer_controle_valeur_xsd),
     )
 
     resultats_controles: dict[str, dict[str, Any]] = {}
@@ -81,7 +64,14 @@ def executer_pipeline(
         resultat = fonction(repertoire, dossier_sortie)
         resultats_controles[nom] = resultat
 
-        if resultat.get("succes") and "ecarts" in resultat:
+        if not resultat.get("succes"):
+            continue
+
+        # Comptage : utiliser le nombre direct si disponible, sinon compter
+        # depuis le fichier d'ecarts (unicite_id ne fournit pas nombre_anomalies)
+        if "nombre_anomalies" in resultat:
+            nb_anomalies_total += resultat["nombre_anomalies"]
+        elif "ecarts" in resultat:
             nb_anomalies_total += _compter_anomalies_depuis_ecarts(resultat["ecarts"])
 
     # Le rapport PDF lit les fichiers d'ecarts dans le dossier de sortie
@@ -96,9 +86,9 @@ def executer_pipeline(
 
 
 def main() -> None:
-    """Point d'entree CLI du pipeline de controles des noeuds."""
+    """Point d'entree CLI du pipeline de controles GML."""
     parseur = argparse.ArgumentParser(
-        description="Pipeline de controle des noeuds du reseau electrique"
+        description="Pipeline de controle des fichiers GML/GeoJSON"
     )
     parseur.add_argument(
         "--repertoire",

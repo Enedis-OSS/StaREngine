@@ -62,13 +62,13 @@ class TestExecuterPipeline:
     """Verifie l'orchestration complete du pipeline."""
 
     def test_pipeline_complet(self, tmp_path: Any) -> None:
-        """Le pipeline execute les 4 controles et genere le rapport PDF."""
+        """Le pipeline execute les 3 controles et genere le rapport PDF."""
         _preparer_donnees_minimales(str(tmp_path))
 
         resultat = executer_pipeline(str(tmp_path))
 
         assert resultat["succes"] is True
-        assert len(resultat["controles"]) == 4
+        assert len(resultat["controles"]) == 3
 
         for nom, ctrl in resultat["controles"].items():
             assert ctrl["succes"] is True, f"Echec du controle {nom}"
@@ -95,7 +95,6 @@ class TestExecuterPipeline:
 
         # Verifier que les fichiers d'ecarts sont dans le dossier de sortie
         fichiers_sortie = set(os.listdir(repertoire_sortie))
-        assert "ecarts_geometrie.geojson" in fichiers_sortie
         assert "rapport_controles_noeud.pdf" in fichiers_sortie
 
     def test_pipeline_sortie_par_defaut(self, tmp_path: Any) -> None:
@@ -107,7 +106,6 @@ class TestExecuterPipeline:
         assert resultat["succes"] is True
         fichiers = set(os.listdir(str(tmp_path)))
         assert "rapport_controles_noeud.pdf" in fichiers
-        assert "ecarts_geometrie.geojson" in fichiers
 
     def test_pipeline_compte_anomalies(self, tmp_path: Any) -> None:
         """Le nombre total d'anomalies est correctement agrege."""

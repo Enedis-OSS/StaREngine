@@ -1969,6 +1969,126 @@ class TestEtiquetteEtEtatAvantRaccordement:
 
 
 # ============================================================
+# Tests filtrage par DomaineTension lors de la propagation conteneur
+# ============================================================
+
+
+class TestPropagationCablesParTension:
+    """Tests pour le filtrage par DomaineTension propre aux jonctions
+    dans la propagation des câbles via conteneur partagé.
+    """
+
+    def _creer_cable(self, id_cable: str, tension: str) -> dict:
+        """Fabrique une feature câble minimale pour tests."""
+        return {"properties": {"id": id_cable, "DomaineTension": tension}}
+
+    def _creer_jonction(
+        self, id_jonction: str, tension: str, conteneur: str, cables_href: str = ""
+    ) -> dict:
+        """Fabrique une feature jonction minimale pour tests."""
+        props = {
+            "id": id_jonction,
+            "DomaineTension": tension,
+            "conteneur_href": conteneur,
+        }
+        if cables_href:
+            props["cables_href"] = cables_href
+        return {"properties": props}
+
+    def test_jonction_bt_ne_recoit_pas_cables_hta(self):
+        """Une jonction BT partageant un conteneur avec un support HTA ne doit
+        pas voir le câble HTA propagé dans son cables_href."""
+        converter = GMLConverter()
+        conteneur = "conteneur_partage"
+        cable_hta = "cable_hta"
+        cable_bt = "cable_bt"
+
+        features_by_type = {
+            "RPD_CableElectrique_Reco": [
+                self._creer_cable(cable_hta, "HTA"),
+                self._creer_cable(cable_bt, "BT"),
+            ],
+            "RPD_Jonction_Reco": [
+                self._creer_jonction("jonction_bt", "BT", conteneur, cable_bt),
+            ],
+            "RPD_SupportModules_Reco": [
+                {
+                    "properties": {
+                        "id": "support_hta",
+                        "conteneur_href": conteneur,
+                        "cables_href": cable_hta,
+                    }
+                }
+            ],
+        }
+
+        converter._propager_cables_dans_conteneurs(features_by_type)
+
+        props_jonction = features_by_type["RPD_Jonction_Reco"][0]["properties"]
+        assert props_jonction["cables_href"] == cable_bt
+
+    def test_jonction_sans_cable_compatible_perd_cables_href(self):
+        """Si aucun câble du conteneur n'a le bon DomaineTension, la jonction
+        ne doit plus exposer cables_href (évite l'incohérence aval)."""
+        converter = GMLConverter()
+        conteneur = "conteneur_x"
+
+        features_by_type = {
+            "RPD_CableElectrique_Reco": [self._creer_cable("cable_hta", "HTA")],
+            "RPD_Jonction_Reco": [
+                self._creer_jonction("jonction_bt", "BT", conteneur, "cable_hta"),
+            ],
+        }
+
+        converter._propager_cables_dans_conteneurs(features_by_type)
+
+        props_jonction = features_by_type["RPD_Jonction_Reco"][0]["properties"]
+        assert "cables_href" not in props_jonction
+
+    def test_propagation_inchangee_pour_autres_noeuds(self):
+        """Les nœuds non-jonctions conservent l'agrégation complète du conteneur."""
+        converter = GMLConverter()
+        conteneur = "conteneur_y"
+
+        features_by_type = {
+            "RPD_CableElectrique_Reco": [
+                self._creer_cable("cable_a", "HTA"),
+                self._creer_cable("cable_b", "BT"),
+            ],
+            "RPD_PosteElectrique_Reco": [
+                {
+                    "properties": {
+                        "id": "poste_1",
+                        "conteneur_href": conteneur,
+                        "cables_href": "cable_a",
+                    }
+                }
+            ],
+            "RPD_SupportModules_Reco": [
+                {
+                    "properties": {
+                        "id": "support_1",
+                        "conteneur_href": conteneur,
+                        "cables_href": "cable_b",
+                    }
+                }
+            ],
+        }
+
+        converter._propager_cables_dans_conteneurs(features_by_type)
+
+        attendu = "cable_a,cable_b"
+        assert (
+            features_by_type["RPD_PosteElectrique_Reco"][0]["properties"]["cables_href"]
+            == attendu
+        )
+        assert (
+            features_by_type["RPD_SupportModules_Reco"][0]["properties"]["cables_href"]
+            == attendu
+        )
+
+
+# ============================================================
 # Tests suppression doublons géographiques PointLeveOuvrageReseau
 # ============================================================
 
@@ -2159,3 +2279,141 @@ class TestSuppressionDoublonsGeographiquesPLOR:
         assert props["PrecisionZnum"] == 10
         assert props["Producteur"] == "TestProd"
         assert props["ChargeGeneratrice"] == pytest.approx(1.5)
+
+    def test_priorite_charge_generatrice_sur_altitude(self):
+        """Vérifie que ChargeGeneratrice est conservée plutôt qu'AltitudeGeneratrice."""
+        converter = GMLConverter()
+        # AltitudeGeneratrice en premier (pas de ChargeGeneratrice)
+        feature_altitude = self._creer_feature_plor(
+            [1.0, 2.0, 3.0], "plor_altitude", {"Producteur": "ProdAlt"}
+        )
+        # ChargeGeneratrice en second
+        feature_charge = self._creer_feature_plor(
+            [1.0, 2.0, 3.0],
+            "plor_charge",
+            {"ChargeGeneratrice": 0.8, "Producteur": "ProdCharge"},
+        )
+        features_by_type = {
+            "RPD_PointLeveOuvrageReseau_Reco": [feature_altitude, feature_charge]
+        }
+
+        converter._supprimer_doublons_geographiques_plor(features_by_type)
+
+        resultat = features_by_type["RPD_PointLeveOuvrageReseau_Reco"]
+        assert len(resultat) == 1
+        # L'entité ChargeGeneratrice est conservée malgré sa position
+        assert resultat[0]["properties"]["ogr_pkid"] == "plor_charge"
+        assert resultat[0]["properties"]["ChargeGeneratrice"] == pytest.approx(0.8)
+
+    def test_transfert_proprietes_altitude_vers_charge(self):
+        """Vérifie le transfert des propriétés manquantes lors de la suppression."""
+        converter = GMLConverter()
+        # AltitudeGeneratrice avec des propriétés supplémentaires
+        feature_altitude = self._creer_feature_plor(
+            [5.0, 6.0, 7.0],
+            "plor_altitude",
+            {"Producteur": "ProdAlt", "PrecisionZnum": 10, "Horodatage": "2025-01-15"},
+        )
+        # ChargeGeneratrice sans PrecisionZnum ni Horodatage
+        feature_charge = self._creer_feature_plor(
+            [5.0, 6.0, 7.0],
+            "plor_charge",
+            {"ChargeGeneratrice": 1.2, "Producteur": "ProdCharge"},
+        )
+        features_by_type = {
+            "RPD_PointLeveOuvrageReseau_Reco": [feature_altitude, feature_charge]
+        }
+
+        converter._supprimer_doublons_geographiques_plor(features_by_type)
+
+        resultat = features_by_type["RPD_PointLeveOuvrageReseau_Reco"]
+        assert len(resultat) == 1
+        props = resultat[0]["properties"]
+        # ChargeGeneratrice conservée
+        assert props["ChargeGeneratrice"] == pytest.approx(1.2)
+        # Producteur existant non écrasé
+        assert props["Producteur"] == "ProdCharge"
+        # Propriétés manquantes transférées depuis AltitudeGeneratrice
+        assert props["PrecisionZnum"] == 10
+        assert props["Horodatage"] == "2025-01-15"
+
+    def test_transfert_ne_ecrase_pas_valeurs_existantes(self):
+        """Vérifie que le transfert ne remplace pas les valeurs existantes."""
+        converter = GMLConverter()
+        feature_altitude = self._creer_feature_plor(
+            [1.0, 2.0],
+            "plor_alt",
+            {"PrecisionXYnum": 3, "PrecisionZnum": 5},
+        )
+        feature_charge = self._creer_feature_plor(
+            [1.0, 2.0],
+            "plor_charge",
+            {"ChargeGeneratrice": 0.5, "PrecisionXYnum": 7, "PrecisionZnum": 8},
+        )
+        features_by_type = {
+            "RPD_PointLeveOuvrageReseau_Reco": [feature_altitude, feature_charge]
+        }
+
+        converter._supprimer_doublons_geographiques_plor(features_by_type)
+
+        props = features_by_type["RPD_PointLeveOuvrageReseau_Reco"][0]["properties"]
+        # Valeurs originales de l'entité ChargeGeneratrice conservées
+        assert props["PrecisionXYnum"] == 7
+        assert props["PrecisionZnum"] == 8
+
+    def test_identifiants_non_transferes(self):
+        """Vérifie que fid, ogr_pkid et id ne sont pas transférés."""
+        converter = GMLConverter()
+        feature_altitude = self._creer_feature_plor(
+            [1.0, 2.0], "plor_alt", {"id": "alt_id_123"}
+        )
+        feature_charge = self._creer_feature_plor(
+            [1.0, 2.0], "plor_charge", {"ChargeGeneratrice": 0.3}
+        )
+        features_by_type = {
+            "RPD_PointLeveOuvrageReseau_Reco": [feature_altitude, feature_charge]
+        }
+
+        converter._supprimer_doublons_geographiques_plor(features_by_type)
+
+        props = features_by_type["RPD_PointLeveOuvrageReseau_Reco"][0]["properties"]
+        assert props["ogr_pkid"] == "plor_charge"
+
+    def test_doublons_sans_charge_conserve_premier(self):
+        """Sans ChargeGeneratrice dans aucun doublon, la première occurrence est conservée."""
+        converter = GMLConverter()
+        features_by_type = {
+            "RPD_PointLeveOuvrageReseau_Reco": [
+                self._creer_feature_plor([1.0, 2.0], "plor_premier"),
+                self._creer_feature_plor([1.0, 2.0], "plor_second"),
+            ]
+        }
+
+        converter._supprimer_doublons_geographiques_plor(features_by_type)
+
+        resultat = features_by_type["RPD_PointLeveOuvrageReseau_Reco"]
+        assert len(resultat) == 1
+        assert resultat[0]["properties"]["ogr_pkid"] == "plor_premier"
+
+    def test_multiples_doublons_avec_charge_generatrice(self):
+        """Avec N doublons dont un seul ChargeGeneratrice, celui-ci est conservé."""
+        converter = GMLConverter()
+        features_by_type = {
+            "RPD_PointLeveOuvrageReseau_Reco": [
+                self._creer_feature_plor([10.0, 20.0], "plor_0"),
+                self._creer_feature_plor([10.0, 20.0], "plor_1"),
+                self._creer_feature_plor(
+                    [10.0, 20.0],
+                    "plor_2",
+                    {"ChargeGeneratrice": 2.0, "ChargeGeneratrice_uom": "m"},
+                ),
+                self._creer_feature_plor([10.0, 20.0], "plor_3"),
+            ]
+        }
+
+        converter._supprimer_doublons_geographiques_plor(features_by_type)
+
+        resultat = features_by_type["RPD_PointLeveOuvrageReseau_Reco"]
+        assert len(resultat) == 1
+        assert resultat[0]["properties"]["ogr_pkid"] == "plor_2"
+        assert resultat[0]["properties"]["ChargeGeneratrice"] == pytest.approx(2.0)

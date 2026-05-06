@@ -1,0 +1,7 @@
+﻿# pyproj==3.7.2 is excluded from this file because python-inspector (used by ORT)
+# cannot analyze its setup.py without Cython in the ORT container.
+# pyproj is declared in .ort.yml as a curated package instead.
+defusedxml==0.7.1
+reportlab==4.4.10
+requests==2.32.5
+pytest==9.0.2

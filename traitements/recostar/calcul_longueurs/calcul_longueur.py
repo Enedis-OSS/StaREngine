@@ -56,6 +56,16 @@ FICHIER_JONCTIONS: str = "RPD_Jonction_Reco.geojson"
 FICHIER_POSTES: str = "RPD_PosteElectrique_Reco.geojson"
 FICHIER_AERIEN: str = "RPD_Aerien_Reco.geojson"
 
+# Chemin par defaut du referentiel (relatif a la racine du depot)
+CHEMIN_REFERENTIEL_RELATIF: tuple[str, ...] = (
+    "referentiels",
+    "recostar",
+    "recostar_referentiels_V1_1.json",
+)
+
+# Nom du type enumeratif decrivant le statut dans le referentiel
+TYPE_STATUT_REFERENTIEL: str = "ConditionOfFacilityValueReco"
+
 # Fichiers contenant les noeuds rattaches aux coffrets
 FICHIERS_NOEUDS_COFFRETS: tuple[str, ...] = (
     "RPD_PointDeComptage_Reco.geojson",
@@ -118,24 +128,115 @@ class EntiteReferencee:
         self.type_entite = type_entite
 
 
+# --- Fonctions de chargement du referentiel ---
+
+
+def _resoudre_chemin_referentiel(chemin_explicite: str | None = None) -> str:
+    """Resout le chemin du referentiel : argument explicite ou chemin par defaut.
+
+    Le chemin par defaut remonte depuis le repertoire du script courant
+    jusqu'a la racine du depot pour trouver le fichier referentiel.
+    """
+    if chemin_explicite is not None:
+        return chemin_explicite
+    racine = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(5):
+        candidat = os.path.join(racine, *CHEMIN_REFERENTIEL_RELATIF)
+        if os.path.isfile(candidat):
+            return candidat
+        racine = os.path.dirname(racine)
+    return os.path.join(*CHEMIN_REFERENTIEL_RELATIF)
+
+
+def construire_index_statuts(
+    chemin_referentiel: str | None = None,
+) -> dict[str, str]:
+    """Construit un dictionnaire valeur -> alias pour les statuts de cable.
+
+    Lit le type ConditionOfFacilityValueReco dans l'objet Cable du referentiel.
+    Retourne un dict vide si le fichier ou la structure est absente.
+    """
+    chemin = _resoudre_chemin_referentiel(chemin_referentiel)
+    if not os.path.isfile(chemin):
+        return {}
+
+    with open(chemin, encoding="utf-8") as fichier:
+        referentiel = json.load(fichier)
+
+    cable_types = (
+        referentiel.get("objets", {})
+        .get("Câble", {})
+        .get("types", {})
+        .get(TYPE_STATUT_REFERENTIEL, {})
+    )
+
+    return {
+        entree["valeur"]: entree["alias"]
+        for entree in cable_types.get("valeurs", [])
+        if "valeur" in entree and "alias" in entree
+    }
+
+
 # --- Fonctions de calcul geometrique ---
+
+# Tolerance absolue pour considerer une coordonnee Z comme nulle (marqueur Z=0.0)
+_TOLERANCE_Z: float = 1e-9
+
+
+def _est_valeur_nulle(valeur: float) -> bool:
+    """Verifie si une valeur flottante est consideree comme nulle (Z=0.0)."""
+    return abs(valeur) < _TOLERANCE_Z
+
+
+def _corriger_z_nuls(coordonnees: list[list[float]]) -> list[float]:
+    """Corrige les valeurs Z nulles en les remplacant par le Z valide le plus proche.
+
+    Parcours avant puis arriere pour propager les valeurs Z valides (non nulles)
+    vers les sommets dont Z vaut 0.0. Si aucun Z valide n'est trouve, la valeur
+    reste a 0.0.
+    """
+    nb = len(coordonnees)
+    z_corrige = [coord[2] if len(coord) > 2 else 0.0 for coord in coordonnees]
+
+    _est_z_nul = _est_valeur_nulle
+
+    # Propagation avant : remplacer Z=0.0 par le dernier Z valide rencontre
+    dernier_z_valide = 0.0
+    for i in range(nb):
+        if not _est_z_nul(z_corrige[i]):
+            dernier_z_valide = z_corrige[i]
+        elif not _est_z_nul(dernier_z_valide):
+            z_corrige[i] = dernier_z_valide
+
+    # Propagation arriere : combler les Z=0.0 restants en debut de polyligne
+    dernier_z_valide = 0.0
+    for i in range(nb - 1, -1, -1):
+        if not _est_z_nul(z_corrige[i]):
+            dernier_z_valide = z_corrige[i]
+        elif not _est_z_nul(dernier_z_valide):
+            z_corrige[i] = dernier_z_valide
+
+    return z_corrige
 
 
 def _calculer_longueur_3d(coordonnees: list[list[float]]) -> float:
-    """Calcule la longueur 3D d'une polyligne en sommant les distances entre sommets."""
+    """Calcule la longueur 3D d'une polyligne en sommant les distances entre sommets.
+
+    Les sommets dont la coordonnee Z vaut 0.0 voient leur Z corrige par
+    propagation du Z valide le plus proche (precedent ou suivant) afin
+    d'eviter les longueurs aberrantes causees par des valeurs Z manquantes.
+    """
     longueur = 0.0
     sqrt = math.sqrt
     nb_sommets = len(coordonnees)
+    z_corrige = _corriger_z_nuls(coordonnees)
 
     for i in range(1, nb_sommets):
         precedent = coordonnees[i - 1]
         courant = coordonnees[i]
         dx = courant[0] - precedent[0]
         dy = courant[1] - precedent[1]
-        # Prise en compte de Z si les deux sommets ont une coordonnee Z
-        dz = 0.0
-        if len(courant) > 2 and len(precedent) > 2:
-            dz = courant[2] - precedent[2]
+        dz = z_corrige[i] - z_corrige[i - 1]
         longueur += sqrt(dx * dx + dy * dy + dz * dz)
 
     return longueur
@@ -157,6 +258,35 @@ def _calculer_centroide(anneau: list[list[float]]) -> list[float]:
 
 
 # --- Fonctions d'extraction ---
+
+
+def _extraire_coordonnees_cable(
+    geometrie: dict[str, Any],
+) -> list[list[list[float]]] | None:
+    """Extrait les coordonnees d'un cable depuis sa geometrie.
+
+    Gere les types LineString et MultiLineString. Retourne une liste de
+    polylignes (chaque polyligne etant une liste de sommets). Pour un
+    LineString, retourne une liste contenant une seule polyligne.
+    Retourne None si le type de geometrie n'est pas supporte ou si les
+    coordonnees sont insuffisantes.
+    """
+    type_geo = geometrie.get("type")
+    coordonnees_brutes = geometrie.get("coordinates", [])
+
+    if type_geo == "LineString":
+        polylignes = [coordonnees_brutes]
+    elif type_geo == "MultiLineString":
+        polylignes = coordonnees_brutes
+    else:
+        return None
+
+    # Filtrer les polylignes avec au moins 2 sommets
+    polylignes_valides = [p for p in polylignes if len(p) >= 2]
+    if not polylignes_valides:
+        return None
+
+    return polylignes_valides
 
 
 def _extraire_position_entite(feature: dict[str, Any]) -> list[float] | None:
@@ -390,25 +520,28 @@ def analyser_cable(
     cable: dict[str, Any],
     index_entites: dict[str, list[EntiteReferencee]],
     cables_aeriens: set[str] | None = None,
+    index_statuts: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """Analyse un cable et calcule ses longueurs geographique et electrique.
 
-    Retourne None si le cable n'a pas de geometrie LineString valide.
+    Retourne None si le cable n'a pas de geometrie LineString ou MultiLineString
+    valide. Le champ statut est traduit en alias via index_statuts.
     """
     id_cable = obtenir_id_feature(cable)
     if id_cable is None:
         return None
 
     geometrie = cable.get("geometry", {})
-    if geometrie.get("type") != "LineString":
+    polylignes = _extraire_coordonnees_cable(geometrie)
+    if polylignes is None:
         return None
 
-    coordonnees = geometrie.get("coordinates", [])
-    if len(coordonnees) < 2:
-        return None
+    # Longueur geographique 3D (somme des sous-lignes)
+    longueur_geo = sum(_calculer_longueur_3d(pl) for pl in polylignes)
 
-    # Longueur geographique 3D
-    longueur_geo = _calculer_longueur_3d(coordonnees)
+    # Extremites globales du cable (premier sommet / dernier sommet)
+    premier_sommet = polylignes[0][0]
+    dernier_sommet = polylignes[-1][-1]
 
     # Domaine de tension du cable
     proprietes = cable.get("properties", {})
@@ -417,21 +550,31 @@ def analyser_cable(
     # Hierarchie BT (uniquement pour les cables BT)
     hierarchie_bt = proprietes.get("HierarchieBT", "")
 
-    # Recherche des entites connectees et calcul des corrections
-    entites_liees = index_entites.get(str(id_cable), [])
-    corrections = calculer_corrections_cable(
-        coordonnees[0], coordonnees[-1], entites_liees, domaine_tension
-    )
+    # Detection du caractere aerien du cable
+    ensemble_aeriens = cables_aeriens if cables_aeriens is not None else set()
+    est_aerien = str(id_cable) in ensemble_aeriens
+
+    # Corrections aux extremites (Poste, Coffret, RAS) : exclues pour les cables aeriens
+    corrections = ResultatCorrections()
+    if not est_aerien:
+        entites_liees = index_entites.get(str(id_cable), [])
+        corrections = calculer_corrections_cable(
+            premier_sommet, dernier_sommet, entites_liees, domaine_tension
+        )
 
     # Correction aerienne (pourcentage de la longueur geographique)
     correction_aerien = 0.0
     taux_aerien = 0.0
-    ensemble_aeriens = cables_aeriens if cables_aeriens is not None else set()
 
-    if str(id_cable) in ensemble_aeriens:
+    if est_aerien:
         isolant = proprietes.get("Isolant", "")
         taux_aerien = _obtenir_taux_correction_aerien(domaine_tension, isolant)
         correction_aerien = longueur_geo * taux_aerien
+
+    # Statut du cable (alias depuis le referentiel)
+    statut_brut = proprietes.get("Statut", "")
+    aliases = index_statuts if index_statuts is not None else {}
+    statut = aliases.get(statut_brut, statut_brut)
 
     longueur_electrique = (
         longueur_geo
@@ -445,7 +588,8 @@ def analyser_cable(
         "id": id_cable,
         "domaine_tension": domaine_tension,
         "hierarchie_bt": hierarchie_bt,
-        "longueur_geographique": ceil(longueur_geo),
+        "statut": statut,
+        "longueur_geographique": round(longueur_geo, 1),
         "longueur_electrique": ceil(longueur_electrique),
         "correction_depart": corrections.correction_depart,
         "correction_arrivee": corrections.correction_arrivee,
@@ -462,6 +606,7 @@ def analyser_cable(
 def executer_calcul(
     chemin_projet: str,
     chemin_recolement: str | None = None,
+    chemin_referentiel: str | None = None,
 ) -> dict[str, Any]:
     """Execute le calcul des longueurs sur tous les cables du projet.
 
@@ -492,9 +637,17 @@ def executer_calcul(
     # Construction de l'ensemble des cables aeriens
     cables_aeriens = construire_ensemble_cables_aeriens(recolement)
 
+    # Construction de l'index des alias de statuts
+    index_statuts = construire_index_statuts(chemin_referentiel)
+
     resultats: list[dict[str, Any]] = []
     for cable in cables:
-        resultat = analyser_cable(cable, index_entites, cables_aeriens)
+        resultat = analyser_cable(
+            cable,
+            index_entites,
+            cables_aeriens,
+            index_statuts,
+        )
         if resultat is not None:
             resultats.append(resultat)
 

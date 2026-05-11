@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "star-engine"
-version = "0.1.0"
+version = "1.0.0"
 description = "Moteur de traitements pour les données de réseaux électriques au format GML (RecoStaR)"
 license = "MIT"
 readme = "README.md"

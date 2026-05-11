@@ -60,6 +60,8 @@ stages:
   - REUSE
   - security-scan
   - Hermine
+  - merge
+  - deploy
 
 reuse-compliance-check:
   stage: REUSE
@@ -120,3 +122,72 @@ hermine-sbom-upload:
     - if: $CI_COMMIT_BRANCH == "develop"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $GENERATE_SBOM == 'True'
+
+# ============================================================
+# MANUAL: Merge develop → main
+# ============================================================
+merge-to-main:
+  stage: merge
+  image: alpine:latest
+  variables:
+    GIT_DEPTH: 0
+    GIT_STRATEGY: clone
+  before_script:
+    - apk add --no-cache git
+  script:
+    - git config user.email "${GITLAB_USER_EMAIL}"
+    - git config user.name "${GITLAB_USER_NAME}"
+    - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - git fetch origin main
+    - git checkout main
+    - git merge origin/develop --no-edit
+    - git push origin main
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+      when: manual
+      allow_failure: true
+
+# ============================================================
+# MANUAL: Push main → GitHub (sans fichiers GitLab)
+# + Crée branche release/vX.Y.Z + tag sur GitHub ET GitLab
+# Protégé par environment "github-production" (accès restreint)
+# ============================================================
+push-to-github:
+  stage: deploy
+  image: alpine:latest
+  variables:
+    GIT_DEPTH: 0
+    GIT_STRATEGY: clone
+  environment:
+    name: github-production
+  before_script:
+    - apk add --no-cache git python3
+  script:
+    - git config user.email "${GITLAB_USER_EMAIL}"
+    - git config user.name "${GITLAB_USER_NAME}"
+    # Extraire la version depuis pyproject.toml
+    - export VERSION=$(python3 -c "import re; print(re.search(r'version\s*=\s*\"(.+?)\"', open('pyproject.toml').read()).group(1))")
+    - echo "Publishing version $VERSION"
+    # Préparer la branche sans fichiers GitLab
+    - git checkout -b github-publish
+    - git rm -f .gitlab-ci.yml .ort.yml .hermine-release 2>/dev/null || true
+    - git commit -m "chore: remove GitLab-specific files" --allow-empty
+    # Pousser vers GitHub
+    - git remote add github "https://oauth2:${GITHUB_TOKEN}@github.com/Enedis-OSS/StaREngine.git"
+    - git push github github-publish:main --force
+    # Créer la branche release et le tag sur GitHub
+    - git tag -a "v${VERSION}" -m "Release v${VERSION}"
+    - git branch "release/v${VERSION}"
+    - git push github "release/v${VERSION}" --force
+    - git push github "v${VERSION}" --force
+    # Créer la branche release et le tag sur GitLab
+    - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - git checkout main
+    - git branch "release/v${VERSION}" 2>/dev/null || true
+    - git tag -a "v${VERSION}" -m "Release v${VERSION}" 2>/dev/null || true
+    - git push origin "release/v${VERSION}" --force
+    - git push origin "v${VERSION}" --force
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $GITLAB_USER_LOGIN == "F70684"
+      when: manual
+      allow_failure: true

@@ -163,25 +163,26 @@ push-to-github:
   before_script:
     - apk add --no-cache git
   script:
-    - git config user.email "${GITLAB_USER_EMAIL}"
-    - git config user.name "${GITLAB_USER_NAME}"
-    - VERSION=$(grep -m1 'version' pyproject.toml | cut -d'"' -f2)
-    - echo "Publishing version $VERSION"
-    - git checkout -b github-publish
-    - git rm -f .gitlab-ci.yml .ort.yml .hermine-release 2>/dev/null || true
-    - git commit -m "chore: remove GitLab-specific files" --allow-empty
-    - git remote add github "https://oauth2:${GITHUB_TOKEN}@github.com/Enedis-OSS/StaREngine.git"
-    - git push github github-publish:main --force
-    - git tag -a "v${VERSION}" -m "Release v${VERSION}"
-    - git branch "release/v${VERSION}"
-    - git push github "release/v${VERSION}" --force
-    - git push github "v${VERSION}" --force
-    - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-    - git checkout main
-    - git branch "release/v${VERSION}" 2>/dev/null || true
-    - git tag -a "v${VERSION}" -m "Release v${VERSION}" 2>/dev/null || true
-    - git push origin "release/v${VERSION}" --force
-    - git push origin "v${VERSION}" --force
+    - |
+      git config user.email "${GITLAB_USER_EMAIL}"
+      git config user.name "${GITLAB_USER_NAME}"
+      VERSION=$(grep -m1 'version' pyproject.toml | cut -d'"' -f2)
+      echo "Publishing version $VERSION"
+      git checkout -b github-publish
+      git rm -f .gitlab-ci.yml .ort.yml .hermine-release 2>/dev/null || true
+      git commit -m "chore: remove GitLab-specific files" --allow-empty
+      git remote add github "https://oauth2:${GITHUB_TOKEN}@github.com/Enedis-OSS/StaREngine.git"
+      git push github github-publish:main --force
+      git tag -a "v${VERSION}" -m "Release v${VERSION}"
+      git branch "release/v${VERSION}"
+      git push github "release/v${VERSION}" --force
+      git push github "v${VERSION}" --force
+      git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      git checkout main
+      git branch "release/v${VERSION}" 2>/dev/null || true
+      git tag -a "v${VERSION}" -m "Release v${VERSION}" 2>/dev/null || true
+      git push origin "release/v${VERSION}" --force
+      git push origin "v${VERSION}" --force
   rules:
     - if: $CI_COMMIT_BRANCH == "main" && $GITLAB_USER_LOGIN == "F70684"
       when: manual

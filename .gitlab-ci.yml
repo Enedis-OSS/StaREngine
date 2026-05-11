@@ -161,12 +161,12 @@ push-to-github:
   environment:
     name: github-production
   before_script:
-    - apk add --no-cache git python3
+    - apk add --no-cache git
   script:
     - git config user.email "${GITLAB_USER_EMAIL}"
     - git config user.name "${GITLAB_USER_NAME}"
     # Extraire la version depuis pyproject.toml
-    - export VERSION=$(python3 -c "import re; print(re.search(r'version\s*=\s*\"(.+?)\"', open('pyproject.toml').read()).group(1))")
+    - VERSION=$(grep -m1 'version' pyproject.toml | sed 's/.*"\(.*\)".*/\1/')
     - echo "Publishing version $VERSION"
     # Préparer la branche sans fichiers GitLab
     - git checkout -b github-publish

@@ -166,6 +166,10 @@ push-to-github:
     - apk add --no-cache git
   script:
     - |
+      if [ "$GITLAB_USER_LOGIN" != "F70684" ]; then
+        echo "Unauthorized: only F70684 can run this job"
+        exit 1
+      fi
       git config user.email "${GITLAB_USER_EMAIL}"
       git config user.name "${GITLAB_USER_NAME}"
       VERSION=$(grep -m1 'version' pyproject.toml | cut -d'"' -f2)
@@ -186,6 +190,6 @@ push-to-github:
       git push origin "release/v${VERSION}" --force
       git push origin "v${VERSION}" --force
   rules:
-    - if: $CI_COMMIT_BRANCH == "main" && $GITLAB_USER_LOGIN == "F70684"
+    - if: $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: true

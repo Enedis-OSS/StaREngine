@@ -60,6 +60,8 @@ stages:
   - REUSE
   - security-scan
   - Hermine
+  - merge
+  - deploy
 
 reuse-compliance-check:
   stage: REUSE
@@ -120,3 +122,70 @@ hermine-sbom-upload:
     - if: $CI_COMMIT_BRANCH == "develop"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $GENERATE_SBOM == 'True'
+
+# ============================================================
+# MANUAL: Merge develop → main
+# ============================================================
+merge-to-main:
+  stage: merge
+  image: alpine:latest
+  needs: []
+  variables:
+    GIT_DEPTH: 0
+    GIT_STRATEGY: clone
+  before_script:
+    - apk add --no-cache git
+  script:
+    - git config user.email "${GITLAB_USER_EMAIL}"
+    - git config user.name "${GITLAB_USER_NAME}"
+    - git remote set-url origin "https://oauth2:${CI_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - git fetch origin main
+    - git checkout main
+    - git merge origin/develop --no-edit
+    - git push origin main
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+      when: manual
+      allow_failure: true
+
+# ============================================================
+# MANUAL: Push main → GitHub (sans fichiers GitLab)
+# + Crée branche release/vX.Y.Z + tag sur GitHub ET GitLab
+# Protégé par environment "github-production" (accès restreint)
+# ============================================================
+push-to-github:
+  stage: deploy
+  image: alpine:latest
+  needs: []
+  variables:
+    GIT_DEPTH: 0
+    GIT_STRATEGY: clone
+  environment:
+    name: github-production
+  before_script:
+    - apk add --no-cache git
+  script:
+    - |
+      git config user.email "${GITLAB_USER_EMAIL}"
+      git config user.name "${GITLAB_USER_NAME}"
+      VERSION=$(grep -m1 'version' pyproject.toml | cut -d'"' -f2)
+      echo "Publishing version $VERSION"
+      git checkout -b github-publish
+      git rm -f .gitlab-ci.yml .ort.yml .hermine-release 2>/dev/null || true
+      git commit -m "chore: remove GitLab-specific files" --allow-empty
+      git remote add github "https://oauth2:${GITHUB_TOKEN}@github.com/Enedis-OSS/StaREngine.git"
+      git push github github-publish:main --force
+      git tag -a "v${VERSION}" -m "Release v${VERSION}"
+      git branch "release/v${VERSION}"
+      git push github "release/v${VERSION}" --force
+      git push github "v${VERSION}" --force
+      git remote set-url origin "https://oauth2:${CI_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      git checkout main
+      git branch "release/v${VERSION}" 2>/dev/null || true
+      git tag -a "v${VERSION}" -m "Release v${VERSION}" 2>/dev/null || true
+      git push origin "release/v${VERSION}" --force
+      git push origin "v${VERSION}" --force
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $GITLAB_USER_LOGIN == "F70684"
+      when: manual
+      allow_failure: true

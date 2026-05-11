@@ -165,22 +165,17 @@ push-to-github:
   script:
     - git config user.email "${GITLAB_USER_EMAIL}"
     - git config user.name "${GITLAB_USER_NAME}"
-    # Extraire la version depuis pyproject.toml
-    - VERSION=$(grep -m1 'version' pyproject.toml | sed 's/.*"\(.*\)".*/\1/')
+    - VERSION=$(grep -m1 'version' pyproject.toml | cut -d'"' -f2)
     - echo "Publishing version $VERSION"
-    # Préparer la branche sans fichiers GitLab
     - git checkout -b github-publish
     - git rm -f .gitlab-ci.yml .ort.yml .hermine-release 2>/dev/null || true
     - git commit -m "chore: remove GitLab-specific files" --allow-empty
-    # Pousser vers GitHub
     - git remote add github "https://oauth2:${GITHUB_TOKEN}@github.com/Enedis-OSS/StaREngine.git"
     - git push github github-publish:main --force
-    # Créer la branche release et le tag sur GitHub
     - git tag -a "v${VERSION}" -m "Release v${VERSION}"
     - git branch "release/v${VERSION}"
     - git push github "release/v${VERSION}" --force
     - git push github "v${VERSION}" --force
-    # Créer la branche release et le tag sur GitLab
     - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
     - git checkout main
     - git branch "release/v${VERSION}" 2>/dev/null || true

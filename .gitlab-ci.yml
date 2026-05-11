@@ -129,6 +129,7 @@ hermine-sbom-upload:
 merge-to-main:
   stage: merge
   image: alpine:latest
+  needs: []
   variables:
     GIT_DEPTH: 0
     GIT_STRATEGY: clone
@@ -155,6 +156,7 @@ merge-to-main:
 push-to-github:
   stage: deploy
   image: alpine:latest
+  needs: []
   variables:
     GIT_DEPTH: 0
     GIT_STRATEGY: clone

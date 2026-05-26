@@ -48,6 +48,7 @@ class TestConstantesModule:
             "RPD_Support_Reco",
             "RPD_Jonction_Reco",
             "RPD_Materiel_Reco",
+            "RPD_ModuleRaccordement_Reco",
         }
         assert types_attendus <= RPD_ENTITY_TYPES
 
@@ -634,6 +635,83 @@ class TestExtracteurEntitesExtraction:
         elem = self._creer_element_aerien("aer_cache")
         entity_extractor.extract_aerien(elem)
         assert "aer_cache" in entity_extractor.cheminement_geometries
+
+    def _creer_element_module_raccordement(
+        self,
+        gml_id="module_001",
+        conteneur_href="coffret_001",
+        noeud_parent_href="support_modules_001",
+    ):
+        """Crée un élément XML RPD_ModuleRaccordement_Reco pour les tests."""
+        ns_r = f"{{{NAMESPACE_RECOSTAR}}}"
+        ns_g = f"{{{NAMESPACE_GML}}}"
+        ns_x = f"{{{NAMESPACE_XLINK}}}"
+        module = ET.Element(f"{ns_r}RPD_ModuleRaccordement_Reco")
+        module.set(f"{ns_g}id", gml_id)
+        if conteneur_href:
+            cont = ET.SubElement(module, f"{ns_r}conteneur")
+            cont.set(f"{ns_x}href", conteneur_href)
+        if noeud_parent_href:
+            noeud = ET.SubElement(module, f"{ns_r}noeudParent")
+            noeud.set(f"{ns_x}href", noeud_parent_href)
+        ET.SubElement(module, f"{ns_r}Coupure").text = "true"
+        ET.SubElement(module, f"{ns_r}NbPlagesOccupees").text = "4"
+        ET.SubElement(module, f"{ns_r}Protection").text = "false"
+        return module
+
+    def test_extraire_module_raccordement_proprietes(self, entity_extractor):
+        """Vérifie l'extraction des propriétés d'un ModuleRaccordement."""
+        elem = self._creer_element_module_raccordement()
+        feature = entity_extractor.extract_module_raccordement(elem)
+        props = feature["properties"]
+        assert props["id"] == "module_001"
+        assert props["Coupure"] == "true"
+        assert props["NbPlagesOccupees"] == "4"
+        assert props["Protection"] == "false"
+        assert props["conteneur_href"] == "coffret_001"
+        assert props["noeudParent_href"] == "support_modules_001"
+
+    def test_extraire_module_raccordement_herite_geometrie_conteneur(
+        self, entity_extractor
+    ):
+        """Vérifie que le ModuleRaccordement hérite la géométrie du conteneur."""
+        geom_point = {"type": "Point", "coordinates": [600000.0, 6800000.0, 100.0]}
+        entity_extractor.conteneur_geometries["coffret_001"] = geom_point
+        elem = self._creer_element_module_raccordement()
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert feature["geometry"] == geom_point
+
+    def test_extraire_module_raccordement_sans_conteneur(self, entity_extractor):
+        """Sans conteneur référencé, la géométrie reste None."""
+        elem = self._creer_element_module_raccordement(conteneur_href=None)
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert feature["geometry"] is None
+        assert "conteneur_href" not in feature["properties"]
+
+    def test_extraire_module_raccordement_ogr_pkid(self, entity_extractor):
+        """Vérifie le format du ogr_pkid."""
+        elem = self._creer_element_module_raccordement("mr_test")
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert feature["properties"]["ogr_pkid"].startswith(
+            "RPD_ModuleRaccordement_Reco_"
+        )
+
+    def test_extraire_module_raccordement_cables_href(self, entity_extractor):
+        """Vérifie la restitution de la relation CableElectrique_NoeudReseau."""
+        # Simule la relation : le module est référencé par 2 câbles
+        entity_extractor.relations["cable_noeud"]["module_001"] = [
+            "cable_aaa",
+            "cable_bbb",
+        ]
+        elem = self._creer_element_module_raccordement()
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert feature["properties"]["cables_href"] == "cable_aaa,cable_bbb"
+
+    def test_extraire_module_raccordement_sans_relation_cable(self, entity_extractor):
+        """Sans relation câble dans le cache, cables_href est absent."""
+        elem = self._creer_element_module_raccordement()
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert "cables_href" not in feature["properties"]
 
     def test_extract_ogr_pkid(self, entity_extractor):
         """Vérifie la génération de ogr_pkid."""

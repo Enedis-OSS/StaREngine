@@ -47,6 +47,7 @@ REQUIRED_RPD_FILES = frozenset(
         "RPD_GeometrieSupplementaire_Reco",
         "RPD_JeuBarres_Reco",
         "RPD_Jonction_Reco",
+        "RPD_ModuleRaccordement_Reco",
         "RPD_OuvrageCollectifBranchement_Reco",
         "RPD_PointDeComptage_Reco",
         "RPD_PointLeveOuvrageReseau_Reco",
@@ -265,11 +266,6 @@ class MappeurEntites:
         # Référence reseau
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
-        # noeudReseau (optionnel) - référence RPD_Terre_Reco
-        noeud_href = props.get("noeudreseau_href")
-        if noeud_href:
-            self._ajouter_reference(element, "noeudReseau", noeud_href)
-
         # Commentaire (optionnel)
         self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
 
@@ -285,6 +281,11 @@ class MappeurEntites:
         self._ajouter_reference(
             element, "NatureCableTerre", props.get("NatureCableTerre_href")
         )
+
+        # noeudReseau (optionnel) - référence RPD_Terre_Reco, après NatureCableTerre
+        noeud_href = props.get("noeudreseau_href")
+        if noeud_href:
+            self._ajouter_reference(element, "noeudReseau", noeud_href)
 
         # Section (requis, avec UOM)
         section_val = props.get("Section")
@@ -500,7 +501,7 @@ class MappeurEntites:
         return element
 
     def _normaliser_wkt_ligne(self, ligne_text: str) -> Optional[str]:
-        """Normalise un texte WKT Ligne2.5D en chaîne de coordonnées posList.
+        """Normalise un texte WKT en chaîne de coordonnées posList.
 
         Supprime le préfixe LINESTRING, extrait les coordonnées entre parenthèses,
         et normalise les séparateurs. Retourne None si les coordonnées sont invalides.
@@ -520,8 +521,8 @@ class MappeurEntites:
 
         return normalized
 
-    def _ajouter_ligne_2_5d(self, element: ET.Element, ligne_text: str, ogr_pkid: str):
-        """Ajoute un élément Ligne2.5D (LineString GML) à l'élément parent."""
+    def _ajouter_ligne_3d(self, element: ET.Element, ligne_text: str, ogr_pkid: str):
+        """Ajoute un élément Ligne3D (LineString GML) à partir d'un texte WKT."""
         normalized_text = self._normaliser_wkt_ligne(ligne_text)
         if not normalized_text:
             return
@@ -534,11 +535,55 @@ class MappeurEntites:
         pos_list.set("srsDimension", "3")
         pos_list.text = normalized_text
 
-        ligne_elem = ET.SubElement(element, f"{{{NAMESPACE_RECOSTAR}}}Ligne2.5D")
+        ligne_elem = ET.SubElement(element, f"{{{NAMESPACE_RECOSTAR}}}Ligne3D")
         ligne_elem.append(linestring)
 
-    def _ajouter_surface_2_5d(self, element: ET.Element, geometry: Dict, ogr_pkid: str):
-        """Ajoute un élément Surface2.5D (Polygon GML) à l'élément parent."""
+    def _extraire_ligne_de_geometry(self, geometry: Dict) -> Optional[Dict]:
+        """Extrait une LineString GeoJSON depuis n'importe quelle géométrie.
+
+        - LineString : retournée telle quelle.
+        - MultiLineString : prend la première ligne.
+        - Polygon : prend l'anneau extérieur (déjà fermé).
+        - MultiPolygon : prend l'anneau extérieur du premier polygone.
+        Retourne None pour les types non gérés ou les géométries vides.
+        """
+        geom_type = geometry.get("type")
+        coords = geometry.get("coordinates")
+        if not coords:
+            return None
+
+        # Tableau de correspondance type → coordonnées de la ligne extraite.
+        if geom_type == "LineString":
+            ligne_coords = coords
+        elif geom_type == "MultiLineString":
+            ligne_coords = coords[0]
+        elif geom_type == "Polygon":
+            ligne_coords = coords[0]
+        elif geom_type == "MultiPolygon":
+            ligne_coords = coords[0][0]
+        else:
+            return None
+
+        if len(ligne_coords) < 2:
+            return None
+
+        return {"type": "LineString", "coordinates": ligne_coords}
+
+    def _ajouter_ligne_3d_depuis_geometry(
+        self, element: ET.Element, geometry: Dict, ogr_pkid: str
+    ):
+        """Ajoute un élément Ligne3D dérivé d'une géométrie GeoJSON ouverte."""
+        ligne_geom = self._extraire_ligne_de_geometry(geometry)
+        if ligne_geom is None:
+            return
+
+        geom_id = f"{ogr_pkid}.geom_ligne_auto0"
+        linestring = self.geo_converter.ligne_vers_gml(ligne_geom, geom_id)
+        ligne_elem = ET.SubElement(element, f"{{{NAMESPACE_RECOSTAR}}}Ligne3D")
+        ligne_elem.append(linestring)
+
+    def _ajouter_surface_3d(self, element: ET.Element, geometry: Dict, ogr_pkid: str):
+        """Ajoute un élément Surface3D (Polygon GML) à l'élément parent."""
         geom_type = geometry["type"]
         geom_id = f"{ogr_pkid}.geom_surface0"
 
@@ -550,17 +595,57 @@ class MappeurEntites:
             return
 
         if polygon is not None:
-            surface_elem = ET.SubElement(
-                element, f"{{{NAMESPACE_RECOSTAR}}}Surface2.5D"
-            )
+            surface_elem = ET.SubElement(element, f"{{{NAMESPACE_RECOSTAR}}}Surface3D")
             surface_elem.append(polygon)
+
+    def _qualifier_geometrie_supp(self, geometry: Dict) -> Optional[str]:
+        """Détermine la nature XSD d'une géométrie supplémentaire.
+
+        Règle métier : une forme fermée (premier point == dernier point sur
+        l'anneau/ligne extrait) est qualifiée en Surface3D, toute autre forme
+        est qualifiée en Ligne3D. Retourne None si la géométrie ne peut pas
+        être qualifiée (type non géré ou coordonnées insuffisantes).
+        """
+        ligne_geom = self._extraire_ligne_de_geometry(geometry)
+        if ligne_geom is None:
+            return None
+
+        coords = ligne_geom["coordinates"]
+        # Comparaison X/Y uniquement : Z peut différer sans rompre la fermeture
+        # planimétrique (cas typique d'une emprise au sol).
+        premier = coords[0]
+        dernier = coords[-1]
+        if len(coords) >= 4 and premier[0] == dernier[0] and premier[1] == dernier[1]:
+            return "Surface3D"
+        return "Ligne3D"
+
+    def _construire_geometry_surfacique(self, geometry: Dict) -> Optional[Dict]:
+        """Convertit une géométrie qualifiée fermée en Polygon exploitable.
+
+        Les types Polygon et MultiPolygon sont retournés tels quels. Une
+        LineString fermée est convertie en Polygon mono-anneau pour produire
+        un gml:Polygon conforme à gml:SurfacePropertyType.
+        """
+        geom_type = geometry.get("type")
+        if geom_type in ("Polygon", "MultiPolygon"):
+            return geometry
+
+        ligne_geom = self._extraire_ligne_de_geometry(geometry)
+        if ligne_geom is None:
+            return None
+
+        return {"type": "Polygon", "coordinates": [ligne_geom["coordinates"]]}
 
     def mapper_geometrie_supplementaire(
         self, feature: Dict, feature_id: str
     ) -> ET.Element:
         """Entité GeoJSON → RPD_GeometrieSupplementaire_Reco
 
-        Ordre XSD strict : Ligne2.5D → PrecisionXY → PrecisionZ → Surface2.5D
+        Ordre XSD strict : Commentaire? → Ligne3D* → PrecisionXY → PrecisionZ → Surface3D*
+
+        La nature de la géométrie (Ligne3D ou Surface3D) est déduite
+        automatiquement de l'analyse des coordonnées : une forme fermée
+        produit une Surface3D, sinon une Ligne3D.
         """
         props = feature["properties"]
 
@@ -570,19 +655,33 @@ class MappeurEntites:
         element.set(f"{{{NAMESPACE_GML}}}id", feature_id)
 
         ogr_pkid = props.get("ogr_pkid", feature_id)
+        geometry = feature.get("geometry")
 
-        # 1. Ligne2.5D (optionnel)
-        ligne_text = props.get("Ligne2.5D")
+        # 1. Commentaire (optionnel)
+        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+
+        # 2. Ligne3D (optionnel)
+        # 2.a. Compatibilité descendante : propriété WKT explicite.
+        ligne_text = props.get("Ligne3D")
         if ligne_text:
-            self._ajouter_ligne_2_5d(element, ligne_text, ogr_pkid)
+            self._ajouter_ligne_3d(element, ligne_text, ogr_pkid)
 
-        # 2 et 3. PrecisionXY et PrecisionZ (obligatoires)
+        # 2.b. Géométrie qualifiée comme ligne (forme ouverte).
+        # La qualification est calculée une seule fois et utilisée plus bas.
+        nature = self._qualifier_geometrie_supp(geometry) if geometry else None
+        if geometry and nature == "Ligne3D":
+            self._ajouter_ligne_3d_depuis_geometry(element, geometry, ogr_pkid)
+
+        # 3 et 4. PrecisionXY et PrecisionZ (obligatoires)
         self._ajouter_propriete(element, "PrecisionXY", props.get("PrecisionXY"))
         self._ajouter_propriete(element, "PrecisionZ", props.get("PrecisionZ"))
 
-        # 4. Surface2.5D (optionnel) - Doit venir APRÈS les précisions
-        if feature.get("geometry"):
-            self._ajouter_surface_2_5d(element, feature["geometry"], ogr_pkid)
+        # 5. Surface3D (optionnel) - APRÈS les précisions, géométrie qualifiée
+        # comme surface (forme fermée).
+        if geometry and nature == "Surface3D":
+            geom_surface = self._construire_geometry_surfacique(geometry)
+            if geom_surface is not None:
+                self._ajouter_surface_3d(element, geom_surface, ogr_pkid)
 
         return element
 
@@ -1083,6 +1182,47 @@ class MappeurEntites:
 
         return element
 
+    def mapper_module_raccordement(self, feature: Dict, feature_id: str) -> ET.Element:
+        """Mappe RPD_ModuleRaccordement_Reco
+
+        Ordre XSD strict V1.1 (sequence ElementReseau → Ouvrage → NoeudReseau
+        → Plage → ModuleRaccordement) :
+        reseau, Commentaire?, conteneur?, Coupure, NbPlagesOccupees,
+        noeudParent, Protection.
+        Pas de géométrie propre (position déduite du conteneur).
+        """
+        props = feature["properties"]
+
+        element = ET.Element(f"{{{NAMESPACE_RECOSTAR}}}RPD_ModuleRaccordement_Reco")
+        element.set(f"{{{NAMESPACE_GML}}}id", feature_id)
+
+        # 1. reseau (hérité ElementReseauType, requis)
+        self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
+
+        # 2. Commentaire (hérité ElementReseauType, optionnel V1.1)
+        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+
+        # 3. conteneur (hérité NoeudReseauType, optionnel)
+        conteneur_href = props.get("conteneur_href")
+        if conteneur_href:
+            self._ajouter_reference(element, "conteneur", conteneur_href)
+
+        # 4. Coupure (bool, requis)
+        self._ajouter_propriete(element, "Coupure", props.get("Coupure"))
+
+        # 5. NbPlagesOccupees (int, requis)
+        self._ajouter_propriete(
+            element, "NbPlagesOccupees", props.get("NbPlagesOccupees")
+        )
+
+        # 6. noeudParent (référence RPD_SupportModules_Reco, requis)
+        self._ajouter_reference(element, "noeudParent", props.get("noeudParent_href"))
+
+        # 7. Protection (bool, requis)
+        self._ajouter_propriete(element, "Protection", props.get("Protection"))
+
+        return element
+
     def mapper_ouvrage_collectif_branchement(
         self, feature: Dict, feature_id: str
     ) -> ET.Element:
@@ -1298,11 +1438,12 @@ class GenerateurGML:
         relation = ET.SubElement(member, f"{{{NAMESPACE_RECOSTAR}}}Ouvrage_Materiel")
         relation.set(f"{{{NAMESPACE_GML}}}id", relation_id)
 
-        ouvrage_elem = ET.SubElement(relation, f"{{{NAMESPACE_RECOSTAR}}}ouvrage")
-        ouvrage_elem.set(f"{{{NAMESPACE_XLINK}}}href", ouvrage_id)
-
+        # Ordre XSD : materiel, ouvrage
         materiel_elem = ET.SubElement(relation, f"{{{NAMESPACE_RECOSTAR}}}materiel")
         materiel_elem.set(f"{{{NAMESPACE_XLINK}}}href", materiel_id)
+
+        ouvrage_elem = ET.SubElement(relation, f"{{{NAMESPACE_RECOSTAR}}}ouvrage")
+        ouvrage_elem.set(f"{{{NAMESPACE_XLINK}}}href", ouvrage_id)
 
         return member
 
@@ -1390,6 +1531,7 @@ class GenerateurGML:
             "RPD_CoupeCircuitAFusibles_Reco",
             "RPD_JeuBarres_Reco",
             "RPD_Jonction_Reco",
+            "RPD_ModuleRaccordement_Reco",
             "RPD_OuvrageCollectifBranchement_Reco",
             "RPD_PointDeComptage_Reco",
             "RPD_PosteElectrique_Reco",
@@ -1672,6 +1814,7 @@ class GenerateurGML:
             "RPD_JeuBarres_Reco",
             "RPD_Jonction_Reco",
             "RPD_Materiel_Reco",
+            "RPD_ModuleRaccordement_Reco",
             "RPD_OuvrageCollectifBranchement_Reco",
             "RPD_PleineTerre_Reco",
             "RPD_Fourreau_Reco",
@@ -1727,7 +1870,7 @@ class GenerateurGML:
         root = ET.Element(f"{{{NAMESPACE_GML}}}FeatureCollection")
         root.set(
             f"{{{NAMESPACE_XSI}}}schemaLocation",
-            f"{NAMESPACE_RECOSTAR} https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.1/RecoStaR/SchemaStarElecRecoStar.xsd",
+            f"{NAMESPACE_RECOSTAR} https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.10/RecoStaR/SchemaStarElecRecoStar.xsd",
         )
 
         # Dispatch O(1) des types vers les fonctions de mappage
@@ -1743,6 +1886,7 @@ class GenerateurGML:
             "RPD_GeometrieSupplementaire_Reco": self.mapper.mapper_geometrie_supplementaire,
             "RPD_JeuBarres_Reco": self.mapper.mapper_jeu_barres,
             "RPD_Jonction_Reco": self.mapper.mapper_jonction,
+            "RPD_ModuleRaccordement_Reco": self.mapper.mapper_module_raccordement,
             "RPD_OuvrageCollectifBranchement_Reco": self.mapper.mapper_ouvrage_collectif_branchement,
             "RPD_PointDeComptage_Reco": self.mapper.mapper_point_comptage,
             "RPD_PointLeveOuvrageReseau_Reco": self.mapper.mapper_point_leve,

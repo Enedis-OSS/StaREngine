@@ -46,6 +46,10 @@ class TestConstantesModule:
         """Vérifie que REQUIRED_RPD_FILES contient des éléments."""
         assert len(REQUIRED_RPD_FILES) > 0
 
+    def test_required_rpd_files_contient_module_raccordement(self):
+        """RPD_ModuleRaccordement_Reco doit être pris en charge par le pipeline V1.1."""
+        assert "RPD_ModuleRaccordement_Reco" in REQUIRED_RPD_FILES
+
 
 # ============================================================
 # Tests de ElementGML
@@ -342,6 +346,84 @@ class TestFeatureMapperMappings:
         assert ns is not None
         assert ns.text == "SN001"
 
+    def test_map_module_raccordement_balise_principale(self, feature_mapper):
+        """Vérifie que le mapper produit la bonne balise et l'id."""
+        feature = self._feature_module_raccordement()
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+        assert elem.tag == f"{{{NAMESPACE_RECOSTAR}}}RPD_ModuleRaccordement_Reco"
+        assert elem.get(f"{{{NAMESPACE_GML}}}id") == "module_001"
+
+    def test_map_module_raccordement_references(self, feature_mapper):
+        """Vérifie la présence et l'href des références conteneur et noeudParent."""
+        feature = self._feature_module_raccordement()
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+
+        ns_xlink = f"{{{NAMESPACE_XLINK}}}href"
+        cont = elem.find(f"{{{NAMESPACE_RECOSTAR}}}conteneur")
+        noeud = elem.find(f"{{{NAMESPACE_RECOSTAR}}}noeudParent")
+        reseau = elem.find(f"{{{NAMESPACE_RECOSTAR}}}reseau")
+
+        assert reseau is not None and reseau.get(ns_xlink) == "Reseau"
+        assert cont is not None and cont.get(ns_xlink) == "coffret_001"
+        assert noeud is not None and noeud.get(ns_xlink) == "support_modules_001"
+
+    def test_map_module_raccordement_proprietes(self, feature_mapper):
+        """Vérifie Coupure, NbPlagesOccupees et Protection."""
+        feature = self._feature_module_raccordement()
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+
+        coupure = elem.find(f"{{{NAMESPACE_RECOSTAR}}}Coupure")
+        nb_plages = elem.find(f"{{{NAMESPACE_RECOSTAR}}}NbPlagesOccupees")
+        protection = elem.find(f"{{{NAMESPACE_RECOSTAR}}}Protection")
+
+        assert coupure is not None and coupure.text == "true"
+        assert nb_plages is not None and nb_plages.text == "4"
+        assert protection is not None and protection.text == "false"
+
+    def test_map_module_raccordement_ordre_xsd_v11(self, feature_mapper):
+        """L'ordre XSD V1.1 strict doit être respecté.
+
+        Différent de V1.0 : `Coupure, NbPlagesOccupees, noeudParent, Protection`
+        au lieu de `noeudParent, Coupure, NbPlagesOccupees, Protection`.
+        Le Commentaire (V1.1) s'intercale entre reseau et conteneur.
+        """
+        feature = self._feature_module_raccordement(avec_commentaire=True)
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+        ordre_attendu = (
+            "reseau",
+            "Commentaire",
+            "conteneur",
+            "Coupure",
+            "NbPlagesOccupees",
+            "noeudParent",
+            "Protection",
+        )
+        ordre_obtenu = tuple(child.tag.split("}", 1)[-1] for child in elem)
+        assert ordre_obtenu == ordre_attendu
+
+    def test_map_module_raccordement_sans_commentaire(self, feature_mapper):
+        """Sans Commentaire, la balise est absente."""
+        feature = self._feature_module_raccordement()
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Commentaire") is None
+
+    @staticmethod
+    def _feature_module_raccordement(avec_commentaire: bool = False) -> dict:
+        """Feature GeoJSON typique pour RPD_ModuleRaccordement_Reco V1.1."""
+        props = {
+            "id": "module_001",
+            "fid": 1,
+            "ogr_pkid": "RPD_ModuleRaccordement_Reco_0",
+            "Coupure": "true",
+            "NbPlagesOccupees": "4",
+            "Protection": "false",
+            "conteneur_href": "coffret_001",
+            "noeudParent_href": "support_modules_001",
+        }
+        if avec_commentaire:
+            props["Commentaire"] = "note libre"
+        return {"type": "Feature", "properties": props, "geometry": None}
+
     def test_map_jonction_sans_geometrie(self, feature_mapper):
         """Vérifie le mapping Jonction sans géométrie (conteneur existant)."""
         feature = {
@@ -608,6 +690,19 @@ class TestGMLGeneratorRelations:
         assert "cheminement_cable" in result
         assert "cable_noeud" in result
         assert "ouvrage_materiel" in result
+
+    def test_extract_relations_module_raccordement_cable_noeud(self, gml_generator):
+        """RPD_ModuleRaccordement_Reco doit alimenter les relations cable_noeud."""
+        features_by_type = {
+            "RPD_ModuleRaccordement_Reco": [
+                {"properties": {"id": "mr_001", "cables_href": "cable_xxx"}},
+            ],
+        }
+        result = gml_generator._extraire_relations(features_by_type)
+        # Sous V1.1, _extraire_relations_cable_noeud produit des tuples enrichis
+        # (cable_id, noeud_id) + EtatAvantRaccordement. On vérifie l'appariement.
+        paires_cle = [(r[0], r[1]) for r in result["cable_noeud"]]
+        assert ("cable_xxx", "mr_001") in paires_cle
 
     def test_create_cable_noeud_relation(self, gml_generator):
         """Vérifie la création d'une relation cable-noeud."""
@@ -1145,7 +1240,7 @@ class TestMapperPointLeveV110:
         ns_xsi = "http://www.w3.org/2001/XMLSchema-instance"
         root.set(
             f"{{{ns_xsi}}}schemaLocation",
-            f"{NAMESPACE_RECOSTAR} https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.1/RecoStaR/SchemaStarElecRecoStar.xsd",
+            f"{NAMESPACE_RECOSTAR} https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.10/RecoStaR/SchemaStarElecRecoStar.xsd",
         )
 
         schema_loc = root.get(f"{{{ns_xsi}}}schemaLocation")
@@ -1601,3 +1696,300 @@ class TestEtiquetteEtEtatAvantRaccordement:
         result = generateur._extraire_noeud_avec_etat(features)
         assert len(result) == 1
         assert result[0] == ("cable_c", "noeud_002", "")
+
+
+# ============================================================
+# Tests de l'ordre XSD pour Ouvrage_Materiel
+# ============================================================
+
+
+class TestOrdreXSDRelationOuvrageMateriel:
+    """Tests vérifiant l'ordre XSD des enfants de Ouvrage_Materiel."""
+
+    def test_ordre_materiel_avant_ouvrage(self, gml_generator):
+        """Vérifie que materiel précède ouvrage dans Ouvrage_Materiel (ordre XSD)."""
+        member = gml_generator._creer_relation_ouvrage_materiel("ouvr_001", "mat_001")
+        relation = member.find(f"{{{NAMESPACE_RECOSTAR}}}Ouvrage_Materiel")
+        enfants = list(relation)
+        assert enfants[0].tag == f"{{{NAMESPACE_RECOSTAR}}}materiel"
+        assert enfants[1].tag == f"{{{NAMESPACE_RECOSTAR}}}ouvrage"
+
+    def test_href_materiel_correct(self, gml_generator):
+        """Vérifie le xlink:href de l'élément materiel."""
+        member = gml_generator._creer_relation_ouvrage_materiel("ouvr_001", "mat_001")
+        relation = member.find(f"{{{NAMESPACE_RECOSTAR}}}Ouvrage_Materiel")
+        materiel = relation.find(f"{{{NAMESPACE_RECOSTAR}}}materiel")
+        assert materiel.get(f"{{{NAMESPACE_XLINK}}}href") == "mat_001"
+
+    def test_href_ouvrage_correct(self, gml_generator):
+        """Vérifie le xlink:href de l'élément ouvrage."""
+        member = gml_generator._creer_relation_ouvrage_materiel("ouvr_001", "mat_001")
+        relation = member.find(f"{{{NAMESPACE_RECOSTAR}}}Ouvrage_Materiel")
+        ouvrage = relation.find(f"{{{NAMESPACE_RECOSTAR}}}ouvrage")
+        assert ouvrage.get(f"{{{NAMESPACE_XLINK}}}href") == "ouvr_001"
+
+
+# ============================================================
+# Tests du mapping RPD_CableTerre_Reco
+# ============================================================
+
+
+class TestMapperCableTerre:
+    """Tests vérifiant le mapping et l'ordre XSD de RPD_CableTerre_Reco."""
+
+    @pytest.fixture
+    def feature_cable_terre(self):
+        """Feature GeoJSON pour CableTerre avec toutes les propriétés optionnelles."""
+        return {
+            "type": "Feature",
+            "properties": {
+                "id": "ct_001",
+                "fid": 1,
+                "ogr_pkid": "RPD_CableTerre_Reco_0",
+                "FonctionCable_href": "Mise_A_La_Terre",
+                "Materiau": "Cuivre",
+                "NatureCableTerre_href": "nature_001",
+                "noeudreseau_href": "noeud_001",
+                "Section": 25,
+                "Section_uom": "mm-2",
+                "Statut": "EN_SERVICE",
+            },
+            "geometry": None,
+        }
+
+    def test_cable_terre_tag(self, feature_mapper, feature_cable_terre):
+        """Vérifie le tag de l'élément RPD_CableTerre_Reco."""
+        elem = feature_mapper.mapper_cable_terre(feature_cable_terre, "ct_001")
+        assert elem.tag == f"{{{NAMESPACE_RECOSTAR}}}RPD_CableTerre_Reco"
+
+    def test_noeud_reseau_apres_nature_cable_terre(
+        self, feature_mapper, feature_cable_terre
+    ):
+        """Vérifie que noeudReseau apparaît après NatureCableTerre (ordre XSD)."""
+        elem = feature_mapper.mapper_cable_terre(feature_cable_terre, "ct_001")
+        tags = [enfant.tag for enfant in elem]
+        idx_nature = tags.index(f"{{{NAMESPACE_RECOSTAR}}}NatureCableTerre")
+        idx_noeud = tags.index(f"{{{NAMESPACE_RECOSTAR}}}noeudReseau")
+        assert idx_noeud > idx_nature
+
+    def test_cable_terre_sans_noeud_reseau(self, feature_mapper):
+        """Vérifie l'absence de noeudReseau quand noeudreseau_href est absent."""
+        feature = {
+            "type": "Feature",
+            "properties": {
+                "id": "ct_002",
+                "FonctionCable_href": "Mise_A_La_Terre",
+                "Materiau": "Cuivre",
+                "Section": 25,
+                "Statut": "EN_SERVICE",
+            },
+            "geometry": None,
+        }
+        elem = feature_mapper.mapper_cable_terre(feature, "ct_002")
+        noeud = elem.find(f"{{{NAMESPACE_RECOSTAR}}}noeudReseau")
+        assert noeud is None
+
+
+# ============================================================
+# Tests du mapping RPD_GeometrieSupplementaire_Reco
+# ============================================================
+
+
+class TestMapperGeometrieSupplementaire:
+    """Tests vérifiant le mapping et l'ordre XSD de RPD_GeometrieSupplementaire_Reco."""
+
+    @pytest.fixture
+    def feature_geom_supp_complet(self):
+        """Feature GeoJSON pour GeometrieSupplementaire avec toutes les propriétés."""
+        return {
+            "type": "Feature",
+            "properties": {
+                "id": "gs_001",
+                "ogr_pkid": "RPD_GeometrieSupplementaire_Reco_0",
+                "Commentaire": "Un commentaire de test",
+                "Ligne3D": "100000 200000 10,100010 200010 20",
+                "PrecisionXY": "A",
+                "PrecisionZ": "A",
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]],
+            },
+        }
+
+    def test_tag_rpd_geometrie_supplementaire(
+        self, feature_mapper, feature_geom_supp_complet
+    ):
+        """Vérifie le tag de l'élément RPD_GeometrieSupplementaire_Reco."""
+        elem = feature_mapper.mapper_geometrie_supplementaire(
+            feature_geom_supp_complet, "gs_001"
+        )
+        assert elem.tag == f"{{{NAMESPACE_RECOSTAR}}}RPD_GeometrieSupplementaire_Reco"
+
+    def test_commentaire_est_premier_enfant(
+        self, feature_mapper, feature_geom_supp_complet
+    ):
+        """Vérifie que Commentaire est le premier enfant (ordre XSD)."""
+        elem = feature_mapper.mapper_geometrie_supplementaire(
+            feature_geom_supp_complet, "gs_001"
+        )
+        enfants = list(elem)
+        assert len(enfants) > 0
+        assert enfants[0].tag == f"{{{NAMESPACE_RECOSTAR}}}Commentaire"
+
+    def test_ligne3d_present(self, feature_mapper, feature_geom_supp_complet):
+        """Vérifie la présence de l'élément Ligne3D (nom RPD conforme XSD)."""
+        elem = feature_mapper.mapper_geometrie_supplementaire(
+            feature_geom_supp_complet, "gs_001"
+        )
+        ligne = elem.find(f"{{{NAMESPACE_RECOSTAR}}}Ligne3D")
+        assert ligne is not None
+
+    def test_surface3d_presente(self, feature_mapper, feature_geom_supp_complet):
+        """Vérifie la présence de l'élément Surface3D (nom RPD conforme XSD)."""
+        elem = feature_mapper.mapper_geometrie_supplementaire(
+            feature_geom_supp_complet, "gs_001"
+        )
+        surface = elem.find(f"{{{NAMESPACE_RECOSTAR}}}Surface3D")
+        assert surface is not None
+
+    def test_ordre_xsd_strict(self, feature_mapper, feature_geom_supp_complet):
+        """Vérifie l'ordre XSD : Commentaire → Ligne3D → PrecisionXY → PrecisionZ → Surface3D."""
+        elem = feature_mapper.mapper_geometrie_supplementaire(
+            feature_geom_supp_complet, "gs_001"
+        )
+        tags = [enfant.tag for enfant in elem]
+        assert tags == [
+            f"{{{NAMESPACE_RECOSTAR}}}Commentaire",
+            f"{{{NAMESPACE_RECOSTAR}}}Ligne3D",
+            f"{{{NAMESPACE_RECOSTAR}}}PrecisionXY",
+            f"{{{NAMESPACE_RECOSTAR}}}PrecisionZ",
+            f"{{{NAMESPACE_RECOSTAR}}}Surface3D",
+        ]
+
+
+class TestQualificationGeometrieSupplementaire:
+    """Vérifie la qualification automatique Ligne3D / Surface3D selon les coordonnées."""
+
+    @pytest.fixture
+    def feature_base(self):
+        """Squelette de feature GeometrieSupplementaire sans géométrie."""
+        return {
+            "type": "Feature",
+            "properties": {
+                "id": "gs_qual",
+                "ogr_pkid": "RPD_GeometrieSupplementaire_Reco_qual",
+                "PrecisionXY": "A",
+                "PrecisionZ": "A",
+            },
+            "geometry": None,
+        }
+
+    def _types_enfants(self, elem):
+        return [enfant.tag.split("}")[-1] for enfant in elem]
+
+    def test_linestring_ouverte_donne_ligne3d(self, feature_mapper, feature_base):
+        """Une LineString ouverte (premier != dernier point) → Ligne3D."""
+        feature_base["geometry"] = {
+            "type": "LineString",
+            "coordinates": [[0.0, 0.0, 0.0], [10.0, 5.0, 1.0], [20.0, 0.0, 2.0]],
+        }
+        elem = feature_mapper.mapper_geometrie_supplementaire(feature_base, "gs_qual")
+        types = self._types_enfants(elem)
+        assert "Ligne3D" in types
+        assert "Surface3D" not in types
+
+    def test_linestring_fermee_donne_surface3d(self, feature_mapper, feature_base):
+        """Une LineString fermée (premier == dernier point) → Surface3D."""
+        feature_base["geometry"] = {
+            "type": "LineString",
+            "coordinates": [
+                [0.0, 0.0, 0.0],
+                [10.0, 0.0, 0.0],
+                [10.0, 10.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+        }
+        elem = feature_mapper.mapper_geometrie_supplementaire(feature_base, "gs_qual")
+        types = self._types_enfants(elem)
+        assert "Surface3D" in types
+        assert "Ligne3D" not in types
+
+    def test_polygon_donne_surface3d(self, feature_mapper, feature_base):
+        """Un Polygon (toujours fermé en GeoJSON) → Surface3D."""
+        feature_base["geometry"] = {
+            "type": "Polygon",
+            "coordinates": [
+                [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]
+            ],
+        }
+        elem = feature_mapper.mapper_geometrie_supplementaire(feature_base, "gs_qual")
+        types = self._types_enfants(elem)
+        assert "Surface3D" in types
+        assert "Ligne3D" not in types
+
+    def test_multipolygon_donne_surface3d(self, feature_mapper, feature_base):
+        """Un MultiPolygon → Surface3D."""
+        feature_base["geometry"] = {
+            "type": "MultiPolygon",
+            "coordinates": [[[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]],
+        }
+        elem = feature_mapper.mapper_geometrie_supplementaire(feature_base, "gs_qual")
+        types = self._types_enfants(elem)
+        assert "Surface3D" in types
+
+    def test_multilinestring_ouverte_donne_ligne3d(self, feature_mapper, feature_base):
+        """Une MultiLineString dont la première ligne est ouverte → Ligne3D."""
+        feature_base["geometry"] = {
+            "type": "MultiLineString",
+            "coordinates": [
+                [[0.0, 0.0, 0.0], [5.0, 5.0, 1.0]],
+                [[10.0, 10.0, 0.0], [20.0, 20.0, 1.0]],
+            ],
+        }
+        elem = feature_mapper.mapper_geometrie_supplementaire(feature_base, "gs_qual")
+        types = self._types_enfants(elem)
+        assert "Ligne3D" in types
+        assert "Surface3D" not in types
+
+    def test_geometrie_absente_aucune_geometrie_emise(
+        self, feature_mapper, feature_base
+    ):
+        """Sans géométrie ni propriété Ligne3D, aucun élément géométrique n'est émis."""
+        elem = feature_mapper.mapper_geometrie_supplementaire(feature_base, "gs_qual")
+        types = self._types_enfants(elem)
+        assert "Ligne3D" not in types
+        assert "Surface3D" not in types
+
+    def test_ligne3d_legacy_et_surface_coexistent(self, feature_mapper, feature_base):
+        """Si la propriété WKT Ligne3D et une géométrie surfacique sont fournies,
+        les deux sont émises dans le bon ordre XSD."""
+        feature_base["properties"]["Ligne3D"] = "100 200 10,110 210 20"
+        feature_base["geometry"] = {
+            "type": "Polygon",
+            "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]],
+        }
+        elem = feature_mapper.mapper_geometrie_supplementaire(feature_base, "gs_qual")
+        types = self._types_enfants(elem)
+        assert types == [
+            "Ligne3D",
+            "PrecisionXY",
+            "PrecisionZ",
+            "Surface3D",
+        ]
+
+    def test_ligne3d_geometry_id_unique(self, feature_mapper, feature_base):
+        """Le gml:id de la Ligne3D dérivée de la géométrie ne collisionne pas
+        avec celui généré pour la propriété WKT."""
+        feature_base["properties"]["Ligne3D"] = "100 200 10,110 210 20"
+        feature_base["geometry"] = {
+            "type": "LineString",
+            "coordinates": [[0.0, 0.0, 0.0], [5.0, 5.0, 1.0]],
+        }
+        elem = feature_mapper.mapper_geometrie_supplementaire(feature_base, "gs_qual")
+        gml_ids = [
+            ls.get(f"{{{NAMESPACE_GML}}}id")
+            for ls in elem.iter(f"{{{NAMESPACE_GML}}}LineString")
+        ]
+        assert len(gml_ids) == 2
+        assert len(set(gml_ids)) == 2

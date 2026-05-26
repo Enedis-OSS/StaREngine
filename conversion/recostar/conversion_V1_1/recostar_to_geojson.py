@@ -16,6 +16,7 @@ Fonctionnalités :
 import json
 import argparse
 import sys
+import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from xml.etree import ElementTree as ET
@@ -32,14 +33,18 @@ NAMESPACE_XSI = "http://www.w3.org/2001/XMLSchema-instance"
 
 # URLs de schéma pour détection de version
 SCHEMA_URL_V1_0 = "https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.0/RecoStaR/SchemaStarElecRecoStar.xsd"
-SCHEMA_URL_V1_10 = "https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.1/RecoStaR/SchemaStarElecRecoStar.xsd"
+SCHEMA_URL_V1_0_MAIN = "https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/main/RecoStaR/SchemaStarElecRecoStar.xsd"
+SCHEMA_URL_V1_10 = "https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.10/RecoStaR/SchemaStarElecRecoStar.xsd"
+
+# Toutes les URLs reconnues comme V1.0 (frozenset pour extensibilité et test O(1) d'appartenance)
+SCHEMA_URLS_V1_0: frozenset[str] = frozenset({SCHEMA_URL_V1_0, SCHEMA_URL_V1_0_MAIN})
 
 # Versions supportées
 VERSION_V1_0 = "V1.0"
 VERSION_V1_10 = "V1.10"
 
 # Constants for geometry types
-GEOMETRY_LIGNE_2_5D = "Ligne2.5D"
+GEOMETRY_LIGNE_3D = "Ligne3D"
 
 # Types d'entités RPD supportés (frozenset (par expérience cela améliore vraiment les performances) pour lookups O(1))
 RPD_ENTITY_TYPES = frozenset(
@@ -54,6 +59,7 @@ RPD_ENTITY_TYPES = frozenset(
         "RPD_GeometrieSupplementaire_Reco",
         "RPD_JeuBarres_Reco",
         "RPD_Jonction_Reco",
+        "RPD_ModuleRaccordement_Reco",
         "RPD_OuvrageCollectifBranchement_Reco",
         "RPD_PointDeComptage_Reco",
         "RPD_PointLeveOuvrageReseau_Reco",
@@ -519,12 +525,11 @@ class EntityExtractor:
 
         return {"type": "Feature", "properties": properties, "geometry": geometry}
 
-    def _extract_ligne_2_5d(self, ligne_elem: ET.Element) -> str | None:
-        """Extrait le texte posList depuis un élément Ligne2.5D (MultiCurve ou LineString)."""
+    def _extract_ligne_3d(self, ligne_elem: ET.Element) -> str | None:
+        """Extrait le texte posList depuis un élément Ligne3D ou Ligne2.5D (MultiCurve ou LineString)."""
         multicurve = ligne_elem.find(self.ns_helper.tag("gml", "MultiCurve"))
         if multicurve is not None:
             return self._extract_poslist_from_multicurve(multicurve)
-        # Ancien format (rétrocompatibilité) : LineString direct
         return self._extract_poslist_from_linestring(ligne_elem)
 
     def _extract_poslist_from_multicurve(self, multicurve: ET.Element) -> str | None:
@@ -547,10 +552,9 @@ class EntityExtractor:
     def extract_geometrie_supplementaire(self, elem: ET.Element) -> Dict:
         """RPD_GeometrieSupplementaire_Reco → GeoJSON feature
 
-        Ligne2.5D : Stocké comme texte dans properties (coordonnées 3D)
-        Surface2.5D : Stocké comme MultiPolygon dans geometry
-
-        Structure XML Ligne2.5D : MultiCurve > curveMember > LineString > posList
+        Lecture : Ligne3D (RPD conforme XSD) ou Ligne2.5D (legacy/EP) → stocké en Ligne3D
+        Lecture : Surface3D (RPD conforme XSD) ou Surface2.5D (legacy/EP) → geometry GeoJSON
+        Structure XML : MultiCurve > curveMember > LineString > posList
         """
         gml_id = elem.get(self.ns_helper.tag("gml", "id"))
 
@@ -558,24 +562,28 @@ class EntityExtractor:
             "fid": self._get_fid("RPD_GeometrieSupplementaire_Reco"),
             "ogr_pkid": f"RPD_Coffret_Reco_geomsupp_{self.counter['RPD_GeometrieSupplementaire_Reco']}",
             "id": gml_id,
+            "Commentaire": self._get_text(elem, "Commentaire"),
             "PrecisionXY": self._get_text(elem, "PrecisionXY"),
             "PrecisionZ": self._get_text(elem, "PrecisionZ"),
         }
 
-        # Ligne2.5D : Extraction depuis MultiCurve > curveMember > LineString > posList
-        ligne_elem = elem.find(self.ns_helper.tag("RecoStaR", GEOMETRY_LIGNE_2_5D))
+        # Ligne3D (RPD) ou Ligne2.5D (legacy) → propriété GeoJSON normalisée en Ligne3D
+        ligne_elem = elem.find(self.ns_helper.tag("RecoStaR", "Ligne3D"))
+        if ligne_elem is None:
+            ligne_elem = elem.find(self.ns_helper.tag("RecoStaR", "Ligne2.5D"))
         if ligne_elem is not None:
-            ligne_text = self._extract_ligne_2_5d(ligne_elem)
+            ligne_text = self._extract_ligne_3d(ligne_elem)
             if ligne_text:
-                properties[GEOMETRY_LIGNE_2_5D] = ligne_text
+                properties[GEOMETRY_LIGNE_3D] = ligne_text
 
-        # Surface2.5D : Extraction comme MultiPolygon dans geometry
-        surface_elem = elem.find(self.ns_helper.tag("RecoStaR", "Surface2.5D"))
+        # Surface3D (RPD) ou Surface2.5D (legacy) → geometry GeoJSON
+        surface_elem = elem.find(self.ns_helper.tag("RecoStaR", "Surface3D"))
+        if surface_elem is None:
+            surface_elem = elem.find(self.ns_helper.tag("RecoStaR", "Surface2.5D"))
         geometry = None
         if surface_elem is not None:
             polygon = self.geom_parser.parse_geometry(surface_elem)
             if polygon:
-                # Convertir en MultiPolygon pour cohérence avec format d'origine
                 geometry = {
                     "type": "MultiPolygon",
                     "coordinates": [polygon["coordinates"]],
@@ -814,6 +822,50 @@ class EntityExtractor:
             "properties": properties,
             "geometry": None,  # Pas de géométrie pour matériel
         }
+
+    def extract_module_raccordement(self, elem: ET.Element) -> Dict:
+        """Extrait RPD_ModuleRaccordement_Reco
+
+        Unité fonctionnelle (départ monobloc, etc.) hébergée par un
+        RPD_SupportModules_Reco (référencé par noeudParent) et placée dans
+        un conteneur. Selon le XSD, l'entité n'a pas de géométrie propre :
+        la position est déduite du conteneur.
+        """
+        gml_id = elem.get(self.ns_helper.tag("gml", "id"))
+
+        properties = {
+            "fid": self._get_fid("RPD_ModuleRaccordement_Reco"),
+            "ogr_pkid": (
+                "RPD_ModuleRaccordement_Reco_"
+                f"{self.counter['RPD_ModuleRaccordement_Reco'] - 1}"
+            ),
+            "id": gml_id,
+            # Commentaire hérité d'ElementReseau (V1.1, optionnel)
+            "Commentaire": self._get_text(elem, "Commentaire"),
+            "Coupure": self._get_text(elem, "Coupure"),
+            "NbPlagesOccupees": self._get_text(elem, "NbPlagesOccupees"),
+            "Protection": self._get_text(elem, "Protection"),
+        }
+
+        # Référence vers le conteneur (RPD_Coffret_Reco, RPD_BatimentTechnique_Reco, etc.)
+        conteneur = self._get_href(elem, "conteneur")
+        if conteneur:
+            properties["conteneur_href"] = conteneur
+
+        # Référence vers le RPD_SupportModules_Reco parent (requis selon XSD)
+        noeud_parent = self._get_href(elem, "noeudParent")
+        if noeud_parent:
+            properties["noeudParent_href"] = noeud_parent
+
+        # Relations CableElectrique_NoeudReseau (cables_href + EtatAvantRaccordement)
+        self._peupler_cables_href(properties, gml_id)
+
+        # Position héritée du conteneur si présente
+        geometry = None
+        if conteneur and conteneur in self.conteneur_geometries:
+            geometry = self.conteneur_geometries[conteneur]
+
+        return {"type": "Feature", "properties": properties, "geometry": geometry}
 
     def extract_pleine_terre(self, elem: ET.Element) -> Dict:
         """Extrait RPD_PleineTerre_Reco et stocke la géométrie pour héritage par les câbles"""
@@ -1145,7 +1197,8 @@ class GMLConverter:
         """
         schema_location = root.get(f"{{{NAMESPACE_XSI}}}schemaLocation", "")
 
-        if SCHEMA_URL_V1_0 in schema_location:
+        # Vérification exacte : toutes les URLs connues comme V1.0
+        if any(url in schema_location for url in SCHEMA_URLS_V1_0):
             return VERSION_V1_0
         if SCHEMA_URL_V1_10 in schema_location:
             return VERSION_V1_10
@@ -1153,7 +1206,7 @@ class GMLConverter:
         # Fallback : recherche partielle dans l'URL
         if "RecoStar-v1.0" in schema_location:
             return VERSION_V1_0
-        if "RecoStar-v1.1" in schema_location:
+        if "RecoStar-v1.10" in schema_location:
             return VERSION_V1_10
 
         return VERSION_V1_10
@@ -1620,8 +1673,10 @@ class GMLConverter:
                 [x - demi_longueur, y - demi_largeur, z],
             ]
 
-            support_id = props.get("id", props.get("ogr_pkid", ""))
-            geom_supp_id = f"geomsupp_support_{support_id}"
+            # Identifiant non préfixé respectant le format xsd:ID (NCName) ;
+            # un UUID garantit l'unicité dans le GML sans collision avec le
+            # gml:id du support porteur.
+            geom_supp_id = f"id{uuid.uuid4()}"
 
             # Créer la feature GeometrieSupplementaire
             fid = self.extractor._get_fid("RPD_GeometrieSupplementaire_Reco")
@@ -1841,6 +1896,7 @@ class GMLConverter:
             "RPD_GeometrieSupplementaire_Reco": self.extractor.extract_geometrie_supplementaire,
             "RPD_JeuBarres_Reco": self.extractor.extract_jeu_barres,
             "RPD_Jonction_Reco": self.extractor.extract_jonction,
+            "RPD_ModuleRaccordement_Reco": self.extractor.extract_module_raccordement,
             "RPD_OuvrageCollectifBranchement_Reco": self.extractor.extract_ouvrage_collectif_branchement,
             "RPD_PointDeComptage_Reco": self.extractor.extract_point_comptage,
             "RPD_PointLeveOuvrageReseau_Reco": self.extractor.extract_point_leve,

@@ -46,6 +46,7 @@ REQUIRED_RPD_FILES = frozenset(
         "RPD_GeometrieSupplementaire_Reco",
         "RPD_JeuBarres_Reco",
         "RPD_Jonction_Reco",
+        "RPD_ModuleRaccordement_Reco",
         "RPD_OuvrageCollectifBranchement_Reco",
         "RPD_PointDeComptage_Reco",
         "RPD_PointLeveOuvrageReseau_Reco",
@@ -972,6 +973,42 @@ class MappeurEntites:
 
         return element
 
+    def mapper_module_raccordement(self, feature: Dict, feature_id: str) -> ET.Element:
+        """Mappe RPD_ModuleRaccordement_Reco
+
+        Ordre XSD strict (hérité ElementReseau → Ouvrage → NoeudReseau → Plage) :
+        reseau, conteneur?, noeudParent, Coupure, NbPlagesOccupees, Protection.
+        Pas de géométrie propre (position déduite du conteneur).
+        """
+        props = feature["properties"]
+
+        element = ET.Element(f"{{{NAMESPACE_RECOSTAR}}}RPD_ModuleRaccordement_Reco")
+        element.set(f"{{{NAMESPACE_GML}}}id", feature_id)
+
+        # 1. reseau (hérité ElementReseauType, requis)
+        self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
+
+        # 2. conteneur (hérité NoeudReseauType, optionnel)
+        conteneur_href = props.get("conteneur_href")
+        if conteneur_href:
+            self._ajouter_reference(element, "conteneur", conteneur_href)
+
+        # 3. noeudParent (référence RPD_SupportModules_Reco, requis)
+        self._ajouter_reference(element, "noeudParent", props.get("noeudParent_href"))
+
+        # 4. Coupure (bool, requis)
+        self._ajouter_propriete(element, "Coupure", props.get("Coupure"))
+
+        # 5. NbPlagesOccupees (int, requis)
+        self._ajouter_propriete(
+            element, "NbPlagesOccupees", props.get("NbPlagesOccupees")
+        )
+
+        # 6. Protection (bool, requis)
+        self._ajouter_propriete(element, "Protection", props.get("Protection"))
+
+        return element
+
     def mapper_ouvrage_collectif_branchement(
         self, feature: Dict, feature_id: str
     ) -> ET.Element:
@@ -1208,6 +1245,7 @@ class GenerateurGML:
             "RPD_CoupeCircuitAFusibles_Reco",
             "RPD_JeuBarres_Reco",
             "RPD_Jonction_Reco",
+            "RPD_ModuleRaccordement_Reco",
             "RPD_OuvrageCollectifBranchement_Reco",
             "RPD_PointDeComptage_Reco",
             "RPD_PosteElectrique_Reco",
@@ -1463,6 +1501,7 @@ class GenerateurGML:
             "RPD_JeuBarres_Reco",
             "RPD_Jonction_Reco",
             "RPD_Materiel_Reco",
+            "RPD_ModuleRaccordement_Reco",
             "RPD_OuvrageCollectifBranchement_Reco",
             "RPD_PleineTerre_Reco",
             "RPD_Fourreau_Reco",
@@ -1533,6 +1572,7 @@ class GenerateurGML:
             "RPD_GeometrieSupplementaire_Reco": self.mapper.mapper_geometrie_supplementaire,
             "RPD_JeuBarres_Reco": self.mapper.mapper_jeu_barres,
             "RPD_Jonction_Reco": self.mapper.mapper_jonction,
+            "RPD_ModuleRaccordement_Reco": self.mapper.mapper_module_raccordement,
             "RPD_OuvrageCollectifBranchement_Reco": self.mapper.mapper_ouvrage_collectif_branchement,
             "RPD_PointDeComptage_Reco": self.mapper.mapper_point_comptage,
             "RPD_PointLeveOuvrageReseau_Reco": self.mapper.mapper_point_leve,

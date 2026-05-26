@@ -10,10 +10,11 @@ from recostar_to_geojson import (
     NAMESPACE_XSI,
     RPD_ENTITY_TYPES,
     RELATION_TYPES,
-    GEOMETRY_LIGNE_2_5D,
+    GEOMETRY_LIGNE_3D,
     VERSION_V1_0,
     VERSION_V1_10,
     SCHEMA_URL_V1_0,
+    SCHEMA_URL_V1_0_MAIN,
     SCHEMA_URL_V1_10,
     GMLNamespaceHelper,
     GeometryParser,
@@ -53,6 +54,7 @@ class TestConstantesModule:
             "RPD_Support_Reco",
             "RPD_Jonction_Reco",
             "RPD_Materiel_Reco",
+            "RPD_ModuleRaccordement_Reco",
         }
         assert types_attendus <= RPD_ENTITY_TYPES
 
@@ -67,9 +69,9 @@ class TestConstantesModule:
         assert "Cheminement_Cables" in RELATION_TYPES
         assert "Ouvrage_Materiel" in RELATION_TYPES
 
-    def test_geometry_ligne_2_5d(self):
-        """Vérifie la constante géométrie Ligne2.5D."""
-        assert GEOMETRY_LIGNE_2_5D == "Ligne2.5D"
+    def test_geometry_ligne_3d(self):
+        """Vérifie la constante géométrie Ligne3D (nom RPD conforme XSD)."""
+        assert GEOMETRY_LIGNE_3D == "Ligne3D"
 
 
 # ============================================================
@@ -753,6 +755,92 @@ class TestExtracteurEntitesExtraction:
         entity_extractor.extract_aerien(elem)
         assert "aer_cache" in entity_extractor.cheminement_geometries
 
+    def _creer_element_module_raccordement(
+        self,
+        gml_id="module_001",
+        conteneur_href="coffret_001",
+        noeud_parent_href="support_modules_001",
+        commentaire=None,
+    ):
+        """Crée un élément XML RPD_ModuleRaccordement_Reco pour les tests."""
+        ns_r = f"{{{NAMESPACE_RECOSTAR}}}"
+        ns_g = f"{{{NAMESPACE_GML}}}"
+        ns_x = f"{{{NAMESPACE_XLINK}}}"
+        module = ET.Element(f"{ns_r}RPD_ModuleRaccordement_Reco")
+        module.set(f"{ns_g}id", gml_id)
+        if commentaire is not None:
+            ET.SubElement(module, f"{ns_r}Commentaire").text = commentaire
+        if conteneur_href:
+            cont = ET.SubElement(module, f"{ns_r}conteneur")
+            cont.set(f"{ns_x}href", conteneur_href)
+        ET.SubElement(module, f"{ns_r}Coupure").text = "true"
+        ET.SubElement(module, f"{ns_r}NbPlagesOccupees").text = "4"
+        if noeud_parent_href:
+            noeud = ET.SubElement(module, f"{ns_r}noeudParent")
+            noeud.set(f"{ns_x}href", noeud_parent_href)
+        ET.SubElement(module, f"{ns_r}Protection").text = "false"
+        return module
+
+    def test_extraire_module_raccordement_proprietes(self, entity_extractor):
+        """Vérifie l'extraction des propriétés d'un ModuleRaccordement."""
+        elem = self._creer_element_module_raccordement(commentaire="note libre")
+        feature = entity_extractor.extract_module_raccordement(elem)
+        props = feature["properties"]
+        assert props["id"] == "module_001"
+        assert props["Commentaire"] == "note libre"
+        assert props["Coupure"] == "true"
+        assert props["NbPlagesOccupees"] == "4"
+        assert props["Protection"] == "false"
+        assert props["conteneur_href"] == "coffret_001"
+        assert props["noeudParent_href"] == "support_modules_001"
+
+    def test_extraire_module_raccordement_herite_geometrie_conteneur(
+        self, entity_extractor
+    ):
+        """Vérifie l'héritage de géométrie depuis le conteneur."""
+        geom_point = {"type": "Point", "coordinates": [600000.0, 6800000.0, 100.0]}
+        entity_extractor.conteneur_geometries["coffret_001"] = geom_point
+        elem = self._creer_element_module_raccordement()
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert feature["geometry"] == geom_point
+
+    def test_extraire_module_raccordement_sans_conteneur(self, entity_extractor):
+        """Sans conteneur, geometry reste None et conteneur_href absent."""
+        elem = self._creer_element_module_raccordement(conteneur_href=None)
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert feature["geometry"] is None
+        assert "conteneur_href" not in feature["properties"]
+
+    def test_extraire_module_raccordement_cables_href(self, entity_extractor):
+        """Vérifie la restitution de la relation CableElectrique_NoeudReseau."""
+        entity_extractor.relations["cable_noeud"]["module_001"] = [
+            "cable_aaa",
+            "cable_bbb",
+        ]
+        elem = self._creer_element_module_raccordement()
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert feature["properties"]["cables_href"] == "cable_aaa,cable_bbb"
+
+    def test_extraire_module_raccordement_etat_avant_raccordement(
+        self, entity_extractor
+    ):
+        """L'EtatAvantRaccordement V1.1 est récupéré via _peupler_cables_href."""
+        entity_extractor.relations["cable_noeud"]["module_001"] = ["cable_aaa"]
+        entity_extractor.relations["cable_noeud_etat"][
+            "module_001_cable_aaa"
+        ] = "RACCORDE"
+        elem = self._creer_element_module_raccordement()
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert feature["properties"]["EtatAvantRaccordement"] == "RACCORDE"
+
+    def test_extraire_module_raccordement_ogr_pkid(self, entity_extractor):
+        """Vérifie le format du ogr_pkid."""
+        elem = self._creer_element_module_raccordement("mr_test")
+        feature = entity_extractor.extract_module_raccordement(elem)
+        assert feature["properties"]["ogr_pkid"].startswith(
+            "RPD_ModuleRaccordement_Reco_"
+        )
+
     def test_extract_ogr_pkid(self, entity_extractor):
         """Vérifie la génération de ogr_pkid."""
         elem = self._creer_element_coffret("coffret_test")
@@ -1275,6 +1363,16 @@ class TestDetectionVersionSchema:
         )
         assert converter._detecter_version_schema(root) == VERSION_V1_0
 
+    def test_detecter_version_v1_0_main(self):
+        """Vérifie que l'URL pointant vers la branche main est reconnue comme V1.0."""
+        converter = GMLConverter()
+        root = ET.Element(f"{{{NAMESPACE_GML}}}FeatureCollection")
+        root.set(
+            f"{{{NAMESPACE_XSI}}}schemaLocation",
+            f"{NAMESPACE_RECOSTAR} {SCHEMA_URL_V1_0_MAIN}",
+        )
+        assert converter._detecter_version_schema(root) == VERSION_V1_0
+
     def test_detecter_version_v1_10(self):
         """Vérifie la détection de la version V1.10 via l'URL complète."""
         converter = GMLConverter()
@@ -1573,7 +1671,7 @@ class TestExtractionMetadonnees:
     xmlns:RecoStaR="{NAMESPACE_RECOSTAR}"
     xmlns:xlink="{NAMESPACE_XLINK}"
     xmlns:xsi="{NAMESPACE_XSI}"
-    xsi:schemaLocation="{NAMESPACE_RECOSTAR} https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.1/RecoStaR/SchemaStarElecRecoStar.xsd">
+    xsi:schemaLocation="{NAMESPACE_RECOSTAR} https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.10/RecoStaR/SchemaStarElecRecoStar.xsd">
     <gml:featureMember>
         <RecoStaR:Metadata gml:id="meta_001">
             <RecoStaR:Datecreation>2024-06-15</RecoStaR:Datecreation>
@@ -2417,3 +2515,93 @@ class TestSuppressionDoublonsGeographiquesPLOR:
         assert len(resultat) == 1
         assert resultat[0]["properties"]["ogr_pkid"] == "plor_2"
         assert resultat[0]["properties"]["ChargeGeneratrice"] == pytest.approx(2.0)
+
+
+# ============================================================
+# Tests d'extraction de RPD_GeometrieSupplementaire_Reco
+# ============================================================
+
+
+class TestExtractGeometrieSupplementaire:
+    """Tests vérifiant l'extraction de RPD_GeometrieSupplementaire_Reco depuis le GML."""
+
+    def _creer_elem_geom_supp(self, gml_id: str = "geom_001") -> ET.Element:
+        """Crée un élément XML RPD_GeometrieSupplementaire_Reco minimal."""
+        elem = ET.Element(f"{{{NAMESPACE_RECOSTAR}}}RPD_GeometrieSupplementaire_Reco")
+        elem.set(f"{{{NAMESPACE_GML}}}id", gml_id)
+        return elem
+
+    def _ajouter_ligne(self, elem: ET.Element, tag_ligne: str, pos_text: str):
+        """Ajoute un élément Ligne3D ou Ligne2.5D avec un LineString GML."""
+        ligne_elem = ET.SubElement(elem, f"{{{NAMESPACE_RECOSTAR}}}{tag_ligne}")
+        ls = ET.SubElement(ligne_elem, f"{{{NAMESPACE_GML}}}LineString")
+        ls.set("srsName", "EPSG:2154")
+        pos_list = ET.SubElement(ls, f"{{{NAMESPACE_GML}}}posList")
+        pos_list.set("srsDimension", "3")
+        pos_list.text = pos_text
+
+    def _ajouter_surface(self, elem: ET.Element, tag_surface: str):
+        """Ajoute un élément Surface3D ou Surface2.5D avec un Polygon GML."""
+        surface_elem = ET.SubElement(elem, f"{{{NAMESPACE_RECOSTAR}}}{tag_surface}")
+        polygon = ET.SubElement(surface_elem, f"{{{NAMESPACE_GML}}}Polygon")
+        exterior = ET.SubElement(polygon, f"{{{NAMESPACE_GML}}}exterior")
+        ring = ET.SubElement(exterior, f"{{{NAMESPACE_GML}}}LinearRing")
+        pos_list = ET.SubElement(ring, f"{{{NAMESPACE_GML}}}posList")
+        pos_list.set("srsDimension", "2")
+        pos_list.text = "0.0 0.0 1.0 0.0 1.0 1.0 0.0 0.0"
+
+    def test_ligne3d_stocke_en_ligne3d(self, entity_extractor):
+        """Vérifie que Ligne3D (RPD) est lu et stocké dans la propriété Ligne3D."""
+        elem = self._creer_elem_geom_supp()
+        self._ajouter_ligne(
+            elem, "Ligne3D", "100000.0 200000.0 10.0 100010.0 200010.0 20.0"
+        )
+        result = entity_extractor.extract_geometrie_supplementaire(elem)
+        assert GEOMETRY_LIGNE_3D in result["properties"]
+        assert (
+            result["properties"][GEOMETRY_LIGNE_3D]
+            == "100000.0 200000.0 10.0 100010.0 200010.0 20.0"
+        )
+
+    def test_ligne2_5d_fallback_stocke_en_ligne3d(self, entity_extractor):
+        """Vérifie que Ligne2.5D (legacy/EP) est lu et stocké dans la propriété Ligne3D."""
+        elem = self._creer_elem_geom_supp()
+        self._ajouter_ligne(
+            elem, "Ligne2.5D", "100000.0 200000.0 10.0 100010.0 200010.0 20.0"
+        )
+        result = entity_extractor.extract_geometrie_supplementaire(elem)
+        assert GEOMETRY_LIGNE_3D in result["properties"]
+        assert (
+            result["properties"][GEOMETRY_LIGNE_3D]
+            == "100000.0 200000.0 10.0 100010.0 200010.0 20.0"
+        )
+
+    def test_surface3d_cree_geometry(self, entity_extractor):
+        """Vérifie que Surface3D (RPD) produit une geometry GeoJSON MultiPolygon."""
+        elem = self._creer_elem_geom_supp()
+        self._ajouter_surface(elem, "Surface3D")
+        result = entity_extractor.extract_geometrie_supplementaire(elem)
+        assert result["geometry"] is not None
+        assert result["geometry"]["type"] == "MultiPolygon"
+
+    def test_surface2_5d_fallback_cree_geometry(self, entity_extractor):
+        """Vérifie que Surface2.5D (legacy/EP) produit une geometry GeoJSON MultiPolygon."""
+        elem = self._creer_elem_geom_supp()
+        self._ajouter_surface(elem, "Surface2.5D")
+        result = entity_extractor.extract_geometrie_supplementaire(elem)
+        assert result["geometry"] is not None
+        assert result["geometry"]["type"] == "MultiPolygon"
+
+    def test_commentaire_stocke(self, entity_extractor):
+        """Vérifie que Commentaire est extrait et stocké dans les propriétés."""
+        elem = self._creer_elem_geom_supp()
+        commentaire_elem = ET.SubElement(elem, f"{{{NAMESPACE_RECOSTAR}}}Commentaire")
+        commentaire_elem.text = "Texte du commentaire"
+        result = entity_extractor.extract_geometrie_supplementaire(elem)
+        assert result["properties"]["Commentaire"] == "Texte du commentaire"
+
+    def test_sans_ligne_propriete_absente(self, entity_extractor):
+        """Vérifie l'absence de Ligne3D dans les propriétés quand aucune ligne n'est présente."""
+        elem = self._creer_elem_geom_supp()
+        result = entity_extractor.extract_geometrie_supplementaire(elem)
+        assert GEOMETRY_LIGNE_3D not in result["properties"]

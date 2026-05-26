@@ -44,6 +44,7 @@ RPD_ENTITY_TYPES = frozenset(
         "RPD_GeometrieSupplementaire_Reco",
         "RPD_JeuBarres_Reco",
         "RPD_Jonction_Reco",
+        "RPD_ModuleRaccordement_Reco",
         "RPD_OuvrageCollectifBranchement_Reco",
         "RPD_PointDeComptage_Reco",
         "RPD_PointLeveOuvrageReseau_Reco",
@@ -689,6 +690,53 @@ class EntityExtractor:
             "geometry": None,  # Pas de géométrie pour matériel
         }
 
+    def extract_module_raccordement(self, elem: ET.Element) -> Dict:
+        """Extrait RPD_ModuleRaccordement_Reco
+
+        Unité fonctionnelle (départ monobloc, etc.) hébergée par un
+        RPD_SupportModules_Reco (référencé par noeudParent) et placée dans
+        un conteneur (RPD_Coffret_Reco / RPD_BatimentTechnique_Reco / ...).
+        Selon le XSD, l'entité n'a pas de géométrie propre : la position
+        est déduite du conteneur.
+        """
+        gml_id = elem.get(self.ns_helper.tag("gml", "id"))
+
+        properties = {
+            "fid": self._get_fid("RPD_ModuleRaccordement_Reco"),
+            "ogr_pkid": (
+                "RPD_ModuleRaccordement_Reco_"
+                f"{self.counter['RPD_ModuleRaccordement_Reco'] - 1}"
+            ),
+            "id": gml_id,
+            "Coupure": self._get_text(elem, "Coupure"),
+            "NbPlagesOccupees": self._get_text(elem, "NbPlagesOccupees"),
+            "Protection": self._get_text(elem, "Protection"),
+        }
+
+        # Référence vers le conteneur (RPD_Coffret_Reco, RPD_BatimentTechnique_Reco, etc.)
+        conteneur = self._get_href(elem, "conteneur")
+        if conteneur:
+            properties["conteneur_href"] = conteneur
+
+        # Référence vers le RPD_SupportModules_Reco parent (obligatoire selon XSD)
+        noeud_parent = self._get_href(elem, "noeudParent")
+        if noeud_parent:
+            properties["noeudParent_href"] = noeud_parent
+
+        # Relation CableElectrique_NoeudReseau : un module est un NoeudReseau,
+        # il peut donc être raccordé à un ou plusieurs câbles électriques.
+        if gml_id in self.relations["cable_noeud"]:
+            cables = self.relations["cable_noeud"][gml_id]
+            if cables:
+                properties["cables_href"] = ",".join(cables)
+
+        # Position héritée du conteneur si présente
+        geometry = None
+        if conteneur and conteneur in self.conteneur_geometries:
+            geometry = self.conteneur_geometries[conteneur]
+
+        return {"type": "Feature", "properties": properties, "geometry": geometry}
+
     def extract_pleine_terre(self, elem: ET.Element) -> Dict:
         """Extrait RPD_PleineTerre_Reco et stocke la géométrie pour héritage par les câbles"""
         gml_id = elem.get(self.ns_helper.tag("gml", "id"))
@@ -1318,6 +1366,7 @@ class GMLConverter:
             "RPD_GeometrieSupplementaire_Reco": self.extractor.extract_geometrie_supplementaire,
             "RPD_JeuBarres_Reco": self.extractor.extract_jeu_barres,
             "RPD_Jonction_Reco": self.extractor.extract_jonction,
+            "RPD_ModuleRaccordement_Reco": self.extractor.extract_module_raccordement,
             "RPD_OuvrageCollectifBranchement_Reco": self.extractor.extract_ouvrage_collectif_branchement,
             "RPD_PointDeComptage_Reco": self.extractor.extract_point_comptage,
             "RPD_PointLeveOuvrageReseau_Reco": self.extractor.extract_point_leve,

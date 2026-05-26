@@ -46,6 +46,10 @@ class TestConstantesModule:
         """Vérifie que REQUIRED_RPD_FILES contient des éléments."""
         assert len(REQUIRED_RPD_FILES) > 0
 
+    def test_required_rpd_files_contient_module_raccordement(self):
+        """RPD_ModuleRaccordement_Reco doit être pris en charge par le pipeline."""
+        assert "RPD_ModuleRaccordement_Reco" in REQUIRED_RPD_FILES
+
 
 # ============================================================
 # Tests de ElementGML
@@ -342,6 +346,81 @@ class TestFeatureMapperMappings:
         assert ns is not None
         assert ns.text == "SN001"
 
+    def test_map_module_raccordement_balise_principale(self, feature_mapper):
+        """Vérifie que le mapper produit la bonne balise et l'id."""
+        feature = self._feature_module_raccordement()
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+        assert elem.tag == f"{{{NAMESPACE_RECOSTAR}}}RPD_ModuleRaccordement_Reco"
+        assert elem.get(f"{{{NAMESPACE_GML}}}id") == "module_001"
+
+    def test_map_module_raccordement_references(self, feature_mapper):
+        """Vérifie la présence et l'href des références conteneur et noeudParent."""
+        feature = self._feature_module_raccordement()
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+
+        ns_xlink = f"{{{NAMESPACE_XLINK}}}href"
+        cont = elem.find(f"{{{NAMESPACE_RECOSTAR}}}conteneur")
+        noeud = elem.find(f"{{{NAMESPACE_RECOSTAR}}}noeudParent")
+        reseau = elem.find(f"{{{NAMESPACE_RECOSTAR}}}reseau")
+
+        assert reseau is not None and reseau.get(ns_xlink) == "Reseau"
+        assert cont is not None and cont.get(ns_xlink) == "coffret_001"
+        assert noeud is not None and noeud.get(ns_xlink) == "support_modules_001"
+
+    def test_map_module_raccordement_proprietes(self, feature_mapper):
+        """Vérifie Coupure, NbPlagesOccupees et Protection."""
+        feature = self._feature_module_raccordement()
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+
+        coupure = elem.find(f"{{{NAMESPACE_RECOSTAR}}}Coupure")
+        nb_plages = elem.find(f"{{{NAMESPACE_RECOSTAR}}}NbPlagesOccupees")
+        protection = elem.find(f"{{{NAMESPACE_RECOSTAR}}}Protection")
+
+        assert coupure is not None and coupure.text == "true"
+        assert nb_plages is not None and nb_plages.text == "4"
+        assert protection is not None and protection.text == "false"
+
+    def test_map_module_raccordement_ordre_xsd(self, feature_mapper):
+        """L'ordre XSD strict doit être respecté (sequence Plage → ModuleRaccordement)."""
+        feature = self._feature_module_raccordement()
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+
+        ordre_attendu = (
+            "reseau",
+            "conteneur",
+            "noeudParent",
+            "Coupure",
+            "NbPlagesOccupees",
+            "Protection",
+        )
+        ordre_obtenu = tuple(child.tag.split("}", 1)[-1] for child in elem)
+        assert ordre_obtenu == ordre_attendu
+
+    def test_map_module_raccordement_sans_conteneur(self, feature_mapper):
+        """Sans conteneur_href, la balise conteneur doit être absente."""
+        feature = self._feature_module_raccordement()
+        feature["properties"].pop("conteneur_href")
+        elem = feature_mapper.mapper_module_raccordement(feature, "module_001")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}conteneur") is None
+
+    @staticmethod
+    def _feature_module_raccordement() -> dict:
+        """Feature GeoJSON typique pour RPD_ModuleRaccordement_Reco."""
+        return {
+            "type": "Feature",
+            "properties": {
+                "id": "module_001",
+                "fid": 1,
+                "ogr_pkid": "RPD_ModuleRaccordement_Reco_0",
+                "Coupure": "true",
+                "NbPlagesOccupees": "4",
+                "Protection": "false",
+                "conteneur_href": "coffret_001",
+                "noeudParent_href": "support_modules_001",
+            },
+            "geometry": None,
+        }
+
     def test_map_jonction_sans_geometrie(self, feature_mapper):
         """Vérifie le mapping Jonction sans géométrie (conteneur existant)."""
         feature = {
@@ -567,6 +646,16 @@ class TestGMLGeneratorRelations:
         assert "cheminement_cable" in result
         assert "cable_noeud" in result
         assert "ouvrage_materiel" in result
+
+    def test_extract_relations_module_raccordement_cable_noeud(self, gml_generator):
+        """RPD_ModuleRaccordement_Reco doit alimenter les relations cable_noeud."""
+        features_by_type = {
+            "RPD_ModuleRaccordement_Reco": [
+                {"properties": {"id": "mr_001", "cables_href": "cable_xxx"}},
+            ],
+        }
+        result = gml_generator._extraire_relations(features_by_type)
+        assert ("cable_xxx", "mr_001") in result["cable_noeud"]
 
     def test_create_cable_noeud_relation(self, gml_generator):
         """Vérifie la création d'une relation cable-noeud."""

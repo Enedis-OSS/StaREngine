@@ -238,13 +238,13 @@ class MappeurEntites:
 
         # Section avec UOM
         section_val = props.get("Section")
-        if section_val:
+        if section_val is not None:
             self._ajouter_propriete(
                 element, "Section", section_val, props.get("Section_uom", "mm-2")
             )
 
         section_neutre = props.get("SectionNeutre")
-        if section_neutre:
+        if section_neutre is not None:
             self._ajouter_propriete(
                 element,
                 "SectionNeutre",
@@ -289,7 +289,7 @@ class MappeurEntites:
 
         # Section (requis, avec UOM)
         section_val = props.get("Section")
-        if section_val:
+        if section_val is not None:
             self._ajouter_propriete(
                 element, "Section", section_val, props.get("Section_uom", "mm-2")
             )
@@ -322,7 +322,7 @@ class MappeurEntites:
 
         # Section avec UOM (optionnel)
         section_val = props.get("Section")
-        if section_val:
+        if section_val is not None:
             self._ajouter_propriete(
                 element, "Section", section_val, props.get("Section_uom", "mm-2")
             )
@@ -457,7 +457,7 @@ class MappeurEntites:
 
         # 3. DiametreDuFourreau (requis)
         diametre = props.get("DiametreDuFourreau")
-        if diametre:
+        if diametre is not None:
             self._ajouter_propriete(
                 element,
                 "DiametreDuFourreau",
@@ -490,7 +490,7 @@ class MappeurEntites:
 
         # 9. ProfondeurMinNonReg? (optionnel)
         profondeur = props.get("ProfondeurMinNonReg")
-        if profondeur:
+        if profondeur is not None:
             self._ajouter_propriete(
                 element,
                 "ProfondeurMinNonReg",
@@ -924,7 +924,7 @@ class MappeurEntites:
 
         # ProfondeurMinNonReg (optionnel)
         profondeur = props.get("ProfondeurMinNonReg")
-        if profondeur:
+        if profondeur is not None:
             self._ajouter_propriete(
                 element,
                 "ProfondeurMinNonReg",
@@ -1093,7 +1093,7 @@ class MappeurEntites:
 
         # ProfondeurMinNonReg (optionnel)
         profondeur = props.get("ProfondeurMinNonReg")
-        if profondeur:
+        if profondeur is not None:
             self._ajouter_propriete(
                 element,
                 "ProfondeurMinNonReg",
@@ -1172,7 +1172,7 @@ class MappeurEntites:
 
         # Resistance (optionnel avec unité)
         resistance = props.get("Resistance")
-        if resistance:
+        if resistance is not None:
             self._ajouter_propriete(
                 element, "Resistance", resistance, props.get("Resistance_uom", "Ohm")
             )

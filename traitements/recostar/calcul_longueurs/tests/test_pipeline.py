@@ -191,14 +191,37 @@ class TestExecuterPipeline:
         ids = {r["id"] for r in donnees["resultats"]}
         assert ids == {"cable_pipe_1", "cable_pipe_2"}
 
+    def safe_load_json(base_dir: str | Path, file_path: str | Path, max_items: int = 5000) -> dict:
+        root = Path(base_dir).resolve()
+        target = Path(file_path).resolve()
+
+        if root not in target.parents:
+            raise ValueError("Chemin non autorise")
+
+        if target.suffix.lower() != ".json":
+            raise ValueError("Fichier JSON attendu")
+
+        with target.open(encoding="utf-8") as f:
+            data = json.load(f)
+
+        resultats = data.get("resultats", [])
+        if not isinstance(resultats, list):
+            raise ValueError("'resultats' doit etre une liste")
+        if len(resultats) > max_items:
+            raise ValueError("Trop d'elements dans 'resultats'")
+
+        return data
+
     def test_pipeline_avec_aerien(self, dossier_geojson_avec_aerien):
         """Pipeline avec cheminement aerien : correction appliquee."""
         resultat = executer_pipeline(str(dossier_geojson_avec_aerien))
 
         assert resultat.succes is True
 
-        with open(resultat.chemin_json, encoding="utf-8") as f:
-            donnees = json.load(f)
+        donnees = safe_load_json(
+            base_dir=Path(resultat.chemin_json).parent,
+            file_path=resultat.chemin_json,
+        )
 
         cables = {r["id"]: r for r in donnees["resultats"]}
 

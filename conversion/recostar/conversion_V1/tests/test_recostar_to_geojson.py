@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+import recostar_to_geojson as r2g
 from recostar_to_geojson import (
     GMLNamespaceHelper,
     GeometryParser,
@@ -1215,3 +1216,303 @@ class TestConvertisseurGMLConversionComplete:
         assert cable["geometry"] is not None
         assert cable["geometry"]["type"] == "MultiLineString"
         assert len(cable["geometry"]["coordinates"]) == 2
+
+
+
+# ============================================================
+# Tests complémentaires des extracteurs et du CLI
+# ============================================================
+
+
+class TestExtracteurEntitesComplements:
+    """Tests complémentaires pour les extract_* peu couvertes."""
+
+    ns_r = f"{{{NAMESPACE_RECOSTAR}}}"
+    ns_g = f"{{{NAMESPACE_GML}}}"
+    ns_x = f"{{{NAMESPACE_XLINK}}}"
+
+    def _elem(self, tag, gml_id):
+        """Crée un élément RecoStaR avec gml:id."""
+        elem = ET.Element(f"{self.ns_r}{tag}")
+        elem.set(f"{self.ns_g}id", gml_id)
+        return elem
+
+    def _text(self, elem, name, value):
+        """Ajoute un enfant texte RecoStaR."""
+        child = ET.SubElement(elem, f"{self.ns_r}{name}")
+        child.text = str(value)
+        return child
+
+    def _ref(self, elem, name, href):
+        """Ajoute un enfant référence xlink:href."""
+        child = ET.SubElement(elem, f"{self.ns_r}{name}")
+        child.set(f"{self.ns_x}href", href)
+        return child
+
+    def _measure(self, elem, name, value, uom):
+        """Ajoute une mesure avec uom."""
+        child = self._text(elem, name, value)
+        child.set("uom", uom)
+        return child
+
+    def _point_geom(self, elem, coords="600000.0 6800000.0 100.0"):
+        """Ajoute une géométrie Point."""
+        geom = ET.SubElement(elem, f"{self.ns_r}Geometrie")
+        point = ET.SubElement(geom, f"{self.ns_g}Point")
+        pos = ET.SubElement(point, f"{self.ns_g}pos")
+        pos.text = coords
+        return geom
+
+    def _line_geom(self, elem):
+        """Ajoute une géométrie LineString."""
+        geom = ET.SubElement(elem, f"{self.ns_r}Geometrie")
+        line = ET.SubElement(geom, f"{self.ns_g}LineString")
+        pos_list = ET.SubElement(line, f"{self.ns_g}posList")
+        pos_list.set("srsDimension", "3")
+        pos_list.text = "0.0 0.0 1.0 1.0 1.0 2.0"
+        return geom
+
+    def test_extraire_cable_terre_complet(self, entity_extractor):
+        """Vérifie l'extraction complète d'un CableTerre avec géométrie héritée."""
+        elem = self._elem("RPD_CableTerre_Reco", "ct_001")
+        self._ref(elem, "FonctionCable", "MALT")
+        self._text(elem, "Materiau", "Cuivre")
+        self._ref(elem, "NatureCableTerre", "Nu")
+        self._ref(elem, "noeudReseau", "terre_001")
+        self._text(elem, "Statut", "EN_SERVICE")
+        self._text(elem, "Commentaire", "commentaire")
+        self._text(elem, "TypePose", "DIRECT")
+        self._text(elem, "PrecisionXY", "A")
+        self._text(elem, "PrecisionZ", "B")
+        self._measure(elem, "Section", 25, "mm-2")
+        entity_extractor.relations["cable_cheminement"]["ct_001"] = ["pt_001"]
+        entity_extractor.cheminement_geometries["pt_001"] = {"type": "LineString", "coordinates": [[0, 0, 1], [1, 1, 2]]}
+        feature = entity_extractor.extract_cable_terre(elem)
+        props = feature["properties"]
+        assert props["id"] == "ct_001"
+        assert props["Section"] == pytest.approx(25.0)
+        assert props["Section_uom"] == "mm-2"
+        assert feature["geometry"]["type"] == "LineString"
+
+    def test_extraire_coupe_circuit_a_fusibles_avec_relations(self, entity_extractor):
+        """Vérifie CoupeCircuitAFusibles avec conteneur, câbles et géométrie héritée."""
+        elem = self._elem("RPD_CoupeCircuitAFusibles_Reco", "ccf_001")
+        self._text(elem, "Statut", "EN_SERVICE")
+        self._text(elem, "PrecisionXY", "A")
+        self._text(elem, "PrecisionZ", "B")
+        self._ref(elem, "conteneur", "coffret_001")
+        entity_extractor.relations["cable_noeud"]["ccf_001"] = ["c1", "c2"]
+        entity_extractor.conteneur_geometries["coffret_001"] = {"type": "Point", "coordinates": [1, 2, 3]}
+        feature = entity_extractor.extract_coupe_circuit_a_fusibles(elem)
+        assert feature["properties"]["cables_href"] == "c1,c2"
+        assert feature["geometry"]["coordinates"] == [1, 2, 3]
+
+    def test_extraire_fourreau_complet(self, entity_extractor):
+        """Vérifie Fourreau avec mesures, relation câble et stockage de géométrie."""
+        elem = self._elem("RPD_Fourreau_Reco", "fourreau_001")
+        self._text(elem, "Materiau", "PEHD")
+        self._text(elem, "CoupeType", "CT")
+        self._text(elem, "EtatCoupeType", "OK")
+        self._text(elem, "PrecisionXY", "A")
+        self._text(elem, "PrecisionZ", "B")
+        self._measure(elem, "DiametreDuFourreau", 63, "mm")
+        self._measure(elem, "ProfondeurMinNonReg", 0.8, "m")
+        self._line_geom(elem)
+        entity_extractor.relations["cheminement_cable"]["fourreau_001"] = "cable_001"
+        feature = entity_extractor.extract_fourreau(elem)
+        assert feature["properties"]["DiametreDuFourreau"] == pytest.approx(63.0)
+        assert feature["properties"]["cables_href"] == "cable_001"
+        assert "fourreau_001" in entity_extractor.cheminement_geometries
+
+    def test_extraire_geometrie_supplementaire_ligne_multicurve_et_surface(self, entity_extractor):
+        """Vérifie Ligne2.5D MultiCurve et Surface2.5D."""
+        elem = self._elem("RPD_GeometrieSupplementaire_Reco", "gs_001")
+        self._text(elem, "PrecisionXY", "A")
+        self._text(elem, "PrecisionZ", "B")
+        ligne = ET.SubElement(elem, f"{self.ns_r}Ligne2.5D")
+        multicurve = ET.SubElement(ligne, f"{self.ns_g}MultiCurve")
+        member = ET.SubElement(multicurve, f"{self.ns_g}curveMember")
+        line = ET.SubElement(member, f"{self.ns_g}LineString")
+        pos = ET.SubElement(line, f"{self.ns_g}posList")
+        pos.text = "0 0 1 1 1 2"
+        surface = ET.SubElement(elem, f"{self.ns_r}Surface2.5D")
+        polygon = ET.SubElement(surface, f"{self.ns_g}Polygon")
+        exterior = ET.SubElement(polygon, f"{self.ns_g}exterior")
+        ring = ET.SubElement(exterior, f"{self.ns_g}LinearRing")
+        pos_poly = ET.SubElement(ring, f"{self.ns_g}posList")
+        pos_poly.set("srsDimension", "2")
+        pos_poly.text = "0 0 1 0 1 1 0 0"
+        feature = entity_extractor.extract_geometrie_supplementaire(elem)
+        assert feature["properties"][GEOMETRY_LIGNE_2_5D] == "0 0 1 1 1 2"
+        assert feature["geometry"]["type"] == "MultiPolygon"
+
+    def test_extraire_ligne_2_5d_variantes_absentes(self, entity_extractor):
+        """Vérifie les variantes LineString direct et MultiCurve incomplet."""
+        ligne = ET.Element(f"{self.ns_r}Ligne2.5D")
+        line = ET.SubElement(ligne, f"{self.ns_g}LineString")
+        pos = ET.SubElement(line, f"{self.ns_g}posList")
+        pos.text = "1 2 3 4 5 6"
+        assert entity_extractor._extract_ligne_2_5d(ligne) == "1 2 3 4 5 6"
+        multicurve = ET.Element(f"{self.ns_g}MultiCurve")
+        assert entity_extractor._extract_poslist_from_multicurve(multicurve) is None
+        assert entity_extractor._extract_poslist_from_linestring(ET.Element("parent")) is None
+
+    def test_extraire_point_comptage_avec_heritage(self, entity_extractor):
+        """Vérifie PointDeComptage avec câbles et géométrie héritée."""
+        elem = self._elem("RPD_PointDeComptage_Reco", "pc_001")
+        self._text(elem, "Statut", "EN_SERVICE")
+        self._ref(elem, "conteneur", "coffret_001")
+        self._text(elem, "NumeroPRM", "123")
+        self._text(elem, "PrecisionXY", "A")
+        self._text(elem, "PrecisionZ", "B")
+        entity_extractor.relations["cable_noeud"]["pc_001"] = ["cable_001"]
+        entity_extractor.conteneur_geometries["coffret_001"] = {"type": "Point", "coordinates": [1, 2, 3]}
+        feature = entity_extractor.extract_point_comptage(elem)
+        assert feature["properties"]["cables_href"] == "cable_001"
+        assert feature["geometry"]["coordinates"] == [1, 2, 3]
+
+    def test_extraire_point_leve_complet(self, entity_extractor):
+        """Vérifie PointLeve avec Leve, Z et précisions numériques."""
+        elem = self._elem("RPD_PointLeveOuvrageReseau_Reco", "pl_001")
+        self._text(elem, "NumeroPoint", "P1")
+        self._text(elem, "TypeLeve", "GPS")
+        self._text(elem, "Producteur", "Prod")
+        self._measure(elem, "Leve", 120.5, "m")
+        self._text(elem, "PrecisionXYnum", "2")
+        self._text(elem, "PrecisionZnum", "3")
+        self._point_geom(elem)
+        feature = entity_extractor.extract_point_leve(elem)
+        assert feature["properties"]["Z"] == pytest.approx(120.5)
+        assert feature["properties"]["PrecisionXYnum"] == 2
+        assert feature["geometry"]["type"] == "Point"
+
+    def test_extraire_batiment_technique_complet(self, entity_extractor):
+        """Vérifie BatimentTechnique avec référence géométrie supplémentaire."""
+        elem = self._elem("RPD_BatimentTechnique_Reco", "bat_001")
+        self._text(elem, "PrecisionXY", "A")
+        self._text(elem, "PrecisionZ", "B")
+        self._ref(elem, "geometriesupplementaire", "gs_001")
+        self._point_geom(elem)
+        feature = entity_extractor.extract_batiment_technique(elem)
+        assert feature["properties"]["geometriesupplementaire_href"] == "gs_001"
+        assert "bat_001" in entity_extractor.conteneur_geometries
+
+    def test_extraire_poste_electrique_avec_heritage(self, entity_extractor):
+        """Vérifie PosteElectrique avec câbles et géométrie héritée."""
+        elem = self._elem("RPD_PosteElectrique_Reco", "poste_001")
+        self._ref(elem, "Categorie", "HTA_BT")
+        self._text(elem, "Code", "P001")
+        self._ref(elem, "conteneur", "bat_001")
+        self._text(elem, "InformationSupplementaire", "info")
+        self._text(elem, "Statut", "EN_SERVICE")
+        self._ref(elem, "TypePoste", "CABINE")
+        entity_extractor.relations["cable_noeud"]["poste_001"] = ["c1", "c2"]
+        entity_extractor.conteneur_geometries["bat_001"] = {"type": "Point", "coordinates": [1, 2, 3]}
+        feature = entity_extractor.extract_poste_electrique(elem)
+        assert feature["properties"]["cables_href"] == "c1,c2"
+        assert feature["geometry"]["coordinates"] == [1, 2, 3]
+
+    def test_extraire_protection_mecanique_complet(self, entity_extractor):
+        """Vérifie ProtectionMecanique avec profondeur et relation câble."""
+        elem = self._elem("RPD_ProtectionMecanique_Reco", "pm_001")
+        self._text(elem, "CoupeType", "CT")
+        self._text(elem, "EtatCoupeType", "OK")
+        self._text(elem, "Materiau", "Béton")
+        self._text(elem, "PrecisionXY", "A")
+        self._text(elem, "PrecisionZ", "B")
+        self._measure(elem, "ProfondeurMinNonReg", 1.1, "m")
+        self._line_geom(elem)
+        entity_extractor.relations["cheminement_cable"]["pm_001"] = "cable_001"
+        feature = entity_extractor.extract_protection_mecanique(elem)
+        assert feature["properties"]["ProfondeurMinNonReg_uom"] == "m"
+        assert feature["properties"]["cables_href"] == "cable_001"
+        assert "pm_001" in entity_extractor.cheminement_geometries
+
+    def test_extraire_jeu_barres_support_modules_terre_et_ouvrage(self, entity_extractor):
+        """Vérifie les nœuds héritant leur géométrie du conteneur."""
+        entity_extractor.conteneur_geometries["coffret_001"] = {"type": "Point", "coordinates": [1, 2, 3]}
+        entity_extractor.relations["cable_noeud"].update({"jb_001": ["c1"], "sm_001": ["c2"], "terre_001": ["ct_1"], "ocb_001": ["c3"]})
+        jeu = self._elem("RPD_JeuBarres_Reco", "jb_001")
+        self._ref(jeu, "conteneur", "coffret_001")
+        self._text(jeu, "Statut", "EN_SERVICE")
+        support = self._elem("RPD_SupportModules_Reco", "sm_001")
+        self._ref(support, "conteneur", "coffret_001")
+        self._text(support, "NombrePlages", "8")
+        self._text(support, "Statut", "EN_SERVICE")
+        terre = self._elem("RPD_Terre_Reco", "terre_001")
+        self._ref(terre, "conteneur", "coffret_001")
+        self._ref(terre, "NatureTerre", "Piquet")
+        self._text(terre, "Resistance", "12")
+        self._text(terre, "Statut", "EN_SERVICE")
+        ouvrage = self._elem("RPD_OuvrageCollectifBranchement_Reco", "ocb_001")
+        self._ref(ouvrage, "conteneur", "coffret_001")
+        self._text(ouvrage, "PrecisionXY", "A")
+        self._text(ouvrage, "PrecisionZ", "B")
+        self._text(ouvrage, "Statut", "EN_SERVICE")
+        assert entity_extractor.extract_jeu_barres(jeu)["geometry"]["coordinates"] == [1, 2, 3]
+        assert entity_extractor.extract_support_modules(support)["properties"]["NombrePlages"] == "8"
+        assert entity_extractor.extract_terre(terre)["properties"]["NatureTerre_href"] == "Piquet"
+        assert entity_extractor.extract_ouvrage_collectif_branchement(ouvrage)["properties"]["cables_href"] == "c3"
+
+
+class TestConvertisseurGMLPropagationCables:
+    """Tests complémentaires de propagation des câbles dans les conteneurs."""
+
+    def test_propager_cables_dans_conteneurs_et_nettoyer_terre(self, gml_converter, capsys):
+        """Vérifie la propagation aux nœuds et le nettoyage des terres."""
+        features = {
+            "RPD_CableTerre_Reco": [{"properties": {"id": "ct_1"}}],
+            "RPD_Jonction_Reco": [{"properties": {"id": "j1", "conteneur_href": "coffret_1", "cables_href": "c2,c1"}}],
+            "RPD_PointDeComptage_Reco": [{"properties": {"id": "pc1", "conteneur_href": "coffret_1"}}],
+            "RPD_Terre_Reco": [{"properties": {"id": "t1", "conteneur_href": "coffret_1", "cables_href": "c1,ct_1"}}],
+        }
+        gml_converter._propager_cables_dans_conteneurs(features)
+        assert features["RPD_PointDeComptage_Reco"][0]["properties"]["cables_href"] == "c1,c2"
+        assert features["RPD_Terre_Reco"][0]["properties"]["cables_href"] == "ct_1"
+        assert "enrichi" in capsys.readouterr().out
+
+    def test_injection_materiel_ignore_feature_sans_id(self, gml_converter):
+        """Vérifie que l'injection ignore les matériels sans id."""
+        features = {
+            "RPD_Jonction_Reco": [{"properties": {"id": "j1", "materiel_href": "mat_1"}}],
+            "RPD_Materiel_Reco": [{"properties": {"Fabricant": "F"}}],
+        }
+        gml_converter._inject_materiel_properties_into_jonctions(features)
+        assert "Fabricant" not in features["RPD_Jonction_Reco"][0]["properties"]
+
+
+class TestRecostarToGeoJSONCLI:
+    """Tests de la fonction main() du module recostar_to_geojson."""
+
+    def test_main_fichier_inexistant_quitte_en_erreur(self, monkeypatch, tmp_path, capsys):
+        """Vérifie l'erreur si le fichier GML n'existe pas."""
+        monkeypatch.setattr("sys.argv", ["recostar_to_geojson.py", str(tmp_path / "absent.gml"), str(tmp_path / "out")])
+        with pytest.raises(SystemExit) as exc:
+            r2g.main()
+        assert exc.value.code == 1
+        assert "n'existe pas" in capsys.readouterr().err
+
+    def test_main_entree_pas_un_fichier(self, monkeypatch, tmp_path, capsys):
+        """Vérifie l'erreur si l'entrée est un répertoire."""
+        monkeypatch.setattr("sys.argv", ["recostar_to_geojson.py", str(tmp_path), str(tmp_path / "out")])
+        with pytest.raises(SystemExit) as exc:
+            r2g.main()
+        assert exc.value.code == 1
+        assert "n'est pas un fichier" in capsys.readouterr().err
+
+    def test_main_succes_conversion_complete(self, monkeypatch, tmp_path):
+        """Vérifie que main délègue la conversion au convertisseur."""
+        input_gml = tmp_path / "input.gml"
+        input_gml.write_text("<gml/>", encoding="utf-8")
+        output_dir = tmp_path / "out"
+        appels = []
+        class FauxConvertisseur:
+            def convert_gml_to_geojson(self, gml_path, out_dir):
+                appels.append((gml_path, out_dir))
+                out_dir.mkdir()
+                (out_dir / "ok.geojson").write_text("{}", encoding="utf-8")
+        monkeypatch.setattr(r2g, "GMLConverter", FauxConvertisseur)
+        monkeypatch.setattr("sys.argv", ["recostar_to_geojson.py", str(input_gml), str(output_dir)])
+        r2g.main()
+        assert appels == [(input_gml, output_dir)]
+        assert (output_dir / "ok.geojson").exists()

@@ -1,6 +1,7 @@
 import pytest
 from xml.etree import ElementTree as ET
 
+import geojson_to_recostar as g2r
 from geojson_to_recostar import (
     ElementGML,
     ConvertisseurGeometrie,
@@ -1113,3 +1114,333 @@ class TestHeritageGeometrieConteneur:
         gml_generator._enrichir_geometries_depuis_conteneurs(features_by_type, cache)
 
         assert features_by_type["RPD_PointDeComptage_Reco"][0]["geometry"] is None
+
+
+
+# ============================================================
+# Tests complémentaires des mappers et du CLI
+# ============================================================
+
+
+class TestFeatureMapperMappingsComplements:
+    """Tests complémentaires pour les méthodes mapper_* peu couvertes."""
+
+    @staticmethod
+    def _feature(properties, geometry=None):
+        """Crée une Feature GeoJSON de test."""
+        return {"type": "Feature", "properties": properties, "geometry": geometry}
+
+    @staticmethod
+    def _href(elem, name):
+        """Retourne l'attribut xlink:href d'un enfant RecoStaR."""
+        child = elem.find(f"{{{NAMESPACE_RECOSTAR}}}{name}")
+        assert child is not None
+        return child.get(f"{{{NAMESPACE_XLINK}}}href")
+
+    @staticmethod
+    def _text(elem, name):
+        """Retourne le texte d'un enfant RecoStaR."""
+        child = elem.find(f"{{{NAMESPACE_RECOSTAR}}}{name}")
+        assert child is not None
+        return child.text
+
+    def test_map_cable_terre_complet(self, feature_mapper):
+        """Vérifie le mapping complet de RPD_CableTerre_Reco."""
+        feature = self._feature(
+            {
+                "ogr_pkid": "RPD_CableTerre_Reco_0",
+                "noeudreseau_href": "terre_001",
+                "Commentaire": "terre principale",
+                "FonctionCable_href": "MALT",
+                "Materiau": "Cuivre",
+                "NatureCableTerre_href": "Nu",
+                "Section": 25.0,
+                "Section_uom": "mm-2",
+                "Statut": "EN_SERVICE",
+            }
+        )
+        elem = feature_mapper.mapper_cable_terre(feature, "ct_001")
+        assert elem.tag == f"{{{NAMESPACE_RECOSTAR}}}RPD_CableTerre_Reco"
+        assert self._href(elem, "noeudReseau") == "terre_001"
+        assert self._href(elem, "FonctionCable") == "MALT"
+        assert self._text(elem, "Materiau") == "Cuivre"
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Section").get("uom") == "mm-2"
+
+    def test_map_fourreau_complet(self, feature_mapper):
+        """Vérifie le mapping Fourreau avec mesures et géométrie LineString."""
+        feature = self._feature(
+            {
+                "ogr_pkid": "RPD_Fourreau_Reco_0",
+                "CoupeType": "T1",
+                "DiametreDuFourreau": 63,
+                "DiametreDuFourreau_uom": "mm",
+                "EtatCoupeType": "BON",
+                "Materiau": "PEHD",
+                "PrecisionXY": "A",
+                "PrecisionZ": "B",
+                "ProfondeurMinNonReg": 0.8,
+                "ProfondeurMinNonReg_uom": "m",
+            },
+            {"type": "LineString", "coordinates": [[0.0, 0.0, 1.0], [1.0, 1.0, 2.0]]},
+        )
+        elem = feature_mapper.mapper_fourreau(feature, "fourreau_001")
+        assert elem.tag == f"{{{NAMESPACE_RECOSTAR}}}RPD_Fourreau_Reco"
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Geometrie/{{{NAMESPACE_GML}}}LineString") is not None
+        assert self._text(elem, "Materiau") == "PEHD"
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}ProfondeurMinNonReg").get("uom") == "m"
+
+    def test_map_geometrie_supplementaire_ligne_et_surface(self, feature_mapper):
+        """Vérifie Ligne2.5D et Surface2.5D dans GeometrieSupplementaire."""
+        feature = self._feature(
+            {
+                "ogr_pkid": "RPD_GeometrieSupplementaire_Reco_0",
+                "Ligne2.5D": "LINESTRING (0 0 1, 1 1 2)",
+                "PrecisionXY": "A",
+                "PrecisionZ": "B",
+            },
+            {"type": "MultiPolygon", "coordinates": [[[[0, 0], [1, 0], [1, 1], [0, 0]]]]},
+        )
+        elem = feature_mapper.mapper_geometrie_supplementaire(feature, "geom_001")
+        ligne = elem.find(f"{{{NAMESPACE_RECOSTAR}}}Ligne2.5D/{{{NAMESPACE_GML}}}LineString")
+        surface = elem.find(f"{{{NAMESPACE_RECOSTAR}}}Surface2.5D/{{{NAMESPACE_GML}}}Polygon")
+        assert ligne is not None
+        assert ligne.find(f"{{{NAMESPACE_GML}}}posList").text == "0 0 1  1 1 2"
+        assert surface is not None
+        assert self._text(elem, "PrecisionXY") == "A"
+
+    def test_ajouter_ligne_2_5d_ignore_coordonnees_invalides(self, feature_mapper):
+        """Vérifie qu'une Ligne2.5D invalide n'ajoute pas d'élément."""
+        elem = ET.Element("parent")
+        feature_mapper._ajouter_ligne_2_5d(elem, "1 2", "geom")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Ligne2.5D") is None
+
+    def test_map_jonction_avec_geometrie_et_angle(self, feature_mapper):
+        """Vérifie le mapping Jonction avec géométrie propre et angle."""
+        feature = self._feature(
+            {
+                "ogr_pkid": "RPD_Jonction_Reco_0",
+                "DomaineTension": "BT",
+                "PrecisionXY": "A",
+                "PrecisionZ": "B",
+                "Statut": "EN_SERVICE",
+                "TypeJonction": "DERIVATION",
+                "angle": 45,
+            },
+            {"type": "Point", "coordinates": [2.0, 48.0, 50.0]},
+        )
+        elem = feature_mapper.mapper_jonction(feature, "jonc_001")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Geometrie/{{{NAMESPACE_GML}}}Point") is not None
+        assert self._text(elem, "angle") == "45"
+
+    def test_map_coupe_circuit_a_fusibles_conteneur(self, feature_mapper):
+        """Vérifie le mapping CoupeCircuitAFusibles avec conteneur."""
+        feature = self._feature({"conteneur_href": "coffret_001", "Statut": "EN_SERVICE"})
+        elem = feature_mapper.mapper_coupe_circuit_a_fusibles(feature, "ccf_001")
+        assert elem.tag == f"{{{NAMESPACE_RECOSTAR}}}RPD_CoupeCircuitAFusibles_Reco"
+        assert self._href(elem, "conteneur") == "coffret_001"
+        assert self._text(elem, "Statut") == "EN_SERVICE"
+
+    def test_map_point_comptage_avec_geometrie(self, feature_mapper):
+        """Vérifie le mapping PointDeComptage avec NumeroPRM et géométrie."""
+        feature = self._feature(
+            {
+                "ogr_pkid": "RPD_PointDeComptage_Reco_0",
+                "conteneur_href": "coffret_001",
+                "NumeroPRM": "12345678901234",
+                "PrecisionXY": "A",
+                "PrecisionZ": "B",
+                "Statut": "EN_SERVICE",
+            },
+            {"type": "Point", "coordinates": [2.0, 48.0, 50.0]},
+        )
+        elem = feature_mapper.mapper_point_comptage(feature, "pc_001")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Geometrie/{{{NAMESPACE_GML}}}Point") is not None
+        assert self._text(elem, "NumeroPRM") == "12345678901234"
+
+    def test_map_point_leve_complet(self, feature_mapper):
+        """Vérifie le mapping PointLeve avec mesure Leve et précisions numériques."""
+        feature = self._feature(
+            {
+                "ogr_pkid": "RPD_PointLeveOuvrageReseau_Reco_0",
+                "Leve": 120.5,
+                "Leve_uom": "m",
+                "NumeroPoint": "P001",
+                "PrecisionXYnum": 2,
+                "PrecisionZnum": 3,
+                "Producteur": "Prod",
+                "TypeLeve": "GPS",
+            },
+            {"type": "Point", "coordinates": [2.0, 48.0, 120.5]},
+        )
+        elem = feature_mapper.mapper_point_leve(feature, "pl_001")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Geometrie/{{{NAMESPACE_GML}}}Point") is not None
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Leve").get("uom") == "m"
+        assert self._text(elem, "NumeroPoint") == "P001"
+
+    def test_map_pleine_terre_complet(self, feature_mapper):
+        """Vérifie le mapping PleineTerre avec LineString et profondeur."""
+        feature = self._feature(
+            {
+                "ogr_pkid": "RPD_PleineTerre_Reco_0",
+                "CoupeType": "CT",
+                "EtatCoupeType": "OK",
+                "PrecisionXY": "A",
+                "PrecisionZ": "B",
+                "ProfondeurMinNonReg": 0.7,
+                "ProfondeurMinNonReg_uom": "m",
+            },
+            {"type": "LineString", "coordinates": [[0.0, 0.0, 1.0], [1.0, 1.0, 2.0]]},
+        )
+        elem = feature_mapper.mapper_pleine_terre(feature, "pt_001")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Geometrie/{{{NAMESPACE_GML}}}LineString") is not None
+        assert self._text(elem, "EtatCoupeType") == "OK"
+
+    def test_map_batiment_technique_complet(self, feature_mapper):
+        """Vérifie le mapping BatimentTechnique."""
+        feature = self._feature(
+            {"ogr_pkid": "RPD_BatimentTechnique_Reco_0", "geometriesupplementaire_href": "gs_1", "PrecisionXY": "A", "PrecisionZ": "B"},
+            {"type": "Point", "coordinates": [2.0, 48.0, 50.0]},
+        )
+        elem = feature_mapper.mapper_batiment_technique(feature, "bat_001")
+        assert self._href(elem, "geometriesupplementaire") == "gs_1"
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Geometrie/{{{NAMESPACE_GML}}}Point") is not None
+
+    def test_map_poste_electrique_complet(self, feature_mapper):
+        """Vérifie le mapping PosteElectrique avec propriétés et références."""
+        feature = self._feature(
+            {
+                "conteneur_href": "bat_001",
+                "Categorie_href": "HTA_BT",
+                "Code": "P001",
+                "InformationSupplementaire": "info",
+                "Statut": "EN_SERVICE",
+                "TypePoste_href": "CABINE",
+            }
+        )
+        elem = feature_mapper.mapper_poste_electrique(feature, "poste_001")
+        assert self._href(elem, "conteneur") == "bat_001"
+        assert self._href(elem, "Categorie") == "HTA_BT"
+        assert self._text(elem, "Code") == "P001"
+
+    def test_map_protection_mecanique_complet(self, feature_mapper):
+        """Vérifie le mapping ProtectionMecanique."""
+        feature = self._feature(
+            {
+                "ogr_pkid": "RPD_ProtectionMecanique_Reco_0",
+                "CoupeType": "CT",
+                "EtatCoupeType": "OK",
+                "Materiau": "Béton",
+                "PrecisionXY": "A",
+                "PrecisionZ": "B",
+                "ProfondeurMinNonReg": 1.1,
+                "ProfondeurMinNonReg_uom": "m",
+            },
+            {"type": "LineString", "coordinates": [[0.0, 0.0, 1.0], [1.0, 1.0, 2.0]]},
+        )
+        elem = feature_mapper.mapper_protection_mecanique(feature, "pm_001")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Geometrie/{{{NAMESPACE_GML}}}LineString") is not None
+        assert self._text(elem, "Materiau") == "Béton"
+
+    def test_map_jeu_barres_et_support_modules(self, feature_mapper):
+        """Vérifie les mappings JeuBarres et SupportModules."""
+        jeu = feature_mapper.mapper_jeu_barres(
+            self._feature({"conteneur_href": "coffret_001", "Statut": "EN_SERVICE"}),
+            "jb_001",
+        )
+        support_modules = feature_mapper.mapper_support_modules(
+            self._feature({"conteneur_href": "coffret_001", "NombrePlages": 8, "Statut": "EN_SERVICE"}),
+            "sm_001",
+        )
+        assert self._href(jeu, "conteneur") == "coffret_001"
+        assert self._text(jeu, "Statut") == "EN_SERVICE"
+        assert self._text(support_modules, "NombrePlages") == "8"
+
+    def test_map_ouvrage_collectif_branchement_avec_geometrie(self, feature_mapper):
+        """Vérifie le mapping OuvrageCollectifBranchement avec géométrie propre."""
+        feature = self._feature(
+            {"ogr_pkid": "RPD_OuvrageCollectifBranchement_Reco_0", "PrecisionXY": "A", "PrecisionZ": "B", "Statut": "EN_SERVICE"},
+            {"type": "Point", "coordinates": [2.0, 48.0, 50.0]},
+        )
+        elem = feature_mapper.mapper_ouvrage_collectif_branchement(feature, "ocb_001")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Geometrie/{{{NAMESPACE_GML}}}Point") is not None
+        assert self._text(elem, "Statut") == "EN_SERVICE"
+
+
+class TestGeoJSONToRecostarCLI:
+    """Tests de la fonction main() du module geojson_to_recostar."""
+
+    def test_main_repertoire_inexistant_quitte_en_erreur(self, monkeypatch, tmp_path, capsys):
+        """Vérifie l'erreur si le répertoire d'entrée n'existe pas."""
+        monkeypatch.setattr("sys.argv", ["geojson_to_recostar.py", str(tmp_path / "absent"), str(tmp_path / "out.gml")])
+        with pytest.raises(SystemExit) as exc:
+            g2r.main()
+        assert exc.value.code == 1
+        assert "n'existe pas" in capsys.readouterr().err
+
+    def test_main_entree_pas_un_repertoire(self, monkeypatch, tmp_path, capsys):
+        """Vérifie l'erreur si l'entrée n'est pas un répertoire."""
+        entree = tmp_path / "input.geojson"
+        entree.write_text("{}", encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["geojson_to_recostar.py", str(entree), str(tmp_path / "out.gml")])
+        with pytest.raises(SystemExit) as exc:
+            g2r.main()
+        assert exc.value.code == 1
+        assert "n'est pas un répertoire" in capsys.readouterr().err
+
+    def test_main_aucun_geojson_quitte_en_erreur(self, monkeypatch, tmp_path, capsys):
+        """Vérifie l'erreur si aucun fichier RPD_* n'est chargé."""
+        class FauxGenerateur:
+            def __init__(self, srs=None):
+                self.srs = srs
+            def charger_fichiers_geojson(self, input_dir):
+                return {}, None
+        monkeypatch.setattr(g2r, "GenerateurGML", FauxGenerateur)
+        monkeypatch.setattr("sys.argv", ["geojson_to_recostar.py", str(tmp_path), str(tmp_path / "out.gml")])
+        with pytest.raises(SystemExit) as exc:
+            g2r.main()
+        assert exc.value.code == 1
+        assert "Aucun fichier GeoJSON" in capsys.readouterr().err
+
+    def test_main_succes_crs_force(self, monkeypatch, tmp_path, capsys):
+        """Vérifie un succès complet avec CRS forcé par l'utilisateur."""
+        appels = []
+        class FauxGenerateur:
+            def __init__(self, srs=None):
+                self.srs = srs
+                appels.append(("init", srs))
+            def charger_fichiers_geojson(self, input_dir):
+                return {"RPD_Coffret_Reco": [{"properties": {"id": "c1"}}]}, "EPSG:4326"
+            def definir_metadonnees(self, **kwargs):
+                appels.append(("metadata", kwargs))
+            def generer_gml(self, features, output_file):
+                appels.append(("generer", features, output_file))
+                output_file.write_text("<gml/>", encoding="utf-8")
+        monkeypatch.setattr(g2r, "GenerateurGML", FauxGenerateur)
+        output = tmp_path / "out.gml"
+        monkeypatch.setattr("sys.argv", ["geojson_to_recostar.py", str(tmp_path), str(output), "--srs", "EPSG:3949", "--logiciel", "L", "--producteur", "P", "--responsable", "R", "--nom", "N"])
+        g2r.main()
+        assert output.exists()
+        assert ("init", "EPSG:3949") in appels
+        assert "CRS forcé" in capsys.readouterr().out
+
+    @pytest.mark.parametrize(
+        "crs_detecte,message",
+        [("EPSG:4326", "CRS détecté"), (None, "Aucun CRS détecté")],
+    )
+    def test_main_succes_resolution_crs_detecte_ou_defaut(self, monkeypatch, tmp_path, capsys, crs_detecte, message):
+        """Vérifie la résolution CRS détecté puis défaut."""
+        class FauxGenerateur:
+            def __init__(self, srs=None):
+                self.srs = srs
+            def charger_fichiers_geojson(self, input_dir):
+                return {"RPD_Coffret_Reco": [{"properties": {"id": "c1"}}]}, crs_detecte
+            def definir_metadonnees(self, **kwargs):
+                self.metadata = kwargs
+            def generer_gml(self, features, output_file):
+                output_file.write_text("<gml/>", encoding="utf-8")
+        monkeypatch.setattr(g2r, "GenerateurGML", FauxGenerateur)
+        output = tmp_path / "out.gml"
+        monkeypatch.setattr("sys.argv", ["geojson_to_recostar.py", str(tmp_path), str(output)])
+        g2r.main()
+        assert output.exists()
+        assert message in capsys.readouterr().out

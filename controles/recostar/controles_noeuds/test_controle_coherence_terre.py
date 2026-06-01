@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any
+
+from safe_io import safe_load_json
 
 import pytest
 
@@ -250,13 +253,11 @@ class TestExecuterControleCli:
         resultat = executer_controle_cli(str(tmp_path))
         assert resultat["succes"] is True
 
-        with open(resultat["rapport"], "r", encoding="utf-8") as f:
-            rapport = json.load(f)
+        rapport = safe_load_json(Path(resultat["rapport"]).parent, resultat["rapport"])
         assert rapport["bloquant"] is True
         assert rapport["nombre_anomalies"] == 1
 
-        with open(resultat["ecarts"], "r", encoding="utf-8") as f:
-            geojson = json.load(f)
+        geojson = safe_load_json(Path(resultat["ecarts"]).parent, resultat["ecarts"])
         assert len(geojson["features"]) == 1
         assert geojson["features"][0]["properties"]["priorite"] == "bloquant"
 
@@ -272,8 +273,7 @@ class TestExecuterControleCli:
         )
 
         resultat = executer_controle_cli(str(tmp_path))
-        with open(resultat["rapport"], "r", encoding="utf-8") as f:
-            rapport = json.load(f)
+        rapport = safe_load_json(Path(resultat["rapport"]).parent, resultat["rapport"])
         assert rapport["bloquant"] is False
         assert rapport["nombre_anomalies"] == 0
 
@@ -282,8 +282,7 @@ class TestExecuterControleCli:
         resultat = executer_controle_cli(str(tmp_path))
         assert resultat["succes"] is True
 
-        with open(resultat["rapport"], "r", encoding="utf-8") as f:
-            rapport = json.load(f)
+        rapport = safe_load_json(Path(resultat["rapport"]).parent, resultat["rapport"])
         assert rapport["bloquant"] is False
 
     def test_cli_sortie_separee(self, tmp_path: Any) -> None:

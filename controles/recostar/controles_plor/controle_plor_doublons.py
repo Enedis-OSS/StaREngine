@@ -25,6 +25,8 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
+
 # Nom du fichier des points leves d'ouvrage reseau
 FICHIER_PLOR: str = "RPD_PointLeveOuvrageReseau_Reco.geojson"
 
@@ -38,12 +40,11 @@ PRIORITE_ANOMALIE: str = "information"
 CHAMP_TYPE_LEVE: str = "TypeLeve"
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Charge un fichier GeoJSON et retourne son contenu ou None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def _obtenir_id_feature(feature: dict[str, Any]) -> str | None:
@@ -194,7 +195,7 @@ def executer_controle_cli(
     dossier_sortie = sortie if sortie is not None else repertoire
 
     chemin_plor = os.path.join(repertoire, FICHIER_PLOR)
-    collection_plor = lire_geojson(chemin_plor)
+    collection_plor = lire_geojson(chemin_plor, repertoire)
     if collection_plor is None:
         return {
             "succes": False,

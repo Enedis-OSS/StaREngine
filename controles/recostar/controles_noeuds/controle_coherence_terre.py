@@ -17,6 +17,8 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
+
 # Fichiers GeoJSON concernes
 FICHIER_CABLES_TERRE: str = "RPD_CableTerre_Reco.geojson"
 FICHIER_NOEUDS_TERRE: str = "RPD_Terre_Reco.geojson"
@@ -26,12 +28,11 @@ FICHIER_RAPPORT_JSON: str = "rapport_controle_coherence_terre.json"
 FICHIER_ECARTS_GEOJSON: str = "ecarts_coherence_terre.geojson"
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Lit un fichier GeoJSON et retourne son contenu. Retourne None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def extraire_ids_noeuds_terre(features_noeuds: list[dict[str, Any]]) -> frozenset[str]:
@@ -161,7 +162,7 @@ def executer_controle_cli(
 
     # Chargement des cables terre
     chemin_cables = os.path.join(repertoire, FICHIER_CABLES_TERRE)
-    collection_cables = lire_geojson(chemin_cables)
+    collection_cables = lire_geojson(chemin_cables, repertoire)
     features_cables: list[dict[str, Any]] = []
     crs: dict[str, Any] | None = None
     if collection_cables is not None:
@@ -170,7 +171,7 @@ def executer_controle_cli(
 
     # Chargement des noeuds terre
     chemin_noeuds = os.path.join(repertoire, FICHIER_NOEUDS_TERRE)
-    collection_noeuds = lire_geojson(chemin_noeuds)
+    collection_noeuds = lire_geojson(chemin_noeuds, repertoire)
     features_noeuds: list[dict[str, Any]] = []
     if collection_noeuds is not None:
         features_noeuds = collection_noeuds.get("features", [])

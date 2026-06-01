@@ -21,6 +21,8 @@ import re
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
+
 # Nom du fichier GeoJSON de sortie
 FICHIER_SORTIE: str = "ecarts_proj.geojson"
 
@@ -77,12 +79,11 @@ _PATTERN_EPSG_COURT: re.Pattern[str] = re.compile(r"^EPSG:(\d+)$", re.IGNORECASE
 # --------------------------------------------------------------------------- #
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Charge un fichier GeoJSON et retourne son contenu ou None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def lister_fichiers_geojson(repertoire: str) -> list[str]:
@@ -346,7 +347,7 @@ def executer_controle_cli(
 
     for nom_fichier in fichiers:
         chemin = os.path.join(repertoire, nom_fichier)
-        collection = lire_geojson(chemin)
+        collection = lire_geojson(chemin, repertoire)
         if collection is None:
             continue
 

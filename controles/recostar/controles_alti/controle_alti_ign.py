@@ -26,6 +26,8 @@ from typing import Any, Iterator, Sequence
 
 import requests
 
+from safe_io import safe_load_json
+
 # Nom du fichier source analyse
 FICHIER_SOURCE: str = "RPD_GeometrieSupplementaire_Reco.geojson"
 
@@ -268,12 +270,11 @@ def recuperer_altitudes_ign(
 # --------------------------------------------------------------------------- #
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Charge un fichier GeoJSON et retourne son contenu ou None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def _obtenir_id_feature(feature: dict[str, Any]) -> str | None:
@@ -474,7 +475,7 @@ def executer_controle_cli(
     et ecrit le fichier d'ecarts.
     """
     chemin_source = os.path.join(repertoire, FICHIER_SOURCE)
-    collection = lire_geojson(chemin_source)
+    collection = lire_geojson(chemin_source, repertoire)
     if collection is None:
         return {
             "succes": False,

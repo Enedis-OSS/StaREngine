@@ -26,6 +26,8 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
+
 # Prefixe des fichiers GeoJSON a controler
 PREFIXE_FICHIER: str = "RPD_"
 SUFFIXE_FICHIER: str = ".geojson"
@@ -160,18 +162,17 @@ def lister_fichiers_rpd(repertoire: str) -> list[str]:
     )
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Lit un fichier GeoJSON et retourne son contenu. Retourne None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def charger_referentiel(chemin: str) -> dict[str, Any]:
     """Charge le fichier JSON des referentiels de valeurs."""
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    base_dir = os.path.dirname(os.path.abspath(chemin))
+    return safe_load_json(base_dir, chemin)
 
 
 def _indexer_valeurs_autorisees(referentiel: dict[str, Any]) -> dict[str, set[str]]:
@@ -422,7 +423,7 @@ def executer_controle_cli(
 
     resultats_par_fichier: dict[str, dict[str, Any]] = {}
     for nom_fichier in fichiers:
-        collection = lire_geojson(os.path.join(repertoire, nom_fichier))
+        collection = lire_geojson(os.path.join(repertoire, nom_fichier), repertoire)
         if collection is None:
             continue
         resultats_par_fichier[nom_fichier] = controler_fichier(

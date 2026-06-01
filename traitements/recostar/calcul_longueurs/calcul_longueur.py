@@ -17,15 +17,16 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
+
 # --- Fonctions utilitaires ---
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Lit un fichier GeoJSON et retourne la collection, ou None si inaccessible."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def obtenir_chemin_recolement(chemin_projet: str) -> str:
@@ -160,8 +161,7 @@ def construire_index_statuts(
     if not os.path.isfile(chemin):
         return {}
 
-    with open(chemin, encoding="utf-8") as fichier:
-        referentiel = json.load(fichier)
+    referentiel = safe_load_json(os.path.dirname(os.path.abspath(chemin)), chemin)
 
     cable_types = (
         referentiel.get("objets", {})
@@ -335,7 +335,7 @@ def _indexer_jonctions_ras(
 ) -> None:
     """Indexe les jonctions de type remontee aero-souterraine par cable."""
     chemin = os.path.join(chemin_recolement, FICHIER_JONCTIONS)
-    collection = lire_geojson(chemin)
+    collection = lire_geojson(chemin, chemin_recolement)
     if collection is None:
         return
 
@@ -359,7 +359,7 @@ def _indexer_postes(
 ) -> None:
     """Indexe les postes electriques par cable."""
     chemin = os.path.join(chemin_recolement, FICHIER_POSTES)
-    collection = lire_geojson(chemin)
+    collection = lire_geojson(chemin, chemin_recolement)
     if collection is None:
         return
 
@@ -380,7 +380,7 @@ def _indexer_noeuds_coffrets(
     """Indexe les noeuds rattaches aux coffrets par cable."""
     for nom_fichier in FICHIERS_NOEUDS_COFFRETS:
         chemin = os.path.join(chemin_recolement, nom_fichier)
-        collection = lire_geojson(chemin)
+        collection = lire_geojson(chemin, chemin_recolement)
         if collection is None:
             continue
 
@@ -419,7 +419,7 @@ def construire_index_entites(
 def construire_ensemble_cables_aeriens(chemin_recolement: str) -> set[str]:
     """Construit l'ensemble des identifiants de cables associes a un cheminement aerien."""
     chemin = os.path.join(chemin_recolement, FICHIER_AERIEN)
-    collection = lire_geojson(chemin)
+    collection = lire_geojson(chemin, chemin_recolement)
     if collection is None:
         return set()
 
@@ -621,7 +621,7 @@ def executer_calcul(
     )
     chemin_cables = os.path.join(recolement, FICHIER_CABLES)
 
-    collection = lire_geojson(chemin_cables)
+    collection = lire_geojson(chemin_cables, recolement)
     if collection is None:
         return {
             "succes": False,

@@ -22,17 +22,17 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
 from controle_unicite_id import executer_controle_cli as executer_controle_unicite
 from controle_valeur_xsd import executer_controle_cli as executer_controle_valeur_xsd
 from rapport_pdf_gml import executer_rapport_cli
 
 
-def _compter_anomalies_depuis_ecarts(chemin_ecarts: str) -> int:
+def _compter_anomalies_depuis_ecarts(chemin_ecarts: str, base_dir: str) -> int:
     """Compte le nombre d'anomalies dans un fichier GeoJSON d'ecarts."""
     if not os.path.isfile(chemin_ecarts):
         return 0
-    with open(chemin_ecarts, "r", encoding="utf-8") as fichier:
-        donnees = json.load(fichier)
+    donnees = safe_load_json(base_dir, chemin_ecarts)
     return len(donnees.get("features", []))
 
 
@@ -72,7 +72,7 @@ def executer_pipeline(
         if "nombre_anomalies" in resultat:
             nb_anomalies_total += resultat["nombre_anomalies"]
         elif "ecarts" in resultat:
-            nb_anomalies_total += _compter_anomalies_depuis_ecarts(resultat["ecarts"])
+            nb_anomalies_total += _compter_anomalies_depuis_ecarts(resultat["ecarts"], dossier_sortie)
 
     # Le rapport PDF lit les fichiers d'ecarts dans le dossier de sortie
     resultat_rapport = executer_rapport_cli(dossier_sortie, dossier_sortie)

@@ -23,6 +23,8 @@ import os
 import sys
 from typing import Any, Sequence
 
+from safe_io import safe_load_json
+
 # Nom du fichier des points leves d'ouvrage reseau
 FICHIER_PLOR: str = "RPD_PointLeveOuvrageReseau_Reco.geojson"
 
@@ -45,12 +47,11 @@ PREFIXE_ECARTS: str = "ecarts_"
 PRIORITE_ANOMALIE: str = "bloquant"
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Charge un fichier GeoJSON et retourne son contenu ou None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def _obtenir_id_feature(feature: dict[str, Any]) -> str | None:
@@ -171,7 +172,7 @@ def collecter_sommets_rpd(
 
     for nom_fichier in fichiers:
         chemin = os.path.join(repertoire, nom_fichier)
-        collection = lire_geojson(chemin)
+        collection = lire_geojson(chemin, repertoire)
         if collection is None:
             continue
 
@@ -283,12 +284,12 @@ def _charger_plor_et_cables(
     La collection complete PLOR est retournee pour permettre l'extraction du CRS.
     """
     chemin_plor = os.path.join(repertoire, FICHIER_PLOR)
-    collection_plor = lire_geojson(chemin_plor)
+    collection_plor = lire_geojson(chemin_plor, repertoire)
     if collection_plor is None:
         return None, None, f"Fichier {FICHIER_PLOR} introuvable dans {repertoire}"
 
     chemin_cables = os.path.join(repertoire, FICHIER_CABLES)
-    collection_cables = lire_geojson(chemin_cables)
+    collection_cables = lire_geojson(chemin_cables, repertoire)
     if collection_cables is None:
         return None, None, f"Fichier {FICHIER_CABLES} introuvable dans {repertoire}"
 

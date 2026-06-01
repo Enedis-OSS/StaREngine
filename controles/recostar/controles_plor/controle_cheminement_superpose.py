@@ -25,6 +25,8 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
+
 # Fichiers de cheminement a analyser
 FICHIERS_CHEMINEMENTS: tuple[str, ...] = (
     "RPD_Fourreau_Reco.geojson",
@@ -42,12 +44,11 @@ PRIORITE_ANOMALIE: str = "bloquant"
 Segment = tuple[tuple[float, ...], tuple[float, ...]]
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Charge un fichier GeoJSON et retourne son contenu ou None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def _obtenir_id_feature(feature: dict[str, Any]) -> str | None:
@@ -226,7 +227,7 @@ def charger_cheminements(
     nb_fichiers = 0
     for nom_fichier in FICHIERS_CHEMINEMENTS:
         chemin = os.path.join(repertoire, nom_fichier)
-        collection = lire_geojson(chemin)
+        collection = lire_geojson(chemin, repertoire)
         if collection is None:
             continue
         nb_fichiers += 1

@@ -18,6 +18,8 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
+
 # Prefixe des fichiers GeoJSON a controler
 PREFIXE_FICHIER: str = "RPD_"
 SUFFIXE_FICHIER: str = ".geojson"
@@ -41,12 +43,11 @@ def lister_fichiers_rpd(repertoire: str) -> list[str]:
     )
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Lit un fichier GeoJSON et retourne son contenu. Retourne None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def collecter_ids_et_doublons(
@@ -67,7 +68,7 @@ def collecter_ids_et_doublons(
 
     for nom_fichier in fichiers:
         chemin = os.path.join(repertoire, nom_fichier)
-        collection = lire_geojson(chemin)
+        collection = lire_geojson(chemin, repertoire)
         if collection is None:
             continue
 

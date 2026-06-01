@@ -19,6 +19,8 @@ from typing import Dict, List, Set, Optional, Tuple
 from xml.etree import ElementTree as ET
 from functools import lru_cache
 
+from safe_io import safe_load_json
+
 # Namespaces XML/GML requis par le schéma RecoStaR
 NAMESPACE_GML = "http://www.opengis.net/gml/3.2"
 NAMESPACE_RECOSTAR = "http://StaR-Elec.com"
@@ -1582,8 +1584,7 @@ class GenerateurGML:
             return {}
 
         try:
-            with open(metadata_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            data = safe_load_json(directory, metadata_path)
             print("  [OK] _metadata.json chargé")
             return data
         except Exception as e:
@@ -1616,8 +1617,7 @@ class GenerateurGML:
             filename = filepath.stem
 
             try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+                data = safe_load_json(directory, filepath)
 
                 if "features" in data:
                     features_by_type[filename] = data["features"]

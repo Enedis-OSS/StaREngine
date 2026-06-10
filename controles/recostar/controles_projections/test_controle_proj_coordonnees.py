@@ -16,7 +16,10 @@ from __future__ import annotations
 import json
 import math
 import os
+from pathlib import Path
 from typing import Any
+
+from safe_io import safe_load_json
 
 import pytest
 
@@ -818,8 +821,7 @@ class TestExecuterControleCli:
         )
         executer_controle_cli(str(tmp_path))
         chemin_ecarts = os.path.join(str(tmp_path), FICHIER_SORTIE)
-        with open(chemin_ecarts, "r", encoding="utf-8") as f:
-            ecarts = json.load(f)
+        ecarts = safe_load_json(Path(chemin_ecarts).parent, chemin_ecarts)
         assert ecarts["type"] == "FeatureCollection"
         assert len(ecarts["features"]) == 1
         feat = ecarts["features"][0]
@@ -900,8 +902,7 @@ class TestExecuterControleCli:
         )
         executer_controle_cli(str(tmp_path))
         chemin_ecarts = os.path.join(str(tmp_path), FICHIER_SORTIE)
-        with open(chemin_ecarts, "r", encoding="utf-8") as f:
-            ecarts = json.load(f)
+        ecarts = safe_load_json(Path(chemin_ecarts).parent, chemin_ecarts)
         for feat in ecarts["features"]:
             assert feat["properties"]["priorite"] == "bloquant"
 

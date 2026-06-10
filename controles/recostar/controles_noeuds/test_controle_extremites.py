@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any
+
+from safe_io import safe_load_json
 
 import pytest
 
@@ -398,8 +401,7 @@ class TestExecuterControleCli:
         assert resultat["succes"] is True
 
         chemin_ecarts = resultat["ecarts"]
-        with open(chemin_ecarts, "r", encoding="utf-8") as f:
-            geojson = json.load(f)
+        geojson = safe_load_json(Path(chemin_ecarts).parent, chemin_ecarts)
 
         for feature in geojson["features"]:
             assert feature["properties"]["priorite"] == PRIORITE_ATTENDUE
@@ -427,8 +429,7 @@ class TestExecuterControleCli:
         assert resultat["succes"] is True
 
         chemin_rapport = resultat["rapport"]
-        with open(chemin_rapport, "r", encoding="utf-8") as f:
-            rapport = json.load(f)
+        rapport = safe_load_json(Path(chemin_rapport).parent, chemin_rapport)
 
         # Le cable est conforme grace au poste
         assert rapport["cables_conformes"] == 1
@@ -457,8 +458,7 @@ class TestExecuterControleCli:
         assert resultat["succes"] is True
 
         chemin_rapport = resultat["rapport"]
-        with open(chemin_rapport, "r", encoding="utf-8") as f:
-            rapport = json.load(f)
+        rapport = safe_load_json(Path(chemin_rapport).parent, chemin_rapport)
 
         assert rapport["cables_conformes"] == 1
         assert rapport["cables_non_conformes"] == 0

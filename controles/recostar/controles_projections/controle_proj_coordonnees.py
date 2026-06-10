@@ -451,7 +451,7 @@ def executer_controle_cli(
 
     for nom_fichier in fichiers:
         chemin = os.path.join(repertoire, nom_fichier)
-        collection = lire_geojson(chemin)
+        collection = lire_geojson(chemin, repertoire)
         if collection is None:
             continue
 

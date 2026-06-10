@@ -25,6 +25,8 @@ import os
 import sys
 from typing import Any, Iterable, Sequence
 
+from safe_io import safe_load_json
+
 # Nom du fichier des cables electriques (source principale du controle)
 FICHIER_CABLES: str = "RPD_CableElectrique_Reco.geojson"
 
@@ -47,12 +49,11 @@ NB_SOMMETS_IGNORES: int = 3
 TAILLE_FENETRE: int = 4
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Charge un fichier GeoJSON et retourne son contenu ou None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def obtenir_id_feature(feature: dict[str, Any]) -> str | None:
@@ -261,7 +262,7 @@ def _charger_cables_et_exclusions(
     Retourne (features_cables, ids_exclus, crs, message_erreur).
     """
     chemin_cables = os.path.join(repertoire, FICHIER_CABLES)
-    collection_cables = lire_geojson(chemin_cables)
+    collection_cables = lire_geojson(chemin_cables, repertoire)
     if collection_cables is None:
         return (
             None,
@@ -270,7 +271,7 @@ def _charger_cables_et_exclusions(
             f"Fichier {FICHIER_CABLES} introuvable dans {repertoire}",
         )
 
-    collection_aerien = lire_geojson(os.path.join(repertoire, FICHIER_AERIEN))
+    collection_aerien = lire_geojson(os.path.join(repertoire, FICHIER_AERIEN), repertoire)
     features_aerien = collection_aerien.get("features", []) if collection_aerien else []
     ids_exclus = collecter_ids_cables_aeriens(features_aerien)
     crs = collection_cables.get("crs")

@@ -14,6 +14,8 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
+
 SEUIL_DISTANCE: float = 0.5
 
 FICHIERS_NOEUDS_AVEC_CABLES_HREF: list[str] = [
@@ -22,12 +24,11 @@ FICHIERS_NOEUDS_AVEC_CABLES_HREF: list[str] = [
 ]
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Lit un fichier GeoJSON et retourne son contenu. Retourne None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def obtenir_id_feature(feature: dict[str, Any]) -> str | int | None:
@@ -297,7 +298,7 @@ def executer_controle_cli(
 
     # Chargement des cables
     chemin_cables = os.path.join(repertoire, FICHIER_CABLES)
-    collection_cables = lire_geojson(chemin_cables)
+    collection_cables = lire_geojson(chemin_cables, repertoire)
     if collection_cables is None:
         return {
             "succes": False,
@@ -309,7 +310,7 @@ def executer_controle_cli(
 
     # Chargement des jonctions
     chemin_jonctions = os.path.join(repertoire, FICHIER_JONCTIONS)
-    collection_jonctions = lire_geojson(chemin_jonctions)
+    collection_jonctions = lire_geojson(chemin_jonctions, repertoire)
     features_jonctions: list[dict[str, Any]] = []
     if collection_jonctions is not None:
         features_jonctions = collection_jonctions.get("features", [])

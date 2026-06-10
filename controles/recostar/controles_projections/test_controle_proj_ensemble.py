@@ -13,6 +13,9 @@ Couvre les cas nominaux et les cas limites :
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+from safe_io import safe_load_json
 import os
 from typing import Any
 
@@ -235,24 +238,21 @@ class TestCli:
         chemin_sortie = os.path.join(repertoire_incoherent, FICHIER_SORTIE)
         assert os.path.isfile(chemin_sortie)
 
-        with open(chemin_sortie, "r", encoding="utf-8") as fichier:
-            contenu = json.load(fichier)
+        contenu = safe_load_json(Path(chemin_sortie).parent, chemin_sortie)
         assert contenu["type"] == "FeatureCollection"
         assert len(contenu["features"]) == 2
 
     def test_priorite_bloquant_dans_ecarts(self, repertoire_incoherent: str) -> None:
         executer_controle_cli(repertoire_incoherent)
         chemin_sortie = os.path.join(repertoire_incoherent, FICHIER_SORTIE)
-        with open(chemin_sortie, "r", encoding="utf-8") as fichier:
-            contenu = json.load(fichier)
+        contenu = safe_load_json(Path(chemin_sortie).parent, chemin_sortie)
         for feature in contenu["features"]:
             assert feature["properties"]["priorite"] == "bloquant"
 
     def test_crs_reference_dans_ecarts(self, repertoire_incoherent: str) -> None:
         executer_controle_cli(repertoire_incoherent)
         chemin_sortie = os.path.join(repertoire_incoherent, FICHIER_SORTIE)
-        with open(chemin_sortie, "r", encoding="utf-8") as fichier:
-            contenu = json.load(fichier)
+        contenu = safe_load_json(Path(chemin_sortie).parent, chemin_sortie)
         for feature in contenu["features"]:
             assert feature["properties"]["crs_reference"] == "EPSG:2154"
 

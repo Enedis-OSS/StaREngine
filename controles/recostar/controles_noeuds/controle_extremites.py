@@ -22,6 +22,8 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
+
 # Fichiers de noeuds possedant la propriete cables_href (relation CableElectrique_NoeudReseau)
 FICHIERS_NOEUDS: tuple[str, ...] = (
     "RPD_CoupeCircuitAFusibles_Reco.geojson",
@@ -34,12 +36,11 @@ FICHIERS_NOEUDS: tuple[str, ...] = (
 )
 
 
-def lire_geojson(chemin: str) -> dict[str, Any] | None:
+def lire_geojson(chemin: str, base_dir: str) -> dict[str, Any] | None:
     """Lit un fichier GeoJSON et retourne son contenu. Retourne None si absent."""
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        return json.load(fichier)
+    return safe_load_json(base_dir, chemin)
 
 
 def obtenir_id_feature(feature: dict[str, Any]) -> str | int | None:
@@ -279,7 +280,7 @@ def _charger_collections_noeuds(
     collections: dict[str, list[dict[str, Any]]] = {}
     for nom_fichier in FICHIERS_NOEUDS:
         chemin = os.path.join(repertoire, nom_fichier)
-        collection = lire_geojson(chemin)
+        collection = lire_geojson(chemin, repertoire)
         if collection is not None:
             collections[nom_fichier] = collection.get("features", [])
     return collections
@@ -298,7 +299,7 @@ def executer_controle_cli(
 
     # Chargement des cables
     chemin_cables = os.path.join(repertoire, FICHIER_CABLES)
-    collection_cables = lire_geojson(chemin_cables)
+    collection_cables = lire_geojson(chemin_cables, repertoire)
     if collection_cables is None:
         return {
             "succes": False,

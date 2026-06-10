@@ -15,7 +15,10 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any
+
+from safe_io import safe_load_json
 
 import pytest
 
@@ -425,8 +428,7 @@ class TestCli:
         chemin_sortie = os.path.join(repertoire_test, FICHIER_SORTIE)
         assert os.path.isfile(chemin_sortie)
 
-        with open(chemin_sortie, "r", encoding="utf-8") as fichier:
-            contenu = json.load(fichier)
+        contenu = safe_load_json(Path(chemin_sortie).parent, chemin_sortie)
         assert contenu["type"] == "FeatureCollection"
         assert len(contenu["features"]) == 2
 
@@ -477,7 +479,6 @@ class TestCli:
     def test_priorite_bloquant_dans_ecarts(self, repertoire_test: str) -> None:
         executer_controle_cli(repertoire_test)
         chemin_sortie = os.path.join(repertoire_test, FICHIER_SORTIE)
-        with open(chemin_sortie, "r", encoding="utf-8") as fichier:
-            contenu = json.load(fichier)
+        contenu = safe_load_json(Path(chemin_sortie).parent, chemin_sortie)
         for feature in contenu["features"]:
             assert feature["properties"]["priorite"] == "bloquant"

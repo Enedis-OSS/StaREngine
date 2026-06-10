@@ -16,6 +16,7 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -284,8 +285,8 @@ def _charger_resultats_longueurs(chemin_projet: str) -> list[dict[str, Any]]:
     chemin_json = os.path.join(chemin_projet, "rapport", "resultats_longueurs.json")
     if not os.path.isfile(chemin_json):
         return []
-    with open(chemin_json, encoding="utf-8") as fichier:
-        donnees = json.load(fichier)
+    base_dir = os.path.join(chemin_projet, "rapport")
+    donnees = safe_load_json(base_dir, chemin_json)
     if not donnees.get("succes"):
         return []
     return donnees.get("resultats", [])

@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any
+
+from safe_io import safe_load_json
 
 import pytest
 
@@ -223,8 +226,7 @@ class TestExecuterControleCli:
         assert resultat["succes"] is True
 
         chemin_ecarts = resultat["ecarts"]
-        with open(chemin_ecarts, "r", encoding="utf-8") as f:
-            geojson = json.load(f)
+        geojson = safe_load_json(Path(chemin_ecarts).parent, chemin_ecarts)
 
         for feature in geojson["features"]:
             assert feature["properties"]["priorite"] == PRIORITE_ATTENDUE

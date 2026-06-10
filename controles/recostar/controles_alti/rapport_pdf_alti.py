@@ -20,6 +20,7 @@ import os
 import sys
 from typing import Any
 
+from safe_io import safe_load_json
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -147,15 +148,14 @@ def _creer_styles() -> dict[str, ParagraphStyle]:
 # --------------------------------------------------------------------------- #
 
 
-def _charger_features_geojson(chemin: str) -> list[dict[str, Any]] | None:
+def _charger_features_geojson(chemin: str, base_dir: str) -> list[dict[str, Any]] | None:
     """Charge les features d'un fichier GeoJSON d'ecarts.
 
     Retourne None si le fichier est absent.
     """
     if not os.path.isfile(chemin):
         return None
-    with open(chemin, "r", encoding="utf-8") as fichier:
-        donnees = json.load(fichier)
+    donnees = safe_load_json(base_dir, chemin)
     return donnees.get("features", [])
 
 
@@ -172,7 +172,7 @@ def collecter_resultats_controles(
 
     for nom_fichier, label, description, colonnes in CONTROLES:
         chemin = os.path.join(repertoire, nom_fichier)
-        features = _charger_features_geojson(chemin)
+        features = _charger_features_geojson(chemin, repertoire)
 
         nb_anomalies = len(features) if features is not None else 0
 

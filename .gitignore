@@ -23,6 +23,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+recostar/conversion/conversion_V1_1/xsd/cache
 
 # PyInstaller
 *.manifest
@@ -94,4 +95,3 @@ desktop.ini
 *.log
 *.tmp
 *.bak
-.cache/

@@ -1,0 +1,474 @@
+[
+	{
+		"libelle" : "IDF Est",
+		"repertoire" : "1A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DA21",
+		"nom_court" : "IDFE",
+		"trigramme_racing" : "IFE"
+	},
+	{
+		"libelle" : "IDF Est",
+		"repertoire" : "1A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AA21",
+		"nom_court" : "IDFE",
+		"trigramme_racing" : "IFE"
+	},
+	{
+		"libelle" : "Nord Pas de Calais",
+		"repertoire" : "2A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DA22",
+		"nom_court" : "NPDC",
+		"trigramme_racing" : "NPC"
+	},
+	{
+		"libelle" : "Nord Pas de Calais",
+		"repertoire" : "2A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AA22",
+		"nom_court" : "NPDC",
+		"trigramme_racing" : "NPC"
+	},
+	{
+		"libelle" : "Champagne Ardenne",
+		"repertoire" : "3A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DA23",
+		"nom_court" : "CAR",
+		"trigramme_racing" : "CAR"
+	},
+	{
+		"libelle" : "Champagne Ardenne",
+		"repertoire" : "3A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AA23",
+		"nom_court" : "CAR",
+		"trigramme_racing" : "CAR"
+	},
+	{
+		"libelle" : "Alpes",
+		"repertoire" : "4A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DA24",
+		"nom_court" : "ALP",
+		"trigramme_racing" : "ALP"
+	},
+	{
+		"libelle" : "Alpes",
+		"repertoire" : "4A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AA24",
+		"nom_court" : "ALP",
+		"trigramme_racing" : "ALP"
+	},
+	{
+		"libelle" : "Pays de la Loire",
+		"repertoire" : "7A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DA27",
+		"nom_court" : "PDL",
+		"trigramme_racing" : "PDL"
+	},
+	{
+		"libelle" : "Pays de la Loire",
+		"repertoire" : "7A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AA27",
+		"nom_court" : "PDL",
+		"trigramme_racing" : "PDL"
+	},
+	{
+		"libelle" : "Centre Val De Loire",
+		"repertoire" : "8A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DA28",
+		"nom_court" : "CVL",
+		"trigramme_racing" : "CVL"
+	},
+	{
+		"libelle" : "Centre Val De Loire",
+		"repertoire" : "8A",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AA28",
+		"nom_court" : "CVL",
+		"trigramme_racing" : "CVL"
+	},
+	{
+		"libelle" : "IDF Ouest",
+		"repertoire" : "1B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DB21",
+		"nom_court" : "IDFO",
+		"trigramme_racing" : "IFO"
+	},
+	{
+		"libelle" : "Normandie",
+		"repertoire" : "2B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DB22",
+		"nom_court" : "NIE",
+		"trigramme_racing" : "NOR"
+	},
+	{
+		"libelle" : "Normandie",
+		"repertoire" : "2B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AB22",
+		"nom_court" : "NIE",
+		"trigramme_racing" : "NOR"
+	},
+	{
+		"libelle" : "Lorraine",
+		"repertoire" : "3B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DB23",
+		"nom_court" : "LOR",
+		"trigramme_racing" : "LOR"
+	},
+	{
+		"libelle" : "Lorraine",
+		"repertoire" : "3B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AB23",
+		"nom_court" : "LOR",
+		"trigramme_racing" : "LOR"
+	},
+	{
+		"libelle" : "Bourgogne",
+		"repertoire" : "4B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DB24",
+		"nom_court" : "BRG",
+		"trigramme_racing" : "BRG"
+	},
+	{
+		"libelle" : "Bourgogne",
+		"repertoire" : "4B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AB24",
+		"nom_court" : "BRG",
+		"trigramme_racing" : "BRG"
+	},
+	{
+		"libelle" : "Languedoc Roussillon",
+		"repertoire" : "5B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DB25",
+		"nom_court" : "LARO",
+		"trigramme_racing" : "LRO"
+	},
+	{
+		"libelle" : "Languedoc Roussillon",
+		"repertoire" : "5B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AB25",
+		"nom_court" : "LARO",
+		"trigramme_racing" : "LRO"
+	},
+	{
+		"libelle" : "Bretagne",
+		"repertoire" : "7B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DB27",
+		"nom_court" : "BRE",
+		"trigramme_racing" : "BRE"
+	},
+	{
+		"libelle" : "Bretagne",
+		"repertoire" : "7B",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AB27",
+		"nom_court" : "BRE",
+		"trigramme_racing" : "BRE"
+	},
+	{
+		"libelle" : "Paris",
+		"repertoire" : "1C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DC21",
+		"nom_court" : "PAR",
+		"trigramme_racing" : "PAR"
+	},
+	{
+		"libelle" : "Paris",
+		"repertoire" : "1C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AC21",
+		"nom_court" : "PAR",
+		"trigramme_racing" : "PAR"
+	},
+	{
+		"libelle" : "Picardie",
+		"repertoire" : "2C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DC22",
+		"nom_court" : "PIC",
+		"trigramme_racing" : "PIC"
+	},
+	{
+		"libelle" : "Picardie",
+		"repertoire" : "2C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AC22",
+		"nom_court" : "PIC",
+		"trigramme_racing" : "PIC"
+	},
+	{
+		"libelle" : "Alsace Franche Comté",
+		"repertoire" : "3C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DC23",
+		"nom_court" : "AFC",
+		"trigramme_racing" : "AFC"
+	},
+	{
+		"libelle" : "Alsace Franche Comté",
+		"repertoire" : "3C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AC23",
+		"nom_court" : "AFC",
+		"trigramme_racing" : "AFC"
+	},
+	{
+		"libelle" : "Sillon Rhodanien",
+		"repertoire" : "4C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DC24",
+		"nom_court" : "SIRHO",
+		"trigramme_racing" : "SIR"
+	},
+	{
+		"libelle" : "Sillon Rhodanien",
+		"repertoire" : "4C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AC24",
+		"nom_court" : "SIRHO",
+		"trigramme_racing" : "SIR"
+	},
+	{
+		"libelle" : "Provence Alpes du Sud",
+		"repertoire" : "5C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DC25",
+		"nom_court" : "PADS",
+		"trigramme_racing" : "PAS"
+	},
+	{
+		"libelle" : "Provence Alpes du Sud",
+		"repertoire" : "5C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AC25",
+		"nom_court" : "PADS",
+		"trigramme_racing" : "PAS"
+	},
+	{
+		"libelle" : "Poitou-Charentes",
+		"repertoire" : "7C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DC27",
+		"nom_court" : "PCH",
+		"trigramme_racing" : "PCH"
+	},
+	{
+		"libelle" : "Poitou-Charentes",
+		"repertoire" : "7C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AC27",
+		"nom_court" : "PCH",
+		"trigramme_racing" : "PCH"
+	},
+	{
+		"libelle" : "Limousin",
+		"repertoire" : "8C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DC28",
+		"nom_court" : "LIM",
+		"trigramme_racing" : "LIM"
+	},
+	{
+		"libelle" : "Limousin",
+		"repertoire" : "8C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AC28",
+		"nom_court" : "LIM",
+		"trigramme_racing" : "LIM"
+	},
+	{
+		"libelle" : "Pyrénées et Landes",
+		"repertoire" : "6D",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DD26",
+		"nom_court" : "PYL",
+		"trigramme_racing" : "PYL"
+	},
+	{
+		"libelle" : "Pyrénées et Landes",
+		"repertoire" : "6D",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AD26",
+		"nom_court" : "PYL",
+		"trigramme_racing" : "PYL"
+	},
+	{
+		"libelle" : "Auvergne",
+		"repertoire" : "8D",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DD28",
+		"nom_court" : "AUV",
+		"trigramme_racing" : "AUV"
+	},
+	{
+		"libelle" : "Auvergne",
+		"repertoire" : "8D",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AD28",
+		"nom_court" : "AUV",
+		"trigramme_racing" : "AUV"
+	},
+	{
+		"libelle" : "Côte d'Azur",
+		"repertoire" : "5E",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DE25",
+		"nom_court" : "CAZ",
+		"trigramme_racing" : "CAZ"
+	},
+	{
+		"libelle" : "Côte d'Azur",
+		"repertoire" : "6e",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AE25",
+		"nom_court" : "CAZ",
+		"trigramme_racing" : "CAZ"
+	},
+	{
+		"libelle" : "Nord Midi-Pyrénées",
+		"repertoire" : "6E",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DE26",
+		"nom_court" : "NMP",
+		"trigramme_racing" : "NMP"
+	},
+	{
+		"libelle" : "Nord Midi-Pyrénées",
+		"repertoire" : "6E",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AE26",
+		"nom_court" : "NMP",
+		"trigramme_racing" : "NMP"
+	},
+	{
+		"libelle" : "Midi-Pyrénées Sud",
+		"repertoire" : "6F",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DF26",
+		"nom_court" : "MPS",
+		"trigramme_racing" : "MPS"
+	},
+	{
+		"libelle" : "Midi-Pyrénées Sud",
+		"repertoire" : "6F",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AF26",
+		"nom_court" : "MPS",
+		"trigramme_racing" : "MPS"
+	},
+	{
+		"libelle" : "Aquitaine Nord",
+		"repertoire" : "6C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "DC26",
+		"nom_court" : "AQN",
+		"trigramme_racing" : "AQN"
+	},
+	{
+		"libelle" : "Aquitaine Nord",
+		"repertoire" : "6C",
+		"zone" : "METROPOLE",
+		"ref_dossier" : "AC26",
+		"nom_court" : "AQN",
+		"trigramme_racing" : "AQN"
+	},
+	{
+		"libelle" : "Corse",
+		"repertoire" : "COR",
+		"zone" : "SEI",
+		"ref_dossier" : "A743",
+		"nom_court" : "COR",
+		"trigramme_racing" : "COR"
+	},
+	{
+		"libelle" : "Corse",
+		"repertoire" : "COR",
+		"zone" : "SEI",
+		"ref_dossier" : "D743",
+		"nom_court" : "COR",
+		"trigramme_racing" : "COR"
+	},
+	{
+		"libelle" : "Guadeloupe",
+		"repertoire" : "GUA",
+		"zone" : "SEI",
+		"ref_dossier" : "A745",
+		"nom_court" : "GUA",
+		"trigramme_racing" : "GUA"
+	},
+	{
+		"libelle" : "Guadeloupe",
+		"repertoire" : "GUA",
+		"zone" : "SEI",
+		"ref_dossier" : "D745",
+		"nom_court" : "GUA",
+		"trigramme_racing" : "GUA"
+	},
+	{
+		"libelle" : "Martinique",
+		"repertoire" : "MAR",
+		"zone" : "SEI",
+		"ref_dossier" : "A744",
+		"nom_court" : "MAR",
+		"trigramme_racing" : "MAR"
+	},
+	{
+		"libelle" : "Martinique",
+		"repertoire" : "MAR",
+		"zone" : "SEI",
+		"ref_dossier" : "D744",
+		"nom_court" : "MAR",
+		"trigramme_racing" : "MAR"
+	},
+	{
+		"libelle" : "La Reunion",
+		"repertoire" : "REU",
+		"zone" : "SEI",
+		"ref_dossier" : "A747",
+		"nom_court" : "REU",
+		"trigramme_racing" : "REU"
+	},
+	{
+		"libelle" : "La Reunion",
+		"repertoire" : "REU",
+		"zone" : "SEI",
+		"ref_dossier" : "D747",
+		"nom_court" : "REU",
+		"trigramme_racing" : "REU"
+	},
+	{
+		"libelle" : "Guyane",
+		"repertoire" : "GUY",
+		"zone" : "SEI",
+		"ref_dossier" : "A746",
+		"nom_court" : "GUY",
+		"trigramme_racing" : "GUY"
+	},
+	{
+		"libelle" : "Guyane",
+		"repertoire" : "GUY",
+		"zone" : "SEI",
+		"ref_dossier" : "D746",
+		"nom_court" : "GUY",
+		"trigramme_racing" : "GUY"
+	}
+]

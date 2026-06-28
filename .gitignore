@@ -1,49 +1,96 @@
-# ---------------------------------------------------------------------------
-# .gitignore — star_engine
-# ---------------------------------------------------------------------------
-
-# ── Python ─────────────────────────────────────────────────────────────────
+# ===== Python =====
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
 *.so
-*.egg
-*.egg-info/
-dist/
+
+# Distribution / packaging
+.Python
 build/
-*.whl
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# ── Pytest ─────────────────────────────────────────────────────────────────
-.pytest_cache/
-.coverage
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ===== Tests / Coverage =====
 htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
 
-# ── Mypy / Pylance / type checkers ────────────────────────────────────────
-.mypy_cache/
-.pytype/
+# ===== Environnements virtuels =====
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# ── IDE / Éditeurs ────────────────────────────────────────────────────────
-.vscode/
+# Conda
+.conda/
+
+# ===== IDE / Editeurs =====
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
+.spyderproject
+.spyproject
+.ropeproject
 
-# ── OS ─────────────────────────────────────────────────────────────────────
-Thumbs.db
-Desktop.ini
+# ===== Type checkers / Linters =====
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# ===== Rapports d'analyse de securite =====
+bandit-report.json
+semgrep-report.json
+
+# ===== SonarQube =====
+.sonar/
+.scannerwork/
+
+# ===== OS =====
 .DS_Store
+Thumbs.db
+desktop.ini
 
-# ── Données de travail (GML, GeoJSON, PDF générés) ────────────────────────
-*.gml
-*.geojson
-*.pdf
-
-# ── Logs ───────────────────────────────────────────────────────────────────
+# ===== Logs / temporaires =====
 *.log
-
-# ── Environnements virtuels ───────────────────────────────────────────────
-.venv/
-venv/
-env/
+*.tmp
+*.bak

@@ -1,3 +1,0 @@
-# StarAPD
-
-🚧 **En construction** 🚧

@@ -94,4 +94,4 @@ desktop.ini
 *.log
 *.tmp
 *.bak
-.conversion/conversion_V1_1/xsd/cache/
+.cache/

@@ -5,7 +5,7 @@ Toutes les modifications notables de ce projet sont consignées dans ce fichier.
 
 ## [Unreleased]
 
-## [1.0.3] - 2026-06-28
+## [1.0.1] - 2026-06-28
 
 ### Ajouté
 

@@ -64,11 +64,32 @@ poetry run ruff format recostar/  # Formatage
 
 ### Dépendances principales
 
-| Paquet | Version | Rôle |
-|--------|---------|------|
-| defusedxml | 0.7.1 | Lecture XML sécurisée |
-| lxml | 5.3.0 | Validation XSD et manipulation XML |
-| pyproj | 3.7.2 | Transformations de projections cartographiques |
-| reportlab | 4.4.10 | Génération de rapports PDF |
-| requests | 2.32.5 | Téléchargement des schémas XSD distants |
-| shapely | 2.1.2 | Opérations géométriques |
+| Librairie   | Version | Licence      | Usage                                        |
+| ----------- | ------- | ------------ | -------------------------------------------- |
+| defusedxml  | 0.7.1   | PSF-2.0      | Parsing XML sécurisé (protection XXE)        |
+| pillow      | 12.2.0  | MIT-CMU      | Manipulation d'images pour les rapports PDF  |
+| pyproj      | 3.7.2   | MIT          | Transformations de coordonnées géographiques |
+| reportlab   | 4.4.10  | BSD-3-Clause | Génération des rapports PDF                  |
+| requests    | 2.32.5  | Apache-2.0   | Requêtes HTTP (API IGN altimétrie)           |
+| shapely     | 2.1.2   | BSD-3-Clause | Opérations géométriques                      |
+| lxml        | 5.3.0   | BSD          | Validation XSD et manipulation XML           |
+
+
+### Dépendances transitives
+
+| Librairie          | Version  | Licence      | Dépendance de |
+| ------------------ | -------- | ------------ | ------------- |
+| certifi            | 2026.2.25| MPL-2.0      | requests      |
+| charset-normalizer | 3.4.7    | MIT          | requests      |
+| idna               | 3.11     | BSD-3-Clause | requests      |
+| packaging          | 26.1     | Apache-2.0   | pytest        |
+| urllib3            | 2.6.3    | MIT          | requests      |
+
+### Dépendances de développement
+
+| Librairie | Version | Licence      | Usage                        |
+| --------- | ------- | ------------ | ---------------------------- |
+| iniconfig | 2.3.0   | MIT          | Configuration pytest         |
+| pluggy    | 1.6.0   | MIT          | Système de plugins pytest    |
+| pygments  | 2.20.0  | BSD-2-Clause | Coloration syntaxique        |
+| pytest    | 9.0.2   | MIT          | Exécution de tests unitaires |

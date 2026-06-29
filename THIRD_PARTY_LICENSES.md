@@ -99,3 +99,18 @@ Ce projet utilise les librairies open source suivantes.
 - **Licence** : MIT
 - **URL** : <https://github.com/urllib3/urllib3>
 - **Copyright** : Copyright (c) Andrey Petrov and contributors
+
+##  shapely
+
+- **Version** : 2.1.2
+- **Licence** : BSD-3-Clause
+- **URL** : <https://shapely.readthedocs.io>
+- **Copyright** : Copyright (c) 2011-2025, Sean Gillies and Shapely contributors
+
+##  lxml
+
+- **Version** : 5.3.0
+- **Licence** : BSD-3-Clause
+- **URL** : <https://lxml.de>
+- **Copyright** : Copyright (c) 2004 Infrae
+s

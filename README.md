@@ -1,5 +1,7 @@
 # StaR-Engine
 
+[![REUSE Compliance](https://img.shields.io/badge/reuse-compliant-green.svg)](https://reuse.software/)
+
 Moteur de traitement des données RecoStaR — conversion GeoJSON ↔ GML, contrôles qualité et calcul des longueurs de câbles pour les réseaux électriques de distribution publique (format StaR-Elec).
 
 ---

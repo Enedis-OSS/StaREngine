@@ -24,7 +24,9 @@ Usage (diagnostic) :
 import argparse
 import sys
 from pathlib import Path
-from xml.etree.ElementTree import Element
+from xml.etree.ElementTree import (
+    Element,  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+)
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
 from sequenceur_xsd import SlotSequence

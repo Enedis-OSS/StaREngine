@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "name": "RPD_Support_Reco",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::2154"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": null,
+        "ogr_pkid": "__REPERE_A_SUPPRIMER__",
+        "id": null,
+        "NatureSupport_href": null,
+        "Matiere_href": null,
+        "Classe_href": null,
+        "PrecisionXY": null,
+        "PrecisionZ": null,
+        "Statut": null,
+        "Commentaire": "REPERE TEMPLATE - SUPPRIMER AVANT SAISIE",
+        "geometriesupplementaire_href": null,
+        "Effort": null,
+        "Effort_uom": null,
+        "HauteurPoteau": null,
+        "HauteurPoteau_uom": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          850000.0,
+          6800000.0,
+          0.0
+        ]
+      }
+    }
+  ]
+}

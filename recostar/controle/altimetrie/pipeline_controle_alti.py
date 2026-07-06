@@ -28,7 +28,9 @@ from controle_e201 import executer_controle_cli as executer_controle_z_null
 from controle_e202 import executer_controle_cli as executer_controle_sommets
 from controle_e203 import executer_controle_cli as executer_controle_ign
 from controle_e204 import executer_controle_cli as executer_controle_doublons_spatiaux
-from controle_e205 import executer_controle_cli as executer_controle_point_leve_geom_supp
+from controle_e205 import (
+    executer_controle_cli as executer_controle_point_leve_geom_supp,
+)
 
 # Noms des controles dans l'ordre d'execution
 NOMS_CONTROLES: tuple[str, ...] = (

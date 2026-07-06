@@ -40,6 +40,9 @@ Câble de mise à la terre.
 | `Commentaire` | string | Commentaire libre |
 | `NatureCableTerre_href` | href | Nature du câble de terre |
 | `Section_uom` | string | Unité de section |
+| `TypePose` | string | Type de pose |
+| `PrecisionXY` | string | Classe de précision XY |
+| `PrecisionZ` | string | Classe de précision Z |
 
 ---
 
@@ -331,6 +334,35 @@ Bâtiment technique (conteneur). Géométrie : **Point**.
 | `PrecisionXY` | string | Classe de précision XY |
 | `PrecisionZ` | string | Classe de précision Z |
 | `geometriesupplementaire_href` | href | Référence géométrie supplémentaire |
+
+---
+
+## RPD_EnceinteCloturee_Reco
+
+Enceinte clôturée (conteneur). Géométrie : **Point**.
+
+| Champ | Type | Description |
+| --- | --- | --- |
+| `ogr_pkid` | string | Identifiant unique |
+| `PrecisionXY` | string | Classe de précision XY |
+| `PrecisionZ` | string | Classe de précision Z |
+| `geometriesupplementaire_href` | href | Référence géométrie supplémentaire |
+
+---
+
+## RPD_ModuleRaccordement_Reco
+
+Unité fonctionnelle (départ monobloc, etc.) hébergée par un `RPD_SupportModules_Reco`. Pas de géométrie propre (position déduite du conteneur).
+
+| Champ | Type | Description |
+| --- | --- | --- |
+| `ogr_pkid` | string | Identifiant unique |
+| `Coupure` | bool | Présence d'un dispositif de coupure |
+| `NbPlagesOccupees` | int | Nombre de plages occupées |
+| `Protection` | bool | Présence d'une protection |
+| `noeudParent_href` | href | Référence vers `RPD_SupportModules_Reco` parent |
+| `conteneur_href` | href | Référence conteneur (coffret/bâtiment technique) |
+| `cables_href` | string | IDs des câbles liés, séparés par virgules |
 
 ---
 

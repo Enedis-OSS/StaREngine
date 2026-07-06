@@ -321,7 +321,11 @@ class TestControlerCouchesCables:
             FICHIER_CABLE_ELECTRIQUE,
             [_construire_cable("c1", _ligne_plate(12))],
         )
-        fichiers = (FICHIER_CABLE_ELECTRIQUE, FICHIER_CABLE_TERRE, FICHIER_CABLE_TELECOM)
+        fichiers = (
+            FICHIER_CABLE_ELECTRIQUE,
+            FICHIER_CABLE_TERRE,
+            FICHIER_CABLE_TELECOM,
+        )
         _, _, couches = controler_couches_cables(str(tmp_path), fichiers, set())
         assert couches == ["RPD_CableElectrique_Reco"]
 
@@ -470,7 +474,11 @@ class TestCli:
         # doit produire des anomalies au lieu d'etre ignoree.
         partie = _ligne_plate(12)
         partie[6][2] = 15.0
-        _ecrire_couche(tmp_path, FICHIER_CABLE_ELECTRIQUE, [_construire_cable_multi("cm", [partie])])
+        _ecrire_couche(
+            tmp_path,
+            FICHIER_CABLE_ELECTRIQUE,
+            [_construire_cable_multi("cm", [partie])],
+        )
         resultat = executer_controle_cli(str(tmp_path), version="1.0")
         assert resultat["succes"] is True
         assert resultat["nombre_anomalies"] >= 1

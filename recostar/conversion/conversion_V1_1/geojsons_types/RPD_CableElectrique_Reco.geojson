@@ -1,0 +1,48 @@
+{
+  "type": "FeatureCollection",
+  "name": "RPD_CableElectrique_Reco",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::2154"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": null,
+        "ogr_pkid": "__REPERE_A_SUPPRIMER__",
+        "id": null,
+        "DomaineTension": null,
+        "Etiquette": null,
+        "FonctionCable_href": null,
+        "HierarchieBT": null,
+        "Isolant": null,
+        "Materiau": null,
+        "Statut": null,
+        "Commentaire": "REPERE TEMPLATE - SUPPRIMER AVANT SAISIE",
+        "NombreConducteurs": null,
+        "Section": null,
+        "Section_uom": null,
+        "SectionNeutre": null,
+        "SectionNeutre_uom": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            850000.0,
+            6800000.0,
+            0.0
+          ],
+          [
+            850001.0,
+            6800001.0,
+            0.0
+          ]
+        ]
+      }
+    }
+  ]
+}

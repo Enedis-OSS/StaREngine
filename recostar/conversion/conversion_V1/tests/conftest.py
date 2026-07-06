@@ -1,6 +1,6 @@
 import os
 import sys
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # nosec B405
 
 import pytest
 

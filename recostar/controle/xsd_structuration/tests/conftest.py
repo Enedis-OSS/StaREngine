@@ -5,7 +5,7 @@ Fixtures partagées pour les tests du contrôle E110.
 import os
 import sys
 from pathlib import Path
-from xml.etree.ElementTree import Element
+from xml.etree.ElementTree import Element  # nosec B405
 
 import pytest
 

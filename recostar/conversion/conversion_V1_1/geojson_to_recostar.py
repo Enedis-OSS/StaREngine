@@ -14,7 +14,7 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
 
 # Namespaces XML/GML requis par le schéma RecoStaR
 NAMESPACE_GML = "http://www.opengis.net/gml/3.2"

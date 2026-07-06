@@ -1,0 +1,39 @@
+{
+  "type": "FeatureCollection",
+  "name": "RPD_Jonction_Reco",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::2154"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": null,
+        "ogr_pkid": "__REPERE_A_SUPPRIMER__",
+        "id": null,
+        "DomaineTension": null,
+        "TypeJonction": null,
+        "PrecisionXY": null,
+        "PrecisionZ": null,
+        "Statut": null,
+        "Commentaire": "REPERE TEMPLATE - SUPPRIMER AVANT SAISIE",
+        "angle": null,
+        "cables_href": null,
+        "EtatAvantRaccordement": null,
+        "materiel_href": null,
+        "conteneur_href": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          850000.0,
+          6800000.0,
+          0.0
+        ]
+      }
+    }
+  ]
+}

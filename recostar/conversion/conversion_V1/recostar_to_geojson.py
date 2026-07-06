@@ -18,9 +18,9 @@ import json
 import sys
 from functools import lru_cache
 from pathlib import Path
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
 
-import defusedxml.ElementTree as DefusedET
+import defusedxml.ElementTree as DefusedET  # type: ignore
 
 # Namespaces GML/RecoStaR
 NAMESPACE_GML = "http://www.opengis.net/gml/3.2"
@@ -1335,7 +1335,7 @@ class GMLConverter:
 
         print(f"Lecture du fichier GML: {gml_path}")
         try:
-            tree = DefusedET.parse(gml_path)
+            tree = DefusedET.parse(gml_path)  # type: ignore
             root = tree.getroot()
         except Exception as e:
             print(f"Erreur lors du parsing XML: {e}", file=sys.stderr)

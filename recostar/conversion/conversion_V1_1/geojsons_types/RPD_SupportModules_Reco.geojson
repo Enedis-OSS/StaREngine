@@ -1,0 +1,33 @@
+{
+  "type": "FeatureCollection",
+  "name": "RPD_SupportModules_Reco",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::2154"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": null,
+        "ogr_pkid": "__REPERE_A_SUPPRIMER__",
+        "id": null,
+        "conteneur_href": null,
+        "Commentaire": "REPERE TEMPLATE - SUPPRIMER AVANT SAISIE",
+        "Statut": null,
+        "cables_href": null,
+        "EtatAvantRaccordement": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          850000.0,
+          6800000.0,
+          0.0
+        ]
+      }
+    }
+  ]
+}

@@ -185,7 +185,8 @@ class TestExecuterPipeline:
         """Le fichier JSON produit contient des resultats valides."""
         resultat = executer_pipeline(str(dossier_geojson))
 
-        donnees = charger_json_confine(Path(resultat.chemin_json).parent, resultat.chemin_json)
+        chemin_json = Path(resultat.chemin_json)
+        donnees = charger_json_confine(chemin_json.parent, chemin_json)
 
         assert donnees["succes"] is True
         assert len(donnees["resultats"]) == 2
@@ -198,7 +199,8 @@ class TestExecuterPipeline:
 
         assert resultat.succes is True
 
-        donnees = charger_json_confine(Path(resultat.chemin_json).parent, resultat.chemin_json)
+        chemin_json = Path(resultat.chemin_json)
+        donnees = charger_json_confine(chemin_json.parent, chemin_json)
 
         cables = {r["id"]: r for r in donnees["resultats"]}
 

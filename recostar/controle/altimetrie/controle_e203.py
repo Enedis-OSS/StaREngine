@@ -44,6 +44,7 @@ from controle_e204 import (
 from controle_e204 import (
     determiner_version_depuis_repertoire as determiner_version_effective,
 )
+from pyproj import Transformer
 from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
 
 # Nom du fichier source analyse
@@ -84,99 +85,18 @@ TIMEOUT_REQUETE: int = 30
 # Valeur sentinelle renvoyee par l'API IGN quand l'altitude est inconnue
 _Z_INCONNU_IGN: float = -99999.0
 
-# Parametres de la projection Lambert 93 (EPSG:2154)
-_LAMBERT93_PARAMS = {
-    "lon_0": 3.0,
-    "lat_0": 46.5,
-    "lat_1": 49.0,
-    "lat_2": 44.0,
-    "x_0": 700000.0,
-    "y_0": 6600000.0,
-    "a": 6378137.0,
-    "f": 1.0 / 298.257222101,
-}
-
-
 # --------------------------------------------------------------------------- #
 # Conversion de coordonnees Lambert 93 -> WGS84
 # --------------------------------------------------------------------------- #
 
-
-def _calculer_constantes_lambert() -> dict[str, float]:
-    """Precalcule les constantes de la projection Lambert 93.
-
-    Appellee une seule fois au chargement du module pour eviter
-    les recalculs dans la boucle de conversion.
-    """
-    p = _LAMBERT93_PARAMS
-    a: float = p["a"]
-    f: float = p["f"]
-    e = math.sqrt(2.0 * f - f * f)
-
-    phi_1 = math.radians(p["lat_1"])
-    phi_2 = math.radians(p["lat_2"])
-    phi_0 = math.radians(p["lat_0"])
-    lambda_0 = math.radians(p["lon_0"])
-
-    sin_phi_1, sin_phi_2 = math.sin(phi_1), math.sin(phi_2)
-    cos_phi_1, cos_phi_2 = math.cos(phi_1), math.cos(phi_2)
-
-    m1 = cos_phi_1 / math.sqrt(1.0 - e * e * sin_phi_1 * sin_phi_1)
-    m2 = cos_phi_2 / math.sqrt(1.0 - e * e * sin_phi_2 * sin_phi_2)
-
-    def _t(phi: float) -> float:
-        e_sin = e * math.sin(phi)
-        return math.tan(math.pi / 4.0 - phi / 2.0) / ((1.0 - e_sin) / (1.0 + e_sin)) ** (e / 2.0)
-
-    t1, t2, t0 = _t(phi_1), _t(phi_2), _t(phi_0)
-
-    n = (math.log(m1) - math.log(m2)) / (math.log(t1) - math.log(t2))
-    gf = m1 / (n * t1**n)
-    rho_0 = a * gf * t0**n
-
-    return {
-        "a": a,
-        "e": e,
-        "n": n,
-        "gf": gf,
-        "rho_0": rho_0,
-        "lambda_0": lambda_0,
-        "x_0": p["x_0"],
-        "y_0": p["y_0"],
-    }
-
-
-# Constantes precalculees au chargement du module
-_CST = _calculer_constantes_lambert()
+# Transformer instancie une seule fois au chargement du module (thread-safe).
+_TRANSFORMER = Transformer.from_crs("EPSG:2154", "EPSG:4326", always_xy=True)
 
 
 def convertir_lambert93_vers_wgs84(x: float, y: float) -> tuple[float, float]:
-    """Convertit des coordonnees Lambert 93 (EPSG:2154) vers WGS84 (lon, lat).
-
-    Utilise une methode iterative basee sur la projection conique conforme.
-    Les constantes de projection sont precalculees au chargement du module.
-    """
-    a, e, n = _CST["a"], _CST["e"], _CST["n"]
-    gf, rho_0 = _CST["gf"], _CST["rho_0"]
-
-    dx = x - _CST["x_0"]
-    dy = _CST["y_0"] - y + rho_0
-    rho = math.copysign(math.hypot(dx, dy), n)
-    theta = math.atan2(dx, dy)
-    t = (rho / (a * gf)) ** (1.0 / n)
-
-    lon = theta / n + _CST["lambda_0"]
-
-    # Latitude par iteration (methode de Newton)
-    phi = math.pi / 2.0 - 2.0 * math.atan(t)
-    for _ in range(15):
-        e_sin_phi = e * math.sin(phi)
-        phi_new = math.pi / 2.0 - 2.0 * math.atan(t * ((1.0 - e_sin_phi) / (1.0 + e_sin_phi)) ** (e / 2.0))
-        if math.fabs(phi_new - phi) < 1e-12:
-            break
-        phi = phi_new
-
-    return (math.degrees(lon), math.degrees(phi))
+    """Convertit des coordonnees Lambert 93 (EPSG:2154) vers WGS84 (lon, lat)."""
+    lon, lat = _TRANSFORMER.transform(x, y)
+    return (lon, lat)
 
 
 # --------------------------------------------------------------------------- #

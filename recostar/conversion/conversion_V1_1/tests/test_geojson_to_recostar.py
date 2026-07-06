@@ -1,4 +1,4 @@
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # nosec B405
 
 import pytest
 from geojson_to_recostar import (
@@ -2466,7 +2466,13 @@ class TestMapperGalerie:
             props["ProfondeurMinNonReg"] = 0.8
             props["ProfondeurMinNonReg_uom"] = "m"
         geometry = (
-            {"type": "LineString", "coordinates": [[600000.0, 6800000.0, 100.0], [600020.0, 6800020.0, 101.0]]}
+            {
+                "type": "LineString",
+                "coordinates": [
+                    [600000.0, 6800000.0, 100.0],
+                    [600020.0, 6800020.0, 101.0],
+                ],
+            }
             if avec_geometrie
             else None
         )

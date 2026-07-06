@@ -46,7 +46,17 @@ from utils_tests import (
 _POLY_1M = [[[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]]]
 
 # Carre 3D de 1m x 1m : verifie que force_2d fonctionne
-_POLY_1M_3D = [[[[0.0, 0.0, 5.0], [1.0, 0.0, 5.0], [1.0, 1.0, 5.0], [0.0, 1.0, 5.0], [0.0, 0.0, 5.0]]]]
+_POLY_1M_3D = [
+    [
+        [
+            [0.0, 0.0, 5.0],
+            [1.0, 0.0, 5.0],
+            [1.0, 1.0, 5.0],
+            [0.0, 1.0, 5.0],
+            [0.0, 0.0, 5.0],
+        ]
+    ]
+]
 
 # Carre loin du precedent
 _POLY_LOIN = [[[[100.0, 100.0], [101.0, 100.0], [101.0, 101.0], [100.0, 101.0], [100.0, 100.0]]]]
@@ -178,7 +188,11 @@ class TestChargerPointsLeve:
         assert _charger_points_leve([ligne]) == []
 
     def test_geometrie_absente_ignoree(self) -> None:
-        feature: dict[str, Any] = {"type": "Feature", "properties": {"id": "p1"}, "geometry": None}
+        feature: dict[str, Any] = {
+            "type": "Feature",
+            "properties": {"id": "p1"},
+            "geometry": None,
+        }
         assert _charger_points_leve([feature]) == []
 
     def test_collection_vide_retourne_liste_vide(self) -> None:
@@ -283,7 +297,12 @@ class TestConstruireGeojsonEcarts:
         assert geojson == {"type": "FeatureCollection", "features": []}
 
     def test_structure_feature(self) -> None:
-        anomalies = [{"id_geomsupp": "gs1", "geometrie": {"type": "MultiPolygon", "coordinates": _POLY_1M}}]
+        anomalies = [
+            {
+                "id_geomsupp": "gs1",
+                "geometrie": {"type": "MultiPolygon", "coordinates": _POLY_1M},
+            }
+        ]
         geojson = construire_geojson_ecarts(anomalies, "1.1")
         assert len(geojson["features"]) == 1
         feat = geojson["features"][0]
@@ -295,7 +314,12 @@ class TestConstruireGeojsonEcarts:
         assert props["version"] == "1.1"
 
     def test_version_incluse_dans_proprietes(self) -> None:
-        anomalies = [{"id_geomsupp": "gs1", "geometrie": {"type": "MultiPolygon", "coordinates": _POLY_1M}}]
+        anomalies = [
+            {
+                "id_geomsupp": "gs1",
+                "geometrie": {"type": "MultiPolygon", "coordinates": _POLY_1M},
+            }
+        ]
         geojson_v1_0 = construire_geojson_ecarts(anomalies, "1.0")
         assert geojson_v1_0["features"][0]["properties"]["version"] == "1.0"
 

@@ -2,7 +2,7 @@
 Utilitaires de construction de fichiers GML pour les tests E110 / E111 / E113.
 """
 
-from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.etree.ElementTree import Element, SubElement, tostring  # nosec B405
 
 NS_GML = "http://www.opengis.net/gml/3.2"
 NS_RECOSTAR = "http://StaR-Elec.com"

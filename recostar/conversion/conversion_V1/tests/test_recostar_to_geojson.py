@@ -1,5 +1,5 @@
 import json
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # nosec B405
 
 import pytest
 import recostar_to_geojson as r2g

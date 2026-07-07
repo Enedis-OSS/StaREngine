@@ -19,7 +19,7 @@ import sys
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
 
@@ -1734,7 +1734,7 @@ class GMLConverter:
 
         print(f"Lecture du fichier GML: {gml_path}")
         try:
-            tree = DefusedET.parse(gml_path)
+            tree = DefusedET.parse(gml_path)  # type: ignore
             root = tree.getroot()
         except Exception as e:
             print(f"Erreur lors du parsing XML: {e}", file=sys.stderr)

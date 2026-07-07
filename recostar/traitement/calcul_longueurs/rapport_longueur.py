@@ -285,10 +285,9 @@ def generer_rapport_longueur(
 
 def _charger_resultats_longueurs(chemin_projet: str) -> list[dict[str, Any]]:
     """Charge les resultats de longueurs depuis le fichier JSON du dossier rapport/."""
-    chemin_projet = str(Path(chemin_projet).resolve())
-    dossier_rapport = os.path.join(chemin_projet, "rapport")
-    chemin_json = os.path.join(dossier_rapport, "resultats_longueurs.json")
-    if not os.path.isfile(chemin_json):
+    dossier_rapport = Path(chemin_projet).resolve() / "rapport"
+    chemin_json = dossier_rapport / "resultats_longueurs.json"
+    if not chemin_json.is_file():
         return []
     donnees = charger_json_confine(dossier_rapport, chemin_json)
     if not donnees.get("succes"):

@@ -26,7 +26,10 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from xml.etree.ElementTree import Element, ElementTree
+from xml.etree.ElementTree import (  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+    Element,
+    ElementTree,
+)
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
 from cli_version import ajouter_argument_version, resoudre_profil_cli
@@ -115,7 +118,7 @@ class AnalyseurValeurs:
         Retourne la liste exhaustive des erreurs et avertissements détectés
         (vide si le fichier respecte intégralement les domaines de valeurs).
         """
-        arbre: ElementTree = DefusedET.parse(str(self.chemin_gml))
+        arbre: ElementTree[Element] = DefusedET.parse(str(self.chemin_gml))
         racine = arbre.getroot()
         erreurs: list[ErreurValeur] = []
 

@@ -110,7 +110,7 @@ def _charger_points_leve(features: list[dict[str, Any]]) -> list[BaseGeometry]:
             continue
         try:
             points.append(force_2d(shape(geom_dict)))
-        except Exception:
+        except Exception:  # nosec B112
             continue
     return points
 
@@ -151,7 +151,7 @@ def detecter_geomsupp_sans_point_leve(
             continue
         try:
             geom_2d = force_2d(shape(geom_dict))
-        except Exception:
+        except Exception:  # nosec B112
             continue
         if len(interroger(geom_2d, predicate="intersects")) == 0:
             anomalies.append({"id_geomsupp": id_gs, "geometrie": geom_dict})

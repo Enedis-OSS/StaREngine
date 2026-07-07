@@ -30,6 +30,7 @@ python geojson_to_recostar.py <dossier_geojson> <sortie.gml> [options]
 | `--responsable` | `TEST` | Responsable du récolement |
 | `--nom` | `TEST` | Nom du réseau |
 | `--srs` | auto-détecté | Forcer le CRS (ex: `EPSG:2154`) |
+| `--id` | — | Reformate tous les `gml:id` en UUIDs préfixés `id` (ex: `id7515b3fc-...`) |
 
 ### GML → GeoJSON
 
@@ -68,10 +69,10 @@ Aucune option supplémentaire. Le CRS est lu depuis les métadonnées du GML.
 ### GML → GeoJSON (`recostar_to_geojson.py`)
 
 1. Parsing XML sécurisé du GML (via `defusedxml`)
-2. **Passe 1** : Extraction des relations entre entités
-3. **Passe 2** : Extraction des conteneurs (Coffret, Support, BâtimentTechnique) → cache de géométries
-4. **Passe 3** : Extraction des cheminements (Fourreau, PleineTerre, Aérien, ProtectionMécanique) → cache de géométries
-5. **Passe 4** : Extraction des autres entités avec héritage de géométries depuis les caches
+2. **Pré-passe** : Extraction des relations entre entités
+3. **Passe 1** : Extraction des conteneurs (Coffret, Support, BâtimentTechnique, EnceinteCloturée) → cache de géométries
+4. **Passe 2** : Extraction des cheminements (Fourreau, Galerie, PleineTerre, Aérien, ProtectionMécanique) → cache de géométries
+5. **Passe 3** : Extraction des autres entités avec héritage de géométries depuis les caches
 6. Propagation des câbles dans les conteneurs et injection matériel→jonctions
 7. Écriture d'un fichier GeoJSON par type d'entité
 
@@ -79,7 +80,7 @@ Aucune option supplémentaire. Le CRS est lu depuis les métadonnées du GML.
 
 ## Types d'entités supportés
 
-`RPD_CableElectrique_Reco`, `RPD_CableTerre_Reco`, `RPD_Coffret_Reco`, `RPD_Fourreau_Reco`, `RPD_GeometrieSupplementaire_Reco`, `RPD_JeuBarres_Reco`, `RPD_Jonction_Reco`, `RPD_OuvrageCollectifBranchement_Reco`, `RPD_PointDeComptage_Reco`, `RPD_PointLeveOuvrageReseau_Reco`, `RPD_BatimentTechnique_Reco`, `RPD_PosteElectrique_Reco`, `RPD_ProtectionMecanique_Reco`, `RPD_SupportModules_Reco`, `RPD_Terre_Reco`, `RPD_Aerien_Reco`, `RPD_Materiel_Reco`, `RPD_PleineTerre_Reco`, `RPD_Support_Reco`
+`RPD_Aerien_Reco`, `RPD_BatimentTechnique_Reco`, `RPD_CableElectrique_Reco`, `RPD_CableTerre_Reco`, `RPD_Coffret_Reco`, `RPD_CoupeCircuitAFusibles_Reco`, `RPD_EnceinteCloturee_Reco`, `RPD_Fourreau_Reco`, `RPD_Galerie_Reco`, `RPD_GeometrieSupplementaire_Reco`, `RPD_JeuBarres_Reco`, `RPD_Jonction_Reco`, `RPD_Materiel_Reco`, `RPD_ModuleRaccordement_Reco`, `RPD_OuvrageCollectifBranchement_Reco`, `RPD_PleineTerre_Reco`, `RPD_PointDeComptage_Reco`, `RPD_PointLeveOuvrageReseau_Reco`, `RPD_PosteElectrique_Reco`, `RPD_ProtectionMecanique_Reco`, `RPD_Support_Reco`, `RPD_SupportModules_Reco`, `RPD_Terre_Reco`
 
 ---
 

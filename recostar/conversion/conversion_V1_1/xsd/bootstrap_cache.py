@@ -20,9 +20,11 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 # Points d'entrée : les deux xs:import déclarés dans SchemaStarElecRecoStar.xsd.
+# En https : le contenu récupéré pilote les téléchargements suivants, un canal en
+# clair exposerait la chaîne à une injection de schéma par un attaquant réseau.
 ENTRY_POINTS: tuple[str, ...] = (
-    "http://schemas.opengis.net/gml/3.2.1/gml.xsd",
-    "http://schemas.opengis.net/gml/3.3/extdEncRule.xsd",
+    "https://schemas.opengis.net/gml/3.2.1/gml.xsd",
+    "https://schemas.opengis.net/gml/3.3/extdEncRule.xsd",
 )
 
 # Restriction : on ne télécharge que depuis ces domaines, évite tout
@@ -34,6 +36,11 @@ DOMAINES_AUTORISES: frozenset[str] = frozenset(
     }
 )
 
+# Restriction : seul https est suivi. urlopen sait aussi ouvrir file://, ftp://…
+# (CWE-939) ; comme les URL proviennent du contenu des XSD téléchargés, on
+# n'autorise explicitement que le schéma réseau chiffré attendu.
+SCHEMAS_AUTORISES: frozenset[str] = frozenset({"https"})
+
 # Découverte des dépendances : XSD utilisent à la fois schemaLocation
 # (xs:import/xs:include) et href (xlink).
 _PATTERN_REFERENCES = re.compile(r'(?:schemaLocation|href)="([^"]+\.xsd)"')
@@ -43,7 +50,9 @@ def _telecharger(url: str, destination: Path) -> bytes | None:
     """Télécharge l'URL dans destination, retourne le contenu ou None si échec."""
     requete = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        contenu = urllib.request.urlopen(requete, timeout=30).read()  # nosec B310
+        # Schéma (https) et domaine déjà validés par bootstrap() en amont : le
+        # seul appelant. Suppression justifiée, le sink ne reçoit pas d'URL non filtrée.
+        contenu = urllib.request.urlopen(requete, timeout=30).read()  # nosec B310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
     except OSError as exc:
         print(f"ECHEC {url}: {exc}", file=sys.stderr)
         return None
@@ -75,7 +84,10 @@ def bootstrap(cache_dir: Path) -> tuple[int, int]:
             continue
         visites.add(url)
         parsed = urlparse(url)
-        if parsed.netloc not in DOMAINES_AUTORISES:
+        # Contrôle avant tout accès réseau : schéma ET domaine doivent être
+        # explicitement autorisés. Une URL file://, ftp:// ou hors périmètre
+        # (extraite d'un XSD) est écartée sans jamais atteindre urlopen.
+        if parsed.scheme not in SCHEMAS_AUTORISES or parsed.netloc not in DOMAINES_AUTORISES:
             continue
         chemin_local = cache_dir / parsed.netloc / parsed.path.lstrip("/")
         chemin_local.parent.mkdir(parents=True, exist_ok=True)

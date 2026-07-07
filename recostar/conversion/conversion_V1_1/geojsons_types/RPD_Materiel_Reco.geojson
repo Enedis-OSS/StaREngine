@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "name": "RPD_Materiel_Reco",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::2154"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": null,
+        "ogr_pkid": "__REPERE_A_SUPPRIMER__",
+        "id": null,
+        "Fabricant": null,
+        "Modele": null,
+        "NumeroLot": null,
+        "NumeroSerie": null
+      },
+      "geometry": null
+    }
+  ]
+}

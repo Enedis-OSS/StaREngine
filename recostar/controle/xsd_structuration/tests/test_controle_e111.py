@@ -4,7 +4,7 @@ Couvre l'extraction des valeurs GML, l'analyse des RPD et la génération du rap
 """
 
 import json
-from xml.etree.ElementTree import Element, SubElement
+from xml.etree.ElementTree import Element, SubElement  # nosec B405
 
 from controle_e111 import (
     AnalyseurGML,

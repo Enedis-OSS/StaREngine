@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from utils_cheminement import extraire_ids_cables_href as _extraire_ids_cables_href
 from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
 
 # Fichier source des cables electriques
@@ -91,27 +92,6 @@ class ReferenceCheminement:
 
     id_cheminement: str | None
     fichier: str
-
-
-# ---------------------------------------------------------------------------
-# Parsing du champ cables_href
-# ---------------------------------------------------------------------------
-
-
-def _extraire_ids_cables_href(valeur: Any) -> list[str]:
-    """Extrait les identifiants cables depuis le champ cables_href.
-
-    Gere les formes presentes dans les donnees Recostar :
-    - chaine unique  : "id<uuid>"
-    - chaine multiple separee par virgules : "id<uuid1>,id<uuid2>"
-    - liste          : ["id<uuid1>", "id<uuid2>"]
-    - null ou absent : liste vide
-    """
-    if isinstance(valeur, str) and valeur:
-        return [cid.strip() for cid in valeur.split(",") if cid.strip()]
-    if isinstance(valeur, list):
-        return [str(cid) for cid in valeur if cid is not None]
-    return []
 
 
 # ---------------------------------------------------------------------------

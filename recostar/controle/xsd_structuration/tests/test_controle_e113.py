@@ -5,7 +5,7 @@ Couvre l'analyseur d'en-tête, la conversion d'erreurs et la génération du rap
 
 import json
 from pathlib import Path
-from xml.etree.ElementTree import Element
+from xml.etree.ElementTree import Element  # nosec B405
 
 import pytest
 from controle_e113 import (

@@ -221,14 +221,14 @@ Protection mécanique (fourreau de protection). Géométrie : **LineString**.
 
 ## RPD_GeometrieSupplementaire_Reco
 
-Géométrie complémentaire associée à un conteneur. Géométrie : **Polygon/MultiPolygon** (Surface2.5D).
+Géométrie complémentaire associée à un conteneur. Géométrie : **Polygon/MultiPolygon** (lue en `Surface3D`, compatibilité `Surface2.5D` en entrée).
 
 | Champ | Req. | Type | Description |
 | --- | :---: | --- | --- |
 | `ogr_pkid` | ✓ | string | Identifiant unique |
 | `PrecisionXY` | ✓ | string | Classe de précision XY |
 | `PrecisionZ` | ✓ | string | Classe de précision Z |
-| `Ligne2.5D` | — | string | Géométrie linéaire WKT supplémentaire |
+| `Ligne3D` | — | string | Géométrie linéaire WKT supplémentaire (compat. lecture `Ligne2.5D`) |
 
 ---
 
@@ -300,13 +300,15 @@ Point levé d'ouvrage réseau (modèle V1.10). Géométrie : **Point**.
 
 ## RPD_CoupeCircuitAFusibles_Reco
 
-Coupe-circuit à fusibles (nœud réseau). Pas de géométrie propre.
+Coupe-circuit à fusibles (nœud réseau). Pas de géométrie propre (héritée du conteneur).
 
 | Champ | Req. | Type | Description |
 | --- | :---: | --- | --- |
 | `ogr_pkid` | ✓ | string | Identifiant unique |
 | `Statut` | ✓ | string | Statut |
 | `conteneur_href` | — | href | Référence conteneur |
+| `PrecisionXY` | — | string | Classe de précision XY |
+| `PrecisionZ` | — | string | Classe de précision Z |
 
 ---
 
@@ -330,6 +332,21 @@ Modules sur support (nœud réseau). Pas de géométrie propre.
 | --- | :---: | --- | --- |
 | `ogr_pkid` | ✓ | string | Identifiant unique |
 | `Statut` | ✓ | string | Statut |
+| `conteneur_href` | — | href | Référence conteneur |
+
+---
+
+## RPD_ModuleRaccordement_Reco
+
+Module de raccordement (nœud réseau, V1.1). Unité fonctionnelle hébergée par un `RPD_SupportModules_Reco`. Pas de géométrie propre (position héritée du conteneur).
+
+| Champ | Req. | Type | Description |
+| --- | :---: | --- | --- |
+| `ogr_pkid` | ✓ | string | Identifiant unique |
+| `Coupure` | ✓ | bool | Présence d'une coupure |
+| `NbPlagesOccupees` | ✓ | int | Nombre de plages occupées |
+| `noeudParent_href` | ✓ | href | Référence vers RPD_SupportModules_Reco parent |
+| `Protection` | ✓ | bool | Présence d'une protection |
 | `conteneur_href` | — | href | Référence conteneur |
 
 ---
@@ -383,12 +400,14 @@ Ces champs sont générés automatiquement à partir des relations GML et utilis
 
 ### `cables_href` / `EtatAvantRaccordement`
 
-Présents sur les **cheminements** (Fourreau, PleineTerre, Aérien, ProtectionMécanique) et les **nœuds réseau** (Jonction, CoupeCircuitAFusibles, JeuBarres, SupportModules, Terre, OuvrageCollectifBranchement, PointDeComptage, PosteElectrique).
+Le champ `cables_href` est présent sur les **cheminements** (Fourreau, Galerie, PleineTerre, Aérien, ProtectionMécanique) **et** sur les **nœuds réseau**.
 
-| Champ | Type | Description |
-| --- | --- | --- |
-| `cables_href` | string | IDs des câbles liés, séparés par virgules |
-| `EtatAvantRaccordement` | string | État avant raccordement par câble, séparés par virgules |
+Le champ `EtatAvantRaccordement` n'est présent que sur les **nœuds réseau** (Jonction, CoupeCircuitAFusibles, ModuleRaccordement, JeuBarres, SupportModules, Terre, OuvrageCollectifBranchement, PointDeComptage, PosteElectrique) — jamais sur les cheminements.
+
+| Champ | Type | Portée | Description |
+| --- | --- | --- | --- |
+| `cables_href` | string | Cheminements + nœuds réseau | IDs des câbles liés, séparés par virgules |
+| `EtatAvantRaccordement` | string | Nœuds réseau uniquement | État avant raccordement par câble (ordre aligné sur `cables_href`) |
 
 ### `materiel_href`
 

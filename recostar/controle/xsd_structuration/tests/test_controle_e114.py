@@ -5,7 +5,7 @@ Couvre l'analyseur de valeurs et la génération du rapport JSON.
 
 import json
 from pathlib import Path
-from xml.etree.ElementTree import Element, SubElement
+from xml.etree.ElementTree import Element, SubElement  # nosec B405
 
 import pytest
 from controle_e114 import (

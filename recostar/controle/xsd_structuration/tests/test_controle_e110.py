@@ -4,7 +4,11 @@ Couvre l'analyse GML et la génération de rapport JSON.
 """
 
 import json
-from xml.etree.ElementTree import Element  # nosec B405
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (
+    Element,  # nosec B405
+)
 
 from controle_e110 import (
     AnalyseurGML,

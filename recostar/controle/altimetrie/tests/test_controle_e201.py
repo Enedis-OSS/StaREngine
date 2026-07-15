@@ -19,16 +19,33 @@ from typing import Any
 
 import pytest
 from controle_e201 import (
+    FICHIER_CABLE_ELECTRIQUE,
     FICHIER_SORTIE,
     PRIORITE_ANOMALIE,
+    VALEUR_STATUT_CONTROLE,
     Z_NULL,
     _extraire_points_indexes,
     construire_geojson_ecarts,
     detecter_z_null_collection,
     detecter_z_null_feature,
     executer_controle_cli,
+    filtrer_features_a_controler,
+    resoudre_fichiers_a_controler,
 )
-from utils_tests import construire_feature, ecrire_collection
+from utils_tests import (
+    construire_feature,
+    construire_feature_avec_proprietes,
+    ecrire_collection,
+)
+
+# Statut metier requis pour qu'une entite soit soumise au controle
+_STATUT: dict[str, str] = {"Statut": VALEUR_STATUT_CONTROLE}
+
+
+def _feature_controlee(identifiant: str, type_geom: str, coordonnees: Any) -> dict[str, Any]:
+    """Feature de test portant le statut UnderCommissionning (donc controlee)."""
+    return construire_feature_avec_proprietes(identifiant, type_geom, coordonnees, _STATUT)
+
 
 # --------------------------------------------------------------------------- #
 # Tests de l'extraction des points avec indices
@@ -180,7 +197,7 @@ class TestGeojsonSortie:
                 "coordonnees": [1.0, 2.0, 0.0],
             }
         ]
-        geojson = construire_geojson_ecarts(anomalies)
+        geojson = construire_geojson_ecarts(anomalies, "1.1")
         assert geojson["type"] == "FeatureCollection"
         assert len(geojson["features"]) == 1
 
@@ -193,19 +210,20 @@ class TestGeojsonSortie:
         assert props["z_detecte"] == pytest.approx(Z_NULL)
         assert props["type_anomalie"] == "z_null"
         assert props["priorite"] == PRIORITE_ANOMALIE
+        assert props["version"] == "1.1"
         assert feature["geometry"] == {"type": "Point", "coordinates": [1.0, 2.0, 0.0]}
 
     def test_feature_collection_vide(self) -> None:
-        geojson = construire_geojson_ecarts([])
+        geojson = construire_geojson_ecarts([], "1.1")
         assert geojson == {"type": "FeatureCollection", "features": []}
 
     def test_crs_propage_si_present(self) -> None:
         crs = {"type": "name", "properties": {"name": "urn:ogc:def:crs:EPSG::2154"}}
-        geojson = construire_geojson_ecarts([], crs=crs)
+        geojson = construire_geojson_ecarts([], "1.0", crs=crs)
         assert geojson["crs"] == crs
 
     def test_crs_absent_si_non_fourni(self) -> None:
-        geojson = construire_geojson_ecarts([])
+        geojson = construire_geojson_ecarts([], "1.1")
         assert "crs" not in geojson
 
 
@@ -216,16 +234,21 @@ class TestGeojsonSortie:
 
 @pytest.fixture
 def repertoire_test(tmp_path: Any) -> str:
-    """Prepare un repertoire contenant des GeoJSON avec sommets Z nuls."""
+    """Prepare un repertoire v1.1 (pas de PointLeve) avec sommets Z nuls.
+
+    Toutes les entites portent le statut UnderCommissionning afin d'etre
+    effectivement controlees. En l'absence de RPD_PointLeveOuvrageReseau_Reco,
+    la version detectee est 1.1 : tous les GeoJSON sont analyses.
+    """
     features_z_null = [
-        construire_feature("pt-z0", "Point", [1.0, 2.0, 0.0]),
-        construire_feature("ls-z0", "LineString", [[0, 0, 0.0], [1, 1, 10.0], [2, 2, 0.0]]),
+        _feature_controlee("pt-z0", "Point", [1.0, 2.0, 0.0]),
+        _feature_controlee("ls-z0", "LineString", [[0, 0, 0.0], [1, 1, 10.0], [2, 2, 0.0]]),
     ]
     ecrire_collection(str(tmp_path / "avec_z_null.geojson"), features_z_null)
 
     features_ok = [
-        construire_feature("pt-ok", "Point", [1.0, 2.0, 5.0]),
-        construire_feature("ls-ok", "LineString", [[0, 0, 10.0], [1, 1, 20.0]]),
+        _feature_controlee("pt-ok", "Point", [1.0, 2.0, 5.0]),
+        _feature_controlee("ls-ok", "LineString", [[0, 0, 10.0], [1, 1, 20.0]]),
     ]
     ecrire_collection(str(tmp_path / "conforme.geojson"), features_ok)
 
@@ -234,12 +257,43 @@ def repertoire_test(tmp_path: Any) -> str:
     return str(tmp_path)
 
 
+class TestFiltrageStatut:
+    """Tests du filtrage metier sur le champ Statut."""
+
+    def test_conserve_under_commissionning(self) -> None:
+        features = [_feature_controlee("a", "Point", [0, 0, 0.0])]
+        assert filtrer_features_a_controler(features) == features
+
+    def test_exclut_autres_statuts(self) -> None:
+        feature = construire_feature_avec_proprietes("b", "Point", [0, 0, 0.0], {"Statut": "InService"})
+        assert filtrer_features_a_controler([feature]) == []
+
+    def test_exclut_statut_absent(self) -> None:
+        assert filtrer_features_a_controler([construire_feature("c", "Point", [0, 0, 0.0])]) == []
+
+
+class TestResoudreFichiers:
+    """Tests de la resolution du perimetre de fichiers selon la version."""
+
+    def test_v1_0_restreint_au_cable_electrique(self, tmp_path: Any) -> None:
+        ecrire_collection(str(tmp_path / "autre.geojson"), [])
+        assert resoudre_fichiers_a_controler(str(tmp_path), "1.0") == [FICHIER_CABLE_ELECTRIQUE]
+
+    def test_v1_1_liste_tous_les_geojson(self, tmp_path: Any) -> None:
+        ecrire_collection(str(tmp_path / "RPD_A.geojson"), [])
+        ecrire_collection(str(tmp_path / "RPD_B.geojson"), [])
+        ecrire_collection(str(tmp_path / "ecarts_z_null.geojson"), [])
+        fichiers = resoudre_fichiers_a_controler(str(tmp_path), "1.1")
+        assert set(fichiers) == {"RPD_A.geojson", "RPD_B.geojson"}
+
+
 class TestCli:
     """Tests d'integration de l'interface CLI."""
 
     def test_execution_ecrit_fichier_sortie(self, repertoire_test: str) -> None:
         resultat = executer_controle_cli(repertoire_test)
         assert resultat["succes"] is True
+        assert resultat["version_detectee"] == "1.1"
         assert resultat["nombre_anomalies"] == 3
         assert resultat["fichiers_analyses"] == 2
 
@@ -250,6 +304,7 @@ class TestCli:
             contenu = json.load(fichier)
         assert contenu["type"] == "FeatureCollection"
         assert len(contenu["features"]) == 3
+        assert all(f["properties"]["version"] == "1.1" for f in contenu["features"])
 
     def test_repertoire_sortie_distinct(self, repertoire_test: str, tmp_path: Any) -> None:
         dossier_sortie = tmp_path / "sortie"
@@ -262,13 +317,46 @@ class TestCli:
         assert resultat["succes"] is False
         assert "erreur" in resultat
 
-    def test_aucun_geojson_retourne_erreur(self, tmp_path: Any) -> None:
-        (tmp_path / "readme.txt").write_text("texte", encoding="utf-8")
+    def test_entites_hors_statut_ignorees(self, tmp_path: Any) -> None:
+        # Un sommet Z nul mais statut non controle : aucune anomalie attendue
+        feature = construire_feature_avec_proprietes("x", "Point", [1.0, 2.0, 0.0], {"Statut": "InService"})
+        ecrire_collection(str(tmp_path / "data.geojson"), [feature])
         resultat = executer_controle_cli(str(tmp_path))
-        assert resultat["succes"] is False
+        assert resultat["succes"] is True
+        assert resultat["nombre_anomalies"] == 0
+
+    def test_v1_0_controle_seulement_cable_electrique(self, tmp_path: Any) -> None:
+        # Cable electrique avec Z nul : detecte en v1.0
+        ecrire_collection(
+            str(tmp_path / FICHIER_CABLE_ELECTRIQUE),
+            [_feature_controlee("cbl", "LineString", [[0, 0, 0.0], [1, 1, 5.0]])],
+        )
+        # Autre couche avec Z nul : ignoree en v1.0
+        ecrire_collection(
+            str(tmp_path / "RPD_Jonction_Reco.geojson"),
+            [_feature_controlee("jct", "Point", [2.0, 2.0, 0.0])],
+        )
+        resultat = executer_controle_cli(str(tmp_path), version="1.0")
+        assert resultat["succes"] is True
+        assert resultat["version_detectee"] == "1.0"
+        assert resultat["fichiers_analyses"] == 1
+        assert resultat["nombre_anomalies"] == 1
+
+    def test_v1_1_controle_toutes_les_couches(self, tmp_path: Any) -> None:
+        ecrire_collection(
+            str(tmp_path / FICHIER_CABLE_ELECTRIQUE),
+            [_feature_controlee("cbl", "LineString", [[0, 0, 0.0], [1, 1, 5.0]])],
+        )
+        ecrire_collection(
+            str(tmp_path / "RPD_Jonction_Reco.geojson"),
+            [_feature_controlee("jct", "Point", [2.0, 2.0, 0.0])],
+        )
+        resultat = executer_controle_cli(str(tmp_path), version="1.1")
+        assert resultat["succes"] is True
+        assert resultat["nombre_anomalies"] == 2
 
     def test_aucune_anomalie_produit_collection_vide(self, tmp_path: Any) -> None:
-        features_ok = [construire_feature("ok", "Point", [1.0, 2.0, 10.0])]
+        features_ok = [_feature_controlee("ok", "Point", [1.0, 2.0, 10.0])]
         ecrire_collection(str(tmp_path / "data.geojson"), features_ok)
         resultat = executer_controle_cli(str(tmp_path))
         assert resultat["succes"] is True

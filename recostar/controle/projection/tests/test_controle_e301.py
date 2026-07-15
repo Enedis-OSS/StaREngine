@@ -4,9 +4,9 @@ Tests unitaires du controle de coherence spatiale (E301).
 Couvre les cas nominaux et les cas limites :
 - extraction de coordonnees pour tous les types de geometrie
 - calcul du centroide et du point representatif
-- calcul du seuil IQR de Tukey
+- regroupement par proximite (composantes connexes)
 - validation du CRS projete via pyproj
-- detection d'anomalies spatiales (avec et sans outlier)
+- detection des groupes detaches du reseau
 - construction du GeoJSON de sortie
 - execution du controle en mode CLI
 """
@@ -20,8 +20,9 @@ from typing import Any
 from controle_e301 import (
     NB_ENTITES_MIN,
     PRIORITE_ANOMALIE,
+    SEUIL_RATTACHEMENT,
+    TYPE_ANOMALIE,
     _calculer_centroide,
-    _calculer_seuil_iqr,
     _extraire_coordonnees_xy,
     _extraire_nom_crs,
     _extraire_point_representatif,
@@ -30,6 +31,7 @@ from controle_e301 import (
     detecter_anomalies_spatiales,
     executer_controle_cli,
     extraire_points_representatifs,
+    regrouper_par_proximite,
 )
 from utils_tests import (
     construire_feature,
@@ -65,6 +67,15 @@ def _cluster_avec_outlier(
     donnees = [_donnee(x_normal, y_normal, f"e{i}") for i in range(n)]
     donnees.append(_donnee(x_outlier, y_outlier, "outlier"))
     return donnees
+
+
+def _reseau_lineaire(n: int, pas: float) -> list[dict[str, Any]]:
+    """Chaine de n points espaces de `pas` metres, alignes sur l'axe X.
+
+    Reproduit la forme d'un reseau de distribution : lineaire et etendu, sans
+    aucune position aberrante.
+    """
+    return [_donnee(i * pas, 0.0, f"e{i}") for i in range(n)]
 
 
 # --------------------------------------------------------------------------- #
@@ -213,21 +224,53 @@ class TestExtrairePointsRepresentatifs:
 # --------------------------------------------------------------------------- #
 
 
-class TestCalculerSeuilIqr:
-    """Tests de _calculer_seuil_iqr."""
+class TestRegrouperParProximite:
+    """Tests de regrouper_par_proximite."""
 
-    def test_valeurs_identiques_seuil_egal_valeur(self) -> None:
-        seuil = _calculer_seuil_iqr([5.0, 5.0, 5.0, 5.0])
-        assert math.isclose(seuil, 5.0)
+    def test_points_proches_un_seul_groupe(self) -> None:
+        points = [(0.0, 0.0), (10.0, 0.0), (20.0, 0.0)]
+        assert regrouper_par_proximite(points, 100.0) == [[0, 1, 2]]
 
-    def test_seuil_tukey_valeurs_distinctes(self) -> None:
-        # [1, 2, 3, 4] : Q1=1.25, Q3=3.75, IQR=2.5, seuil=3.75+3.75=7.5
-        seuil = _calculer_seuil_iqr([1.0, 2.0, 3.0, 4.0])
-        assert math.isclose(seuil, 7.5, rel_tol=1e-6)
+    def test_transitivite_du_rattachement(self) -> None:
+        """Une chaine de proche en proche forme un groupe unique.
 
-    def test_distances_nulles_seuil_nul(self) -> None:
-        seuil = _calculer_seuil_iqr([0.0, 0.0, 0.0, 0.0, 0.0])
-        assert math.isclose(seuil, 0.0)
+        Les extremites sont distantes de 300 m, bien au-dela du seuil de 100 m :
+        seule la transitivite les rattache.
+        """
+        points = [(0.0, 0.0), (90.0, 0.0), (180.0, 0.0), (270.0, 0.0)]
+        groupes = regrouper_par_proximite(points, 100.0)
+        assert len(groupes) == 1
+        assert len(groupes[0]) == 4
+
+    def test_deux_groupes_distants(self) -> None:
+        points = [(0.0, 0.0), (10.0, 0.0), (5000.0, 0.0)]
+        groupes = regrouper_par_proximite(points, 100.0)
+        assert len(groupes) == 2
+        assert groupes[0] == [0, 1]  # le plus nombreux en premier
+        assert groupes[1] == [2]
+
+    def test_groupes_tries_par_taille_decroissante(self) -> None:
+        points = [(0.0, 0.0), (5000.0, 0.0), (5010.0, 0.0), (5020.0, 0.0)]
+        groupes = regrouper_par_proximite(points, 100.0)
+        assert [len(g) for g in groupes] == [3, 1]
+
+    def test_seuil_inclusif(self) -> None:
+        """Deux points exactement a la distance du seuil sont rattaches."""
+        assert len(regrouper_par_proximite([(0.0, 0.0), (100.0, 0.0)], 100.0)) == 1
+
+    def test_juste_au_dela_du_seuil_separe(self) -> None:
+        assert len(regrouper_par_proximite([(0.0, 0.0), (100.01, 0.0)], 100.0)) == 2
+
+    def test_rattachement_diagonal(self) -> None:
+        """Le voisinage 3x3 de la grille couvre les cellules diagonales."""
+        points = [(0.0, 0.0), (70.0, 70.0)]  # distance 99 m < 100
+        assert len(regrouper_par_proximite(points, 100.0)) == 1
+
+    def test_point_unique(self) -> None:
+        assert regrouper_par_proximite([(0.0, 0.0)], 100.0) == [[0]]
+
+    def test_aucun_point(self) -> None:
+        assert regrouper_par_proximite([], 100.0) == []
 
 
 # --------------------------------------------------------------------------- #
@@ -260,42 +303,89 @@ class TestDetecterAnomaliesSpatiales:
     """Tests de detecter_anomalies_spatiales."""
 
     def test_cluster_homogene_aucune_anomalie(self) -> None:
-        # 5 points identiques -> IQR=0, seuil=0, toutes distances=0 -> pas d'anomalie
         donnees = [_donnee(100.0, 200.0, f"e{i}") for i in range(5)]
+        anomalies, groupes = detecter_anomalies_spatiales(donnees)
+        assert anomalies == []
+        assert groupes == 1
+
+    def test_outlier_extreme_detecte(self) -> None:
+        """Une faute de saisie projette l'entite loin du reseau."""
+        donnees = _cluster_avec_outlier(10, 100.0, 100.0, 100000.0, 100.0)
+        anomalies, groupes = detecter_anomalies_spatiales(donnees)
+        assert len(anomalies) == 1
+        assert anomalies[0]["id_entite"] == "outlier"
+        assert groupes == 2
+
+    def test_reseau_etendu_aucune_anomalie(self) -> None:
+        """Regression : un reseau lineaire etendu n'a pas de position aberrante.
+
+        50 entites espacees de 200 m couvrent 10 km. L'ancien critere (ecart au
+        median spatial + seuil de Tukey) signalait la peripherie d'un tel reseau ;
+        le rattachement, lui, ne depend pas de sa forme.
+        """
+        donnees = _reseau_lineaire(50, 200.0)
+        anomalies, groupes = detecter_anomalies_spatiales(donnees)
+        assert anomalies == []
+        assert groupes == 1
+
+    def test_antenne_eloignee_reste_conforme(self) -> None:
+        """Regression : une branche desservie par une antenne reste rattachee.
+
+        Cas releve sur les jeux de reference : un groupe d'entites a 245 m du
+        coeur du reseau, relie par une antenne — configuration legitime.
+        """
+        donnees = [_donnee(float(i), 0.0, f"coeur{i}") for i in range(20)]
+        donnees += [_donnee(245.0 + i, 0.0, f"antenne{i}") for i in range(4)]
         anomalies, _ = detecter_anomalies_spatiales(donnees)
         assert anomalies == []
 
-    def test_outlier_extreme_detecte(self) -> None:
-        # 10 points au centre + 1 outlier tres eloigne
-        donnees = _cluster_avec_outlier(10, 100.0, 100.0, 100000.0, 100.0)
-        anomalies, _ = detecter_anomalies_spatiales(donnees)
-        assert len(anomalies) == 1
-        assert anomalies[0]["id_entite"] == "outlier"
+    def test_lot_decale_en_bloc_detecte(self) -> None:
+        """Un lot d'entites decalees ensemble reste voisin de lui-meme.
 
-    def test_retourne_le_seuil(self) -> None:
+        Le critere du plus proche voisin les manquerait ; le regroupement les
+        detecte, leur groupe etant detache du reseau.
+        """
+        donnees = [_donnee(float(i), 0.0, f"e{i}") for i in range(20)]
+        donnees += [_donnee(50000.0 + i, 0.0, f"decale{i}") for i in range(5)]
+        anomalies, groupes = detecter_anomalies_spatiales(donnees)
+        assert len(anomalies) == 5
+        assert groupes == 2
+        assert all(a["taille_groupe"] == 5 for a in anomalies)
+
+    def test_retourne_le_nombre_de_groupes(self) -> None:
         donnees = [_donnee(0.0, 0.0, f"e{i}") for i in range(4)]
-        _, seuil = detecter_anomalies_spatiales(donnees)
-        assert isinstance(seuil, float)
+        _, groupes = detecter_anomalies_spatiales(donnees)
+        assert groupes == 1
 
     def test_proprietes_anomalie_presentes(self) -> None:
         donnees = _cluster_avec_outlier(10, 0.0, 0.0, 9999.0, 0.0)
-        anomalies, seuil = detecter_anomalies_spatiales(donnees)
+        anomalies, _ = detecter_anomalies_spatiales(donnees)
         assert len(anomalies) == 1
         a = anomalies[0]
-        assert "distance_m" in a
-        assert "seuil_m" in a
-        assert a["distance_m"] > 0
-        assert math.isclose(a["seuil_m"], round(seuil, 2))
+        assert math.isclose(a["distance_m"], 9999.0, rel_tol=1e-3)
+        assert a["seuil_m"] == SEUIL_RATTACHEMENT
+        assert a["taille_groupe"] == 1
 
-    def test_distance_calculee_en_hypot(self) -> None:
-        # Point unique outlier a (3, 4) depuis median (0, 0) : distance = 5
+    def test_distance_mesuree_au_reseau(self) -> None:
+        """La distance rapportee est celle qui separe le groupe du reseau."""
         donnees = [_donnee(0.0, 0.0, f"e{i}") for i in range(10)]
-        donnees.append(_donnee(3.0, 4.0, "outlier"))
-        # Le median reste en (0, 0) car 10 zeros > 1 point a (3, 4)
+        donnees.append(_donnee(3000.0, 4000.0, "outlier"))
         anomalies, _ = detecter_anomalies_spatiales(donnees)
-        assert any(a["id_entite"] == "outlier" for a in anomalies)
-        outlier = next(a for a in anomalies if a["id_entite"] == "outlier")
-        assert math.isclose(outlier["distance_m"], 5.0, rel_tol=1e-3)
+        assert math.isclose(anomalies[0]["distance_m"], 5000.0, rel_tol=1e-3)
+
+    def test_le_groupe_majoritaire_fait_reference(self) -> None:
+        """Le reseau est le groupe le plus nombreux, ou qu'il se trouve."""
+        donnees = [_donnee(100000.0 + i, 0.0, f"reseau{i}") for i in range(20)]
+        donnees.append(_donnee(0.0, 0.0, "isolee"))
+        anomalies, _ = detecter_anomalies_spatiales(donnees)
+        assert len(anomalies) == 1
+        assert anomalies[0]["id_entite"] == "isolee"
+
+    def test_seuil_personnalise(self) -> None:
+        donnees = [_donnee(0.0, 0.0, f"e{i}") for i in range(5)]
+        donnees.append(_donnee(1000.0, 0.0, "eloignee"))
+        assert detecter_anomalies_spatiales(donnees, seuil=2000.0)[0] == []
+        assert len(detecter_anomalies_spatiales(donnees, seuil=100.0)[0]) == 1
 
 
 # --------------------------------------------------------------------------- #
@@ -313,7 +403,8 @@ class TestConstruireGeojsonEcarts:
             "type_geometrie": "Point",
             "geometrie": {"type": "Point", "coordinates": [1.0, 2.0]},
             "distance_m": 999.5,
-            "seuil_m": 100.0,
+            "seuil_m": SEUIL_RATTACHEMENT,
+            "taille_groupe": 3,
         }
 
     def test_type_feature_collection(self) -> None:
@@ -325,9 +416,10 @@ class TestConstruireGeojsonEcarts:
         props = resultat["features"][0]["properties"]
         assert props["fichier_source"] == "f.geojson"
         assert props["id_entite"] == "e1"
-        assert props["distance_au_median_m"] == 999.5
-        assert props["seuil_m"] == 100.0
-        assert props["type_anomalie"] == "position_aberrante"
+        assert props["distance_au_reseau_m"] == 999.5
+        assert props["taille_groupe"] == 3
+        assert props["seuil_m"] == SEUIL_RATTACHEMENT
+        assert props["type_anomalie"] == TYPE_ANOMALIE
         assert props["priorite"] == PRIORITE_ANOMALIE
 
     def test_geometrie_originale_conservee(self) -> None:
@@ -423,7 +515,8 @@ class TestCli:
         resultat = executer_controle_cli(str(tmp_path))
         assert resultat["succes"] is True
         assert resultat["nombre_anomalies"] == 1
-        assert resultat["seuil_m"] >= 0.0
+        assert resultat["nombre_groupes"] == 2
+        assert resultat["seuil_rattachement_m"] == SEUIL_RATTACHEMENT
 
     def test_fichier_ecarts_cree(self, tmp_path: Any) -> None:
         features = [construire_feature(f"e{i}", "Point", [float(i), 0.0]) for i in range(NB_ENTITES_MIN)]
@@ -441,7 +534,8 @@ class TestCli:
             "nombre_anomalies",
             "entites_analysees",
             "fichiers_analyses",
-            "seuil_m",
+            "nombre_groupes",
+            "seuil_rattachement_m",
             "sortie",
         ):
             assert champ in resultat, f"Champ manquant : {champ}"

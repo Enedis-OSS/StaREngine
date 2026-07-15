@@ -15,7 +15,7 @@ CodeLists ouvertes (que le XSD traite comme des CharacterString) et les
 contraintes RPD plus strictes que le XSD (Theme=ELECTRD, NumeroPRM 14 chiffres).
 
 Entrée  : Fichier GML RecoStaR à contrôler
-Sortie  : Fichier JSON listant les erreurs et avertissements détectés
+Sortie  : Fichier JSON listant les erreurs détectées (sévérité ERREUR unique)
 
 Usage :
     python controle_e114.py <fichier.gml> [--output-dir <repertoire>]
@@ -26,7 +26,9 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from xml.etree.ElementTree import (  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
     Element,
     ElementTree,
 )
@@ -115,8 +117,8 @@ class AnalyseurValeurs:
     def analyser(self) -> list[ErreurValeur]:
         """Parcourt les featureMember RPD et évalue chaque champ porteur.
 
-        Retourne la liste exhaustive des erreurs et avertissements détectés
-        (vide si le fichier respecte intégralement les domaines de valeurs).
+        Retourne la liste exhaustive des erreurs détectées (vide si le fichier
+        respecte intégralement les domaines de valeurs).
         """
         arbre: ElementTree[Element] = DefusedET.parse(str(self.chemin_gml))
         racine = arbre.getroot()
@@ -173,7 +175,7 @@ class AnalyseurValeurs:
 
 
 def _compter_par_severite(erreurs: list[ErreurValeur]) -> dict[str, int]:
-    """Compte le nombre d'entrées par sévérité (ERREUR / AVERTISSEMENT)."""
+    """Compte le nombre d'entrées par sévérité (ERREUR uniquement en E114)."""
     compteur: dict[str, int] = {}
     for erreur in erreurs:
         compteur[erreur.severite] = compteur.get(erreur.severite, 0) + 1
@@ -181,13 +183,12 @@ def _compter_par_severite(erreurs: list[ErreurValeur]) -> dict[str, int]:
 
 
 def _conformite(erreurs: list[ErreurValeur]) -> str:
-    """Conformité = CONFORME si aucune entrée de sévérité ERREUR.
+    """Conformité = CONFORME si aucune entrée détectée.
 
-    Les AVERTISSEMENT (CodeLists hors liste documentée) n'invalident pas
-    le fichier : la spec autorise les extensions locales.
+    E114 est mono-sévérité : toute entrée (énumération, CodeList ou format
+    hors domaine) est une ERREUR et invalide donc le fichier.
     """
-    nb_erreurs = sum(1 for e in erreurs if e.severite == SEVERITE_ERREUR)
-    return "CONFORME" if nb_erreurs == 0 else "NON_CONFORME"
+    return "CONFORME" if not erreurs else "NON_CONFORME"
 
 
 def _construire_rapport(
@@ -197,9 +198,8 @@ def _construire_rapport(
 ) -> dict:
     """Construit le dictionnaire de rapport E114 à sérialiser en JSON."""
     par_severite = _compter_par_severite(erreurs)
-    # nb_erreurs = nombre d'entrées de sévérité ERREUR (les AVERTISSEMENT
-    # n'invalident pas le fichier). Clé harmonisée avec E110-E113 ; le total
-    # des entrées reste dérivable via la somme de nb_par_severite.
+    # nb_erreurs = nombre d'entrées de sévérité ERREUR (unique sévérité E114).
+    # Clé harmonisée avec E110-E113.
     nb_erreurs = par_severite.get(SEVERITE_ERREUR, 0)
     return {
         "fichier": str(chemin_gml.resolve()),
@@ -315,11 +315,7 @@ def main() -> None:
 
     par_severite = _compter_par_severite(erreurs)
     nb_err = par_severite.get(SEVERITE_ERREUR, 0)
-    nb_avert = par_severite.get("AVERTISSEMENT", 0)
-    if nb_err == 0 and nb_avert == 0:
-        statut = "CONFORME"
-    else:
-        statut = f"{nb_err} erreur(s), {nb_avert} avertissement(s)"
+    statut = "CONFORME" if nb_err == 0 else f"{nb_err} erreur(s)"
     print(f"Resultat : {statut}")
     print(f"Rapport genere : {chemin_rapport}")
 

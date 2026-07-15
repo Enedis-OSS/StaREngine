@@ -34,6 +34,10 @@ _PATCHES = (
     "pipeline_controle_alti.executer_controle_ign",
     "pipeline_controle_alti.executer_controle_doublons_spatiaux",
     "pipeline_controle_alti.executer_controle_point_leve_geom_supp",
+    "pipeline_controle_alti.executer_controle_point_leve_sommets_geom_supp",
+    "pipeline_controle_alti.executer_controle_point_leve_geom_supp_support",
+    "pipeline_controle_alti.executer_controle_point_leve_sommets_cables",
+    "pipeline_controle_alti.executer_controle_points_leve_orphelins",
 )
 
 
@@ -56,8 +60,16 @@ class TestPipeline:
     @patch(_PATCHES[3])
     @patch(_PATCHES[4])
     @patch(_PATCHES[5])
+    @patch(_PATCHES[6])
+    @patch(_PATCHES[7])
+    @patch(_PATCHES[8])
+    @patch(_PATCHES[9])
     def test_tous_controles_executes(
         self,
+        mock_orphelins: Any,
+        mock_sommets_cables: Any,
+        mock_point_leve_support: Any,
+        mock_point_leve_sommets: Any,
         mock_point_leve: Any,
         mock_doublons: Any,
         mock_ign: Any,
@@ -73,6 +85,10 @@ class TestPipeline:
         mock_ign.return_value = _resultat_succes(0)
         mock_doublons.return_value = _resultat_succes(1)
         mock_point_leve.return_value = _resultat_succes(0)
+        mock_point_leve_sommets.return_value = _resultat_succes(0)
+        mock_point_leve_support.return_value = _resultat_succes(0)
+        mock_sommets_cables.return_value = _resultat_succes(0)
+        mock_orphelins.return_value = _resultat_succes(0)
 
         resultat = executer_pipeline(rep)
 
@@ -83,6 +99,10 @@ class TestPipeline:
         assert mock_ign.called
         assert mock_doublons.called
         assert mock_point_leve.called
+        assert mock_point_leve_sommets.called
+        assert mock_point_leve_support.called
+        assert mock_sommets_cables.called
+        assert mock_orphelins.called
 
     @patch(_PATCHES[0])
     @patch(_PATCHES[1])
@@ -90,8 +110,16 @@ class TestPipeline:
     @patch(_PATCHES[3])
     @patch(_PATCHES[4])
     @patch(_PATCHES[5])
+    @patch(_PATCHES[6])
+    @patch(_PATCHES[7])
+    @patch(_PATCHES[8])
+    @patch(_PATCHES[9])
     def test_nombre_anomalies_total(
         self,
+        mock_orphelins: Any,
+        mock_sommets_cables: Any,
+        mock_point_leve_support: Any,
+        mock_point_leve_sommets: Any,
         mock_point_leve: Any,
         mock_doublons: Any,
         mock_ign: Any,
@@ -107,6 +135,10 @@ class TestPipeline:
         mock_ign.return_value = _resultat_succes(2)
         mock_doublons.return_value = _resultat_succes(4)
         mock_point_leve.return_value = _resultat_succes(6)
+        mock_point_leve_sommets.return_value = _resultat_succes(0)
+        mock_point_leve_support.return_value = _resultat_succes(0)
+        mock_sommets_cables.return_value = _resultat_succes(0)
+        mock_orphelins.return_value = _resultat_succes(0)
 
         resultat = executer_pipeline(rep)
 
@@ -118,8 +150,16 @@ class TestPipeline:
     @patch(_PATCHES[3])
     @patch(_PATCHES[4])
     @patch(_PATCHES[5])
+    @patch(_PATCHES[6])
+    @patch(_PATCHES[7])
+    @patch(_PATCHES[8])
+    @patch(_PATCHES[9])
     def test_un_controle_echoue(
         self,
+        mock_orphelins: Any,
+        mock_sommets_cables: Any,
+        mock_point_leve_support: Any,
+        mock_point_leve_sommets: Any,
         mock_point_leve: Any,
         mock_doublons: Any,
         mock_ign: Any,
@@ -136,6 +176,10 @@ class TestPipeline:
         mock_ign.return_value = _resultat_succes(0)
         mock_doublons.return_value = _resultat_succes(0)
         mock_point_leve.return_value = _resultat_succes(0)
+        mock_point_leve_sommets.return_value = _resultat_succes(0)
+        mock_point_leve_support.return_value = _resultat_succes(0)
+        mock_sommets_cables.return_value = _resultat_succes(0)
+        mock_orphelins.return_value = _resultat_succes(0)
 
         resultat = executer_pipeline(rep)
 
@@ -149,8 +193,16 @@ class TestPipeline:
     @patch(_PATCHES[3])
     @patch(_PATCHES[4])
     @patch(_PATCHES[5])
+    @patch(_PATCHES[6])
+    @patch(_PATCHES[7])
+    @patch(_PATCHES[8])
+    @patch(_PATCHES[9])
     def test_sortie_personnalisee(
         self,
+        mock_orphelins: Any,
+        mock_sommets_cables: Any,
+        mock_point_leve_support: Any,
+        mock_point_leve_sommets: Any,
         mock_point_leve: Any,
         mock_doublons: Any,
         mock_ign: Any,
@@ -167,6 +219,10 @@ class TestPipeline:
         mock_ign.return_value = _resultat_succes()
         mock_doublons.return_value = _resultat_succes()
         mock_point_leve.return_value = _resultat_succes()
+        mock_point_leve_sommets.return_value = _resultat_succes()
+        mock_point_leve_support.return_value = _resultat_succes()
+        mock_sommets_cables.return_value = _resultat_succes()
+        mock_orphelins.return_value = _resultat_succes()
 
         resultat = executer_pipeline(rep, sortie)
 
@@ -180,8 +236,16 @@ class TestPipeline:
     @patch(_PATCHES[3])
     @patch(_PATCHES[4])
     @patch(_PATCHES[5])
+    @patch(_PATCHES[6])
+    @patch(_PATCHES[7])
+    @patch(_PATCHES[8])
+    @patch(_PATCHES[9])
     def test_sortie_par_defaut(
         self,
+        mock_orphelins: Any,
+        mock_sommets_cables: Any,
+        mock_point_leve_support: Any,
+        mock_point_leve_sommets: Any,
         mock_point_leve: Any,
         mock_doublons: Any,
         mock_ign: Any,
@@ -198,6 +262,10 @@ class TestPipeline:
         mock_ign.return_value = _resultat_succes()
         mock_doublons.return_value = _resultat_succes()
         mock_point_leve.return_value = _resultat_succes()
+        mock_point_leve_sommets.return_value = _resultat_succes()
+        mock_point_leve_support.return_value = _resultat_succes()
+        mock_sommets_cables.return_value = _resultat_succes()
+        mock_orphelins.return_value = _resultat_succes()
 
         executer_pipeline(rep)
 
@@ -209,8 +277,16 @@ class TestPipeline:
     @patch(_PATCHES[3])
     @patch(_PATCHES[4])
     @patch(_PATCHES[5])
+    @patch(_PATCHES[6])
+    @patch(_PATCHES[7])
+    @patch(_PATCHES[8])
+    @patch(_PATCHES[9])
     def test_structure_resultats(
         self,
+        mock_orphelins: Any,
+        mock_sommets_cables: Any,
+        mock_point_leve_support: Any,
+        mock_point_leve_sommets: Any,
         mock_point_leve: Any,
         mock_doublons: Any,
         mock_ign: Any,
@@ -226,6 +302,10 @@ class TestPipeline:
         mock_ign.return_value = _resultat_succes()
         mock_doublons.return_value = _resultat_succes()
         mock_point_leve.return_value = _resultat_succes()
+        mock_point_leve_sommets.return_value = _resultat_succes()
+        mock_point_leve_support.return_value = _resultat_succes()
+        mock_sommets_cables.return_value = _resultat_succes()
+        mock_orphelins.return_value = _resultat_succes()
 
         resultat = executer_pipeline(rep)
 
@@ -237,10 +317,14 @@ class TestPipeline:
         assert "controle_e203" in resultat["controles"]
         assert "controle_e204" in resultat["controles"]
         assert "controle_e205" in resultat["controles"]
+        assert "controle_e206" in resultat["controles"]
+        assert "controle_e207" in resultat["controles"]
+        assert "controle_e208" in resultat["controles"]
+        assert "controle_e209" in resultat["controles"]
 
     def test_nombre_controles_definis(self) -> None:
-        """Verifie que 6 controles sont enregistres."""
-        assert len(NOMS_CONTROLES) == 6
+        """Verifie que 10 controles sont enregistres."""
+        assert len(NOMS_CONTROLES) == 10
 
     @patch(_PATCHES[0])
     @patch(_PATCHES[1])
@@ -248,8 +332,16 @@ class TestPipeline:
     @patch(_PATCHES[3])
     @patch(_PATCHES[4])
     @patch(_PATCHES[5])
+    @patch(_PATCHES[6])
+    @patch(_PATCHES[7])
+    @patch(_PATCHES[8])
+    @patch(_PATCHES[9])
     def test_tous_controles_echouent(
         self,
+        mock_orphelins: Any,
+        mock_sommets_cables: Any,
+        mock_point_leve_support: Any,
+        mock_point_leve_sommets: Any,
         mock_point_leve: Any,
         mock_doublons: Any,
         mock_ign: Any,
@@ -266,6 +358,10 @@ class TestPipeline:
         mock_ign.return_value = _resultat_echec()
         mock_doublons.return_value = _resultat_echec()
         mock_point_leve.return_value = _resultat_echec()
+        mock_point_leve_sommets.return_value = _resultat_echec()
+        mock_point_leve_support.return_value = _resultat_echec()
+        mock_sommets_cables.return_value = _resultat_echec()
+        mock_orphelins.return_value = _resultat_echec()
 
         resultat = executer_pipeline(rep)
 

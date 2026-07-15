@@ -150,7 +150,9 @@ class _ResolveurXsdLocal(ET.Resolver):
         super().__init__()
         self._cache_dir = cache_dir
 
-    def resolve(self, url, public_id, context):  # type: ignore[override]
+    # Signature imposée par lxml, qui appelle resolve() positionnellement :
+    # l'identifiant public est inutilisé ici mais ne peut pas être retiré.
+    def resolve(self, url, _public_id, context):  # type: ignore[override]
         if not url or not url.startswith("http"):
             return None
         parsed = urlparse(url)

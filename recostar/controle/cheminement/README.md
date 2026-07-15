@@ -18,7 +18,8 @@ Les fichiers d'écarts (`ecarts_*`) sont automatiquement exclus des analyses.
 | E404 | `controle_e404.py` | PointLeveOuvrageReseau, Fourreau, PleineTerre, ProtectionMecanique | cheminement souterrain sans profondeur à une charge génératrice | `bloquant` | `ecarts_charge_generatrice_profondeur_absente.geojson` |
 
 Les fonctions utilitaires communes (lecture/écriture GeoJSON, extraction
-d'identifiant) sont centralisées dans `utils_geojson.py`.
+d'identifiant) sont centralisées dans `utils_geojson.py`. L'orchestration de
+l'ensemble est assurée par `pipeline_controle_cheminement.py`.
 
 ### Usage CLI
 
@@ -28,6 +29,9 @@ python controle_e401.py --repertoire <chemin> [--sortie <chemin>]
 python controle_e402.py --repertoire <chemin> [--sortie <chemin>]
 python controle_e403.py --repertoire <chemin> [--sortie <chemin>]
 python controle_e404.py --repertoire <chemin> [--sortie <chemin>] [--version {auto,1.0,1.1}]
+
+# Enchaînement de tous les contrôles ci-dessus :
+python pipeline_controle_cheminement.py --repertoire <chemin> [--sortie <chemin>]
 ```
 
 - `--repertoire` : répertoire contenant les fichiers GeoJSON.
@@ -361,3 +365,20 @@ directe dans QGIS. Propriétés :
 
 - Répertoire introuvable.
 - Fichier `RPD_PointLeveOuvrageReseau_Reco.geojson` introuvable.
+
+---
+
+## Pipeline (`pipeline_controle_cheminement.py`)
+
+Exécute séquentiellement les 5 contrôles dans l'ordre E400 → E401 → E402 → E403 → E404.
+Un échec d'un contrôle (par exemple un fichier source absent) n'interrompt pas
+l'exécution des suivants. E404 déduit seul la version RecoStaR (mode `auto`),
+comme en exécution unitaire.
+
+**Rapport JSON :**
+
+- `succes` ;
+- `controles` : dictionnaire des rapports individuels, indexés par
+  `controle_e400`, `controle_e401`, `controle_e402`, `controle_e403`,
+  `controle_e404` (chacun contenant son champ `priorite`) ;
+- `nombre_anomalies_total` : somme des anomalies des contrôles réussis.

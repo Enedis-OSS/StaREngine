@@ -5,7 +5,12 @@ Couvre l'analyseur de valeurs et la génération du rapport JSON.
 
 import json
 from pathlib import Path
-from xml.etree.ElementTree import Element, SubElement  # nosec B405
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
+    Element,
+    SubElement,
+)
 
 import pytest
 from controle_e114 import (
@@ -23,7 +28,6 @@ from regles_valeurs import (
     CODE_FORMAT_INVALIDE,
     CODE_VALEUR_HORS_CODELIST,
     CODE_VALEUR_HORS_ENUMERATION,
-    SEVERITE_AVERTISSEMENT,
     SEVERITE_ERREUR,
     ErreurValeur,
 )
@@ -201,10 +205,10 @@ class TestAnalyseurValeursErreurs:
         assert cibles[0].code == CODE_VALEUR_HORS_ENUMERATION
 
 
-class TestAnalyseurValeursCodeListsAvertissement:
-    """Les CodeLists émettent des avertissements (sévérité non bloquante)."""
+class TestAnalyseurValeursCodeListsErreur:
+    """Les CodeLists hors liste documentée émettent une ERREUR (bloquante)."""
 
-    def test_type_coffret_etrange_avertissement(self, chemin_gml_tmp):
+    def test_type_coffret_etrange_erreur(self, chemin_gml_tmp):
         membre = creer_feature_member_avec_valeurs(
             "RPD_Coffret_Reco",
             "cof_001",
@@ -221,7 +225,7 @@ class TestAnalyseurValeursCodeListsAvertissement:
         erreurs = AnalyseurValeurs(chemin_gml_tmp([membre])).analyser()
         cibles = [e for e in erreurs if e.champ == "TypeCoffret"]
         assert len(cibles) == 1
-        assert cibles[0].severite == SEVERITE_AVERTISSEMENT
+        assert cibles[0].severite == SEVERITE_ERREUR
         assert cibles[0].code == CODE_VALEUR_HORS_CODELIST
 
 
@@ -381,18 +385,9 @@ class TestCompterParSeverite:
         compteur = _compter_par_severite([self._err(SEVERITE_ERREUR)] * 3)
         assert compteur == {SEVERITE_ERREUR: 3}
 
-    def test_mixte(self):
-        erreurs = [
-            self._err(SEVERITE_ERREUR),
-            self._err(SEVERITE_AVERTISSEMENT),
-            self._err(SEVERITE_AVERTISSEMENT),
-        ]
-        compteur = _compter_par_severite(erreurs)
-        assert compteur == {SEVERITE_ERREUR: 1, SEVERITE_AVERTISSEMENT: 2}
-
 
 class TestConformite:
-    """Conformité = aucun ERREUR ; AVERTISSEMENT seul = encore CONFORME."""
+    """Conformité = CONFORME uniquement si aucune entrée (mono-sévérité)."""
 
     def _err(self, severite: str) -> ErreurValeur:
         return ErreurValeur(
@@ -410,11 +405,8 @@ class TestConformite:
     def test_aucune_erreur_conforme(self):
         assert _conformite([]) == "CONFORME"
 
-    def test_avertissement_seul_reste_conforme(self):
-        """Une CodeList hors liste documentée n'invalide pas le fichier."""
-        assert _conformite([self._err(SEVERITE_AVERTISSEMENT)]) == "CONFORME"
-
     def test_erreur_invalide(self):
+        """Toute entrée (désormais toujours ERREUR) invalide le fichier."""
         assert _conformite([self._err(SEVERITE_ERREUR)]) == "NON_CONFORME"
 
 

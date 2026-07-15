@@ -29,6 +29,7 @@ from controle_e303 import (
     _extraire_prefixe,
     _point_dans_anneau,
     _point_dans_emprise,
+    affaire_exclue_du_controle,
     construire_geojson_ecarts,
     detecter_entites_hors_emprise,
     executer_controle_cli,
@@ -127,6 +128,46 @@ class TestExtrairePrefixe:
         prefixe, _, erreur = _extraire_prefixe("  RAC-NOR-25-001234  ")
         assert erreur is None
         assert prefixe == "NOR"
+
+
+# --------------------------------------------------------------------------- #
+# Exception metier : exclusion du controle selon le numero d'affaire
+# --------------------------------------------------------------------------- #
+
+
+class TestAffaireExclueDuControle:
+    """Tests du predicat d'exclusion totale de E303 (affaire_exclue_du_controle)."""
+
+    def test_numero_exact_12345678_exclut(self) -> None:
+        assert affaire_exclue_du_controle("12345678") is True
+
+    def test_prefixe_osr_majuscule_exclut(self) -> None:
+        assert affaire_exclue_du_controle("OSR-CVL-25-007998") is True
+
+    def test_prefixe_osr_minuscule_exclut(self) -> None:
+        assert affaire_exclue_du_controle("osr123456") is True
+
+    def test_prefixe_osr_seul_exclut(self) -> None:
+        assert affaire_exclue_du_controle("OSR") is True
+
+    def test_espaces_de_bord_ignores(self) -> None:
+        assert affaire_exclue_du_controle("  12345678  ") is True
+        assert affaire_exclue_du_controle("  OSR-001  ") is True
+
+    def test_numero_rac_standard_non_exclu(self) -> None:
+        assert affaire_exclue_du_controle("RAC-CVL-25-007998") is False
+
+    def test_numero_da_standard_non_exclu(self) -> None:
+        assert affaire_exclue_du_controle("DA21/256553") is False
+
+    def test_numero_proche_mais_different_non_exclu(self) -> None:
+        # Sur-ensemble du numero exclu -> non exclu (egalite stricte)
+        assert affaire_exclue_du_controle("123456789") is False
+        assert affaire_exclue_du_controle("012345678") is False
+
+    def test_osr_en_milieu_de_chaine_non_exclu(self) -> None:
+        # 'OSR' doit etre un prefixe, pas une sous-chaine
+        assert affaire_exclue_du_controle("RAC-OSR-25-001234") is False
 
 
 # --------------------------------------------------------------------------- #
@@ -493,6 +534,33 @@ class TestCli:
         resultat = executer_controle_cli("/chemin/inexistant", "RAC-CVL-25-007998")
         assert resultat["succes"] is False
         assert "introuvable" in resultat["erreur"]
+
+    def test_affaire_exclue_court_circuite_sans_traitement(self, tmp_path: Any) -> None:
+        # Numero exclu -> succes immediat, 0 anomalie, controle_ignore=True.
+        # Aucun mock des references : l'exclusion doit precede tout chargement.
+        resultat = executer_controle_cli(str(tmp_path), "OSR-CVL-25-007998")
+        assert resultat["succes"] is True
+        assert resultat["controle_ignore"] is True
+        assert resultat["nombre_anomalies"] == 0
+        assert resultat["priorite"] == PRIORITE_ANOMALIE
+        assert resultat["numero_affaire"] == "OSR-CVL-25-007998"
+
+    def test_affaire_exclue_prioritaire_sur_repertoire_inexistant(self) -> None:
+        # L'exclusion est verifiee avant la validite du repertoire.
+        resultat = executer_controle_cli("/chemin/inexistant", "12345678")
+        assert resultat["succes"] is True
+        assert resultat["controle_ignore"] is True
+
+    def test_affaire_exclue_ne_cree_pas_de_fichier_ecarts(self, tmp_path: Any) -> None:
+        # Aucune verification effectuee -> aucun fichier de sortie produit.
+        executer_controle_cli(str(tmp_path), "osr123456")
+        assert not os.path.isfile(str(tmp_path / "ecarts_emprise_dr.geojson"))
+
+    @patch("controle_e303._charger_references")
+    def test_affaire_exclue_ne_charge_pas_les_references(self, mock_refs: Any, tmp_path: Any) -> None:
+        # Preuve que le court-circuit intervient avant le chargement des references.
+        executer_controle_cli(str(tmp_path), "OSR-001")
+        mock_refs.assert_not_called()
 
     @patch("controle_e303._charger_references")
     def test_format_affaire_invalide_retourne_erreur(self, mock_refs: Any, tmp_path: Any) -> None:

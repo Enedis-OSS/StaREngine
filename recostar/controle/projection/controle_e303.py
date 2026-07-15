@@ -54,6 +54,30 @@ PRIORITE_ANOMALIE: str = "bloquant"
 # CRS de reference de l'emprise (Lambert 93)
 CRS_EMPRISE: str = "EPSG:2154"
 
+# Exceptions metier : numeros d'affaire pour lesquels E303 est entierement ignore
+# (aucune verification, aucune anomalie). Le numero d'affaire ci-dessous exclut
+# le controle par egalite exacte ; les prefixes par debut de chaine.
+NUMERO_AFFAIRE_EXCLU: str = "12345678"
+PREFIXES_AFFAIRE_EXCLUS: tuple[str, ...] = ("OSR", "osr")
+
+
+def affaire_exclue_du_controle(numero_affaire: str) -> bool:
+    """Determine si le numero d'affaire exclut totalement le controle E303.
+
+    Regle de gestion : E303 est entierement ignore (aucune verification,
+    aucune anomalie generee) dans l'un des cas suivants :
+    - le numero d'affaire est exactement egal a NUMERO_AFFAIRE_EXCLU (12345678) ;
+    - le numero d'affaire commence par l'un des PREFIXES_AFFAIRE_EXCLUS (OSR / osr).
+
+    Dans tous les autres cas, retourne False (comportement E303 inchange).
+    """
+    # Normalise les espaces de bord, coherent avec _extraire_prefixe.
+    valeur = numero_affaire.strip()
+    if valeur == NUMERO_AFFAIRE_EXCLU:
+        return True
+    # str.startswith accepte un tuple : OSR et osr sont testes en un seul appel.
+    return valeur.startswith(PREFIXES_AFFAIRE_EXCLUS)
+
 
 # Extracteurs de paires (x, y) par type de geometrie
 _EXTRACTEURS_XY: dict[str, Any] = {
@@ -372,6 +396,19 @@ def executer_controle_cli(
     """
     if not numero_affaire:
         return {"succes": False, "erreur": "Parametre --numero_affaire requis"}
+
+    # Exception metier : certains numeros d'affaire desactivent entierement E303.
+    # Verifie avant tout traitement (repertoire, references, emprises) afin
+    # qu'aucune verification ne soit effectuee ni aucune anomalie generee.
+    if affaire_exclue_du_controle(numero_affaire):
+        return {
+            "succes": True,
+            "controle_ignore": True,
+            "motif": "numero d'affaire exclu du controle E303",
+            "priorite": PRIORITE_ANOMALIE,
+            "nombre_anomalies": 0,
+            "numero_affaire": numero_affaire,
+        }
 
     repertoire_resolu = str(Path(repertoire).resolve())
     if not os.path.isdir(repertoire_resolu):

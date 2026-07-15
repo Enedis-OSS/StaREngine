@@ -5,7 +5,11 @@ Couvre l'analyseur d'en-tête, la conversion d'erreurs et la génération du rap
 
 import json
 from pathlib import Path
-from xml.etree.ElementTree import Element  # nosec B405
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (
+    Element,  # nosec B405
+)
 
 import pytest
 from controle_e113 import (

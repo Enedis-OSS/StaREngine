@@ -218,50 +218,70 @@ class TestControleAltimetrie:
         assert controler_altimetrie_sommets(cables, set()) == []
 
 
-class TestMultiLineString:
-    """Tests de la prise en charge des cables MultiLineString (plusieurs parties)."""
+def _decouper_en_troncons(
+    ligne: list[list[float]],
+    coupure: int,
+) -> list[list[list[float]]]:
+    """Decoupe une ligne en 2 troncons partageant le sommet frontiere (indice coupure).
 
-    def test_anomalie_dans_une_partie_detectee(self) -> None:
-        partie_ok = _ligne_plate(8)
-        partie_anomalie = _ligne_plate(12)
-        partie_anomalie[6][2] = 15.0
-        cable = _construire_cable_multi("cm", [partie_ok, partie_anomalie])
+    Chaque troncon est copie en profondeur pour eviter tout aliasing entre parties.
+    Le recollage (linemerge) doit reconstituer exactement la ligne d'origine.
+    """
+    premier = [list(sommet) for sommet in ligne[: coupure + 1]]
+    second = [list(sommet) for sommet in ligne[coupure:]]
+    return [premier, second]
+
+
+class TestMultiLineStringRecolle:
+    """Les cables MultiLineString connexes sont recolles et controles dans leur ensemble."""
+
+    def test_multilinestring_connexe_controle_dans_son_ensemble(self) -> None:
+        # Ligne plate de 13 sommets avec un pic central au sommet 6, decoupee en
+        # 2 troncons partageant le sommet 6 : apres recollage, le pic est detecte.
+        ligne = _ligne_plate(13)
+        ligne[6][2] = 15.0
+        cable = _construire_cable_multi("cm", _decouper_en_troncons(ligne, 6))
         anomalies = controler_altimetrie_sommets([cable], set())
-        assert anomalies
-        # Indice global = longueur de la 1re partie (8) + indice local fautif (6)
-        indice_attendu = len(partie_ok) + 6
-        anomalie = next(a for a in anomalies if a["indice_sommet"] == indice_attendu)
-        assert anomalie["coordonnees"] == partie_anomalie[6]
-        assert anomalie["id_cable"] == "cm"
+        assert any(a["indice_sommet"] == 6 and a["id_cable"] == "cm" for a in anomalies)
 
-    def test_fenetre_ne_traverse_pas_les_parties(self) -> None:
-        # Deux parties plates a altitudes differentes : leur concatenation
-        # creerait un faux pic a la jonction, que l'analyse par partie evite.
-        partie_basse = [[float(i), 0.0, 10.0] for i in range(8)]
-        partie_haute = [[float(i), 0.0, 20.0] for i in range(8)]
-        cable = _construire_cable_multi("cm", [partie_basse, partie_haute])
+    def test_troncons_en_desordre_sont_recolles(self) -> None:
+        # Meme cable mais troncons stockes dans le desordre (cas des donnees reelles) :
+        # linemerge les reordonne ; le pic central reste detecte.
+        ligne = _ligne_plate(13)
+        ligne[6][2] = 15.0
+        troncons = _decouper_en_troncons(ligne, 6)
+        cable = _construire_cable_multi("cm", [troncons[1], troncons[0]])
+        anomalies = controler_altimetrie_sommets([cable], set())
+        assert any(a["indice_sommet"] == 6 for a in anomalies)
+
+    def test_multilinestring_disjoint_est_ecarte(self) -> None:
+        # Deux troncons eloignes sans noeud partage : linemerge ne produit pas un
+        # LineString unique, le cable n'est pas controle malgre un pic.
+        troncon_a = [[float(i), 0.0, 10.0] for i in range(6)]
+        troncon_b = [[float(i), 0.0, 10.0] for i in range(100, 106)]
+        troncon_b[2][2] = 50.0
+        cable = _construire_cable_multi("cm", [troncon_a, troncon_b])
         assert controler_altimetrie_sommets([cable], set()) == []
 
-    def test_partie_trop_courte_ignoree_mais_partie_valide_analysee(self) -> None:
-        partie_courte = _ligne_plate(TAILLE_FENETRE - 1)
-        partie_valide = _ligne_plate(12)
-        partie_valide[6][2] = 15.0
-        cable = _construire_cable_multi("cm", [partie_courte, partie_valide])
-        anomalies = controler_altimetrie_sommets([cable], set())
-        # Le decalage tient compte de la partie courte ignoree (longueur 3)
-        indice_attendu = (TAILLE_FENETRE - 1) + 6
-        assert any(a["indice_sommet"] == indice_attendu for a in anomalies)
-
-    def test_partie_2d_ignoree(self) -> None:
-        partie_2d = [[float(i), 0.0] for i in range(12)]
-        cable = _construire_cable_multi("cm", [partie_2d])
+    def test_multilinestring_2d_ignore(self) -> None:
+        ligne_2d = [[float(i), 0.0] for i in range(13)]
+        cable = _construire_cable_multi("cm", _decouper_en_troncons(ligne_2d, 6))
         assert controler_altimetrie_sommets([cable], set()) == []
 
-    def test_cable_multi_aerien_est_exclu(self) -> None:
-        partie = _ligne_plate(12)
-        partie[6][2] = 15.0
-        cable = _construire_cable_multi("cm-aerien", [partie])
+    def test_multilinestring_aerien_est_exclu(self) -> None:
+        ligne = _ligne_plate(13)
+        ligne[6][2] = 15.0
+        cable = _construire_cable_multi("cm-aerien", _decouper_en_troncons(ligne, 6))
         assert controler_altimetrie_sommets([cable], {"cm-aerien"}) == []
+
+    def test_linestring_analyse_sur_integralite_du_cable(self) -> None:
+        # Controle : un LineString est bien traite comme une entite unique,
+        # l'anomalie centrale est detectee a son indice sequentiel global.
+        coords = _ligne_plate(12)
+        coords[6][2] = 15.0
+        cable = _construire_cable("cl", coords)
+        anomalies = controler_altimetrie_sommets([cable], set())
+        assert any(a["indice_sommet"] == 6 and a["id_cable"] == "cl" for a in anomalies)
 
 
 # --------------------------------------------------------------------------- #
@@ -296,10 +316,10 @@ class TestFiltrageStatut:
 class TestResolutionCouches:
     """Tests de la selection des couches de cables selon la version."""
 
-    def test_version_1_0_exclut_la_telecom(self) -> None:
+    def test_version_1_0_uniquement_electrique_et_terre(self) -> None:
+        # Exigence v1.0 : controle restreint aux seules couches electrique et terre.
         fichiers = resoudre_fichiers_cables("1.0")
-        assert FICHIER_CABLE_ELECTRIQUE in fichiers
-        assert FICHIER_CABLE_TERRE in fichiers
+        assert set(fichiers) == {FICHIER_CABLE_ELECTRIQUE, FICHIER_CABLE_TERRE}
         assert FICHIER_CABLE_TELECOM not in fichiers
 
     def test_version_1_1_ajoute_la_telecom(self) -> None:
@@ -469,16 +489,13 @@ class TestCli:
         assert contenu["type"] == "FeatureCollection"
         assert len(contenu["features"]) >= 1
 
-    def test_cable_multilinestring_controle(self, tmp_path: Any) -> None:
-        # Une couche entierement MultiLineString (cas des echantillons 1.0/1.1)
-        # doit produire des anomalies au lieu d'etre ignoree.
-        partie = _ligne_plate(12)
-        partie[6][2] = 15.0
-        _ecrire_couche(
-            tmp_path,
-            FICHIER_CABLE_ELECTRIQUE,
-            [_construire_cable_multi("cm", [partie])],
-        )
+    def test_cable_multilinestring_recolle_controle(self, tmp_path: Any) -> None:
+        # Une couche MultiLineString connexe est recollee puis controlee dans son
+        # ensemble : le pic central produit une anomalie.
+        ligne = _ligne_plate(13)
+        ligne[6][2] = 15.0
+        cable = _construire_cable_multi("cm", _decouper_en_troncons(ligne, 6))
+        _ecrire_couche(tmp_path, FICHIER_CABLE_ELECTRIQUE, [cable])
         resultat = executer_controle_cli(str(tmp_path), version="1.0")
         assert resultat["succes"] is True
         assert resultat["nombre_anomalies"] >= 1

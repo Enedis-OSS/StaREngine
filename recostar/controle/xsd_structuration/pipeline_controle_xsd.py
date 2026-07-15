@@ -59,9 +59,9 @@ SUFFIXE_RAPPORT_GLOBAL: str = "_controle_xsd_global.json"
 def _resumer(type_controle: str, erreurs: list[Any], chemin_rapport: Path) -> dict[str, Any]:
     """Construit le résumé d'un contrôle réussi à partir de sa liste d'erreurs.
 
-    La ventilation par sévérité couvre aussi bien les contrôles mono-sévérité
-    (E110-E113) que E114 qui distingue ERREUR et AVERTISSEMENT. La conformité
-    n'est invalidée que par des entrées de sévérité ERREUR.
+    Tous les contrôles (E110-E114) sont mono-sévérité : la ventilation
+    par sévérité ne comporte que des entrées ERREUR, qui invalident la
+    conformité.
     """
     par_severite: dict[str, int] = {}
     for erreur in erreurs:

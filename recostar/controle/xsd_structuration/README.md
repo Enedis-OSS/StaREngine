@@ -42,7 +42,7 @@ métier (règles conditionnelles E111, valeurs E114) y sont curés à la main.
 | E111 | `controle_e111.py` | Règles métier conditionnelles | `regles_metier` (PDF V1.1) | ERREUR | `E111_METIER` |
 | E112 | `controle_e112.py` | Validation XSD native complète | XSD officiel via `lxml` | ERREUR | `E112_XSD_NATIF` |
 | E113 | `controle_e113.py` | En-tête, namespaces, métadonnées, unicité `gml:id` | `regles_entete` | ERREUR | `E113_ENTETE` |
-| E114 | `controle_e114.py` | Valeurs des champs (énumérations, CodeLists, formats) | `regles_valeurs` (PDF §9/§10) | ERREUR + AVERTISSEMENT | `E114_VALEURS` |
+| E114 | `controle_e114.py` | Valeurs des champs (énumérations, CodeLists, formats) | `regles_valeurs` (PDF §9/§10) | ERREUR | `E114_VALEURS` |
 
 Le script `pipeline_controle_xsd.py` orchestre l'exécution des cinq contrôles
 sur un même fichier GML.
@@ -64,8 +64,8 @@ Chaque contrôle produit un JSON homogène :
 }
 ```
 
-La conformité découle du nombre d'entrées de sévérité `ERREUR` (les
-`AVERTISSEMENT` d'E114 n'invalident pas le fichier).
+La conformité découle du nombre d'entrées de sévérité `ERREUR` : tous les
+contrôles (E110 à E114) sont mono-sévérité, toute entrée invalide le fichier.
 
 ### Usage CLI (contrôle isolé)
 
@@ -171,19 +171,21 @@ champ `xsd`). Chaque erreur : `code`, `severite`, `ligne`, `colonne`, `xpath`,
 ## E114 — Valeurs des champs (`controle_e114.py`)
 
 **Ce qui est contrôlé :** les valeurs littérales / `xlink:href` des enfants des
-objets RPD contre :
+objets RPD contre trois familles de contraintes, **toutes de sévérité ERREUR** :
 
-- **énumérations fermées** (§10) → `VALEUR_HORS_ENUMERATION`, sévérité **ERREUR** ;
-- **CodeLists ouvertes** (§10) → `VALEUR_HORS_CODELIST`, sévérité
-  **AVERTISSEMENT** (n'invalide pas le fichier) ;
+- **énumérations fermées** (§10) → `VALEUR_HORS_ENUMERATION` ;
+- **CodeLists documentées** (§10) → `VALEUR_HORS_CODELIST` (politique RPD
+  stricte : seules les valeurs documentées sont admises, aucune extension
+  locale n'est tolérée) ;
 - **contraintes de format métier** (ex. `Theme=ELECTRD`, `NumeroPRM` à 14
-  chiffres) → `FORMAT_INVALIDE`, sévérité **ERREUR**.
+  chiffres) → `FORMAT_INVALIDE`.
 
-C'est le seul contrôle à **deux sévérités** : la `conformite` n'est
-`NON_CONFORME` que s'il existe au moins une entrée `ERREUR`.
+Le code d'erreur distingue l'origine de la violation (énumération, CodeList ou
+format), mais la gravité est unique : toute entrée rend la `conformite`
+`NON_CONFORME`.
 
 **Sortie — `<gml>_controle_e114.json`** (`type_controle: E114_VALEURS`,
-`nb_par_severite` ventilé ERREUR / AVERTISSEMENT). Chaque entrée : `type_rpd`,
+`nb_par_severite` ne comportant que la clé `ERREUR`). Chaque entrée : `type_rpd`,
 `gml_id`, `champ`, `valeur_trouvee`, `code`, `severite`, `regle`, `source`,
 `message`.
 

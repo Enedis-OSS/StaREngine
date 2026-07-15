@@ -19,7 +19,9 @@ import sys
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from xml.etree import ElementTree as ET  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree import ElementTree as ET  # nosec B405
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
 

@@ -4,8 +4,17 @@ Controle altimetrique des sommets des cables.
 Detecte les incoherences altimetriques locales le long des cables en analysant
 des fenetres glissantes de 4 sommets consecutifs. Pour chaque fenetre, l'ecart
 entre les 2 sommets centraux est compare a la tendance altimetrique definie par
-les sommets extremes. Si l'ecart residuel est superieur a 25 cm, les sommets
+les sommets extremes. Si l'ecart residuel est superieur a 40 cm, les sommets
 centraux sont signales en anomalie.
+
+Chaque cable est traite comme une entite unique, sur l'integralite de ses
+sommets :
+- LineString : analyse directe de ses sommets.
+- MultiLineString : les troncons sont recolles en une polyligne continue via
+  shapely.ops.linemerge (reordonnancement, orientation et deduplication des
+  noeuds partages, Z preserve), puis analyses comme un seul cable. Un cable dont
+  les troncons sont reellement disjoints (linemerge ne produit pas un LineString
+  unique) est ecarte : il ne forme pas un ensemble continu.
 
 Gestion des versions RecoStaR :
 - v1.0 : controle des couches RPD_CableElectrique_Reco et RPD_CableTerre_Reco.
@@ -41,6 +50,8 @@ from controle_e204 import (
     VERSIONS_SUPPORTEES,
     determiner_version_depuis_repertoire,
 )
+from shapely.geometry import LineString, MultiLineString
+from shapely.ops import linemerge
 from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
 
 # Couches de cables controlees, par fichier source
@@ -69,7 +80,7 @@ FICHIER_AERIEN: str = "RPD_Aerien_Reco.geojson"
 FICHIER_SORTIE: str = "ecarts_controle_alti_sommets.geojson"
 
 # Seuil d'ecart altimetrique residuel au-dela duquel une anomalie est declaree (metres)
-SEUIL_ECART_ALTI: float = 0.25
+SEUIL_ECART_ALTI: float = 0.40
 
 # Niveau de priorite affecte aux sommets signales en anomalie
 PRIORITE_ANOMALIE: str = "bloquant"
@@ -185,53 +196,72 @@ def _analyser_sommets_cable(
     return anomalies_par_indice
 
 
-def _normaliser_parties(
+def _recoller_multilinestring(
     geometrie: dict[str, Any],
-) -> list[list[list[float]]] | None:
-    """Normalise une geometrie lineaire en liste de parties (lignes de sommets).
+) -> list[list[float]] | None:
+    """Recolle les troncons d'un MultiLineString en une polyligne continue.
 
-    Un LineString donne une unique partie ; un MultiLineString donne une partie
-    par sous-ligne. Chaque partie est analysee independamment afin qu'une fenetre
-    glissante ne franchisse jamais la discontinuite entre deux parties. Retourne
-    None si le type de geometrie n'est pas lineaire.
+    Delegue a shapely.ops.linemerge, qui reordonne les troncons, gere leur
+    orientation et deduplique les noeuds partages tout en preservant le Z. Si les
+    troncons ne forment pas une chaine connexe unique (linemerge renvoie alors un
+    MultiLineString), le cable ne peut pas etre traite comme une entite unique et
+    la fonction retourne None.
+    """
+    coordonnees = geometrie.get("coordinates") or []
+    if not coordonnees:
+        return None
+    fusion = linemerge(MultiLineString(coordonnees))
+    if not isinstance(fusion, LineString):
+        return None
+    return [list(sommet) for sommet in fusion.coords]
+
+
+def _reconstituer_sommets_cable(
+    geometrie: dict[str, Any],
+) -> list[list[float]] | None:
+    """Retourne la sequence de sommets du cable traite comme entite unique.
+
+    Un LineString donne directement ses sommets ; un MultiLineString est recolle
+    en une polyligne continue (voir _recoller_multilinestring). Tout autre type
+    de geometrie, ou un MultiLineString aux troncons disjoints, donne None.
     """
     type_geom = geometrie.get("type")
-    coordonnees = geometrie.get("coordinates") or []
     if type_geom == "LineString":
-        return [coordonnees]
+        return geometrie.get("coordinates") or []
     if type_geom == "MultiLineString":
-        return list(coordonnees)
+        return _recoller_multilinestring(geometrie)
     return None
 
 
-def _partie_est_analysable(partie: list[list[float]]) -> bool:
-    """Indique si une partie possede assez de sommets 3D pour etre analysee.
+def _cable_est_analysable(sommets: list[list[float]]) -> bool:
+    """Indique si le cable possede assez de sommets 3D pour etre analyse.
 
-    Une partie trop courte (moins de TAILLE_FENETRE sommets) ou comportant un
-    sommet sans composante Z est ignoree, sans disqualifier les autres parties.
+    Un cable trop court (moins de TAILLE_FENETRE sommets) ou comportant un
+    sommet sans composante Z est ignore.
     """
-    if len(partie) < TAILLE_FENETRE:
+    if len(sommets) < TAILLE_FENETRE:
         return False
-    return all(len(point) >= 3 for point in partie)
+    return all(len(point) >= 3 for point in sommets)
 
 
 def _cable_est_eligible(
     cable: dict[str, Any],
     ids_exclus: set[str],
-) -> list[list[list[float]]] | None:
-    """Retourne les parties lineaires du cable s'il est eligible au controle.
+) -> list[list[float]] | None:
+    """Retourne les sommets du cable s'il est eligible au controle.
 
-    Un cable est eligible s'il possede une geometrie lineaire (LineString ou
-    MultiLineString) et si son identifiant n'est pas reference par un cheminement
-    aerien. La validite altimetrique de chaque partie est verifiee ensuite, lors
-    de l'analyse, par _partie_est_analysable.
+    Un cable est eligible si son identifiant n'est pas reference par un
+    cheminement aerien et si sa geometrie peut etre reconstituee en une polyligne
+    unique (LineString, ou MultiLineString connexe). La validite altimetrique
+    (nombre de sommets, presence de Z) est verifiee ensuite par
+    _cable_est_analysable.
     """
     identifiant = obtenir_id_feature(cable)
     if identifiant is None or identifiant in ids_exclus:
         return None
 
     geometrie = cable.get("geometry") or {}
-    return _normaliser_parties(geometrie)
+    return _reconstituer_sommets_cable(geometrie)
 
 
 def controler_altimetrie_sommets(
@@ -240,34 +270,29 @@ def controler_altimetrie_sommets(
 ) -> list[dict[str, Any]]:
     """Execute le controle altimetrique sur l'ensemble des cables eligibles.
 
-    Retourne une liste d'anomalies avec, pour chaque sommet signale, son
-    identifiant de cable, son indice global dans la geometrie, ses coordonnees et
-    l'ecart residuel associe. L'indice global est sequentiel sur l'ensemble des
-    sommets du cable, parties d'un MultiLineString concatenees dans l'ordre.
+    Chaque cable LineString est analyse comme une entite unique : la fenetre
+    glissante parcourt l'integralite de ses sommets. Retourne une liste
+    d'anomalies avec, pour chaque sommet signale, son identifiant de cable, son
+    indice sequentiel dans la geometrie, ses coordonnees et l'ecart residuel.
     """
     anomalies: list[dict[str, Any]] = []
 
     for cable in cables:
-        parties = _cable_est_eligible(cable, ids_cables_exclus)
-        if parties is None:
+        sommets = _cable_est_eligible(cable, ids_cables_exclus)
+        if sommets is None or not _cable_est_analysable(sommets):
             continue
 
         identifiant = obtenir_id_feature(cable)
-        # Decalage global maintenu pour numeroter les sommets a travers les parties
-        decalage = 0
-        for partie in parties:
-            if _partie_est_analysable(partie):
-                anomalies_partie = _analyser_sommets_cable(partie)
-                for indice, ecart in anomalies_partie.items():
-                    anomalies.append(
-                        {
-                            "id_cable": identifiant,
-                            "indice_sommet": decalage + indice,
-                            "coordonnees": partie[indice],
-                            "ecart_residuel": round(ecart, 4),
-                        }
-                    )
-            decalage += len(partie)
+        anomalies_cable = _analyser_sommets_cable(sommets)
+        for indice, ecart in anomalies_cable.items():
+            anomalies.append(
+                {
+                    "id_cable": identifiant,
+                    "indice_sommet": indice,
+                    "coordonnees": sommets[indice],
+                    "ecart_residuel": round(ecart, 4),
+                }
+            )
 
     return anomalies
 

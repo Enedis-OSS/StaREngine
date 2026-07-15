@@ -20,8 +20,10 @@ par défaut) et laisse les contrôles signaler eux-mêmes les anomalies d'en-tê
 
 import re
 from pathlib import Path
-from xml.etree.ElementTree import (
-    ParseError,  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
+    ParseError,
 )
 
 import defusedxml.ElementTree as DefusedET  # type: ignore

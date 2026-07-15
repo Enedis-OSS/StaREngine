@@ -3,14 +3,16 @@
 Définition déclarative des règles de valeurs RecoStaR RPD V1.1.
 
 Encode trois familles de contraintes sur les valeurs portées par les
-éléments enfants des objets RPD :
+éléments enfants des objets RPD. Toutes sont de sévérité SEVERITE_ERREUR :
+une valeur hors domaine invalide le fichier, quel que soit le domaine.
 
-1. Énumérations strictes (PDF §10, listes fermées) ⟶ SEVERITE_ERREUR.
+1. Énumérations strictes (PDF §10, listes fermées) ⟶ code VALEUR_HORS_ENUMERATION.
    Toute valeur hors liste viole la spécification.
-2. CodeLists ouvertes (PDF §10, extensibles) ⟶ SEVERITE_AVERTISSEMENT.
-   Les valeurs documentées sont les seules attendues en pratique, mais
-   le standard autorise des extensions locales.
-3. Contraintes de format métier (PDF §9 et §6.6) ⟶ SEVERITE_ERREUR ciblée.
+2. CodeLists documentées (PDF §10) ⟶ code VALEUR_HORS_CODELIST.
+   Politique RPD : seules les valeurs documentées sont admises. Le code
+   distinct est conservé pour tracer l'origine « CodeList » de la violation,
+   mais la gravité est identique à celle d'une énumération fermée.
+3. Contraintes de format métier (PDF §9 et §6.6) ⟶ code FORMAT_INVALIDE.
    Cas où la spécification impose une valeur littérale unique (Theme=ELECTRD)
    ou un motif strict (NumeroPRM = 14 chiffres).
 
@@ -33,7 +35,6 @@ from typing import NamedTuple
 # ---------------------------------------------------------------------------
 
 SEVERITE_ERREUR = "ERREUR"
-SEVERITE_AVERTISSEMENT = "AVERTISSEMENT"
 
 CODE_VALEUR_HORS_ENUMERATION = "VALEUR_HORS_ENUMERATION"
 CODE_VALEUR_HORS_CODELIST = "VALEUR_HORS_CODELIST"
@@ -164,7 +165,7 @@ _ENUM_THEME_RPD: frozenset[str] = frozenset({"ELECTRD"})
 
 
 # ---------------------------------------------------------------------------
-# CodeLists ouvertes (PDF §10, extensibles)
+# CodeLists documentées (PDF §10) — traitées strictement (ERREUR)
 # ---------------------------------------------------------------------------
 
 _CL_FONCTION_CABLE: frozenset[str] = frozenset(
@@ -391,7 +392,7 @@ class RegleValeur(NamedTuple):
         champ            : Nom local du champ (ex: "DomaineTension")
         evaluateur       : Fonction (str -> bool) ; vrai si la valeur est conforme
         code_erreur      : Code de la taxonomie d'erreur (VALEUR_HORS_ENUMERATION…)
-        severite         : SEVERITE_ERREUR ou SEVERITE_AVERTISSEMENT
+        severite         : SEVERITE_ERREUR (unique sévérité RPD)
         source           : Référence PDF pour traçabilité
         description      : Description lisible des valeurs/format attendus
     """
@@ -599,13 +600,13 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         source="PDF §6.6",
         description="14 chiffres exactement (CharacterString 14 chiffres)",
     ),
-    # ----- CodeLists ouvertes (PDF §10) — AVERTISSEMENT -----
+    # ----- CodeLists documentées (PDF §10) — ERREUR -----
     _regle_enum(
         "C_FONCTION_CABLE",
         frozenset({"RPD_CableElectrique_Reco", "RPD_CableTerre_Reco"}),
         "FonctionCable",
         _CL_FONCTION_CABLE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.1.6",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -614,7 +615,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_CableTelecommunication_Reco"}),
         "Fonction",
         _CL_FONCTION_TELECOM,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.1.7",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -623,7 +624,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_CableTelecommunication_Reco"}),
         "TechnoCable",
         _CL_TECHNO_CABLE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.1.8",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -632,7 +633,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_CableTerre_Reco"}),
         "NatureCableTerre",
         _CL_NATURE_CABLE_TERRE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.1.9",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -641,7 +642,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Coffret_Reco"}),
         "ImplantationArmoire",
         _CL_IMPLANTATION_ARMOIRE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.1",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -650,7 +651,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Coffret_Reco"}),
         "TypeCoffret",
         _CL_TYPE_COFFRET,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.2",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -659,7 +660,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Coffret_Reco"}),
         "FonctionCoffret",
         _CL_FONCTION_COFFRET,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.3",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -668,7 +669,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Support_Reco"}),
         "NatureSupport",
         _CL_NATURE_SUPPORT,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.4",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -677,7 +678,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Support_Reco"}),
         "Matiere",
         _CL_MATIERE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.5",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -686,7 +687,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Support_Reco"}),
         "Classe",
         _CL_CLASSE_SUPPORT,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.6",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -695,7 +696,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Terre_Reco"}),
         "NatureTerre",
         _CL_NATURE_TERRE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.4.2",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -704,7 +705,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_PosteElectrique_Reco"}),
         "Categorie",
         _CL_CATEGORIE_POSTE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.4.3",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -713,7 +714,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_PosteElectrique_Reco"}),
         "TypePoste",
         _CL_TYPE_POSTE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.4.4",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),

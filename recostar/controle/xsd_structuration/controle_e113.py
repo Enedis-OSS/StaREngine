@@ -22,7 +22,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import cast
-from xml.etree.ElementTree import (  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
     Element,
     ElementTree,
 )

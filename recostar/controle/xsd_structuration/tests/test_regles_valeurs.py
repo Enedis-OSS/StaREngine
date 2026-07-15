@@ -11,7 +11,6 @@ from regles_valeurs import (
     CODE_VALEUR_HORS_CODELIST,
     CODE_VALEUR_HORS_ENUMERATION,
     REGLES_VALEURS,
-    SEVERITE_AVERTISSEMENT,
     SEVERITE_ERREUR,
     TYPES_AVEC_REGLES,
     ErreurValeur,
@@ -45,10 +44,9 @@ class TestCatalogueStructure:
         assert len(identifiants) == len(set(identifiants))
 
     def test_severites_valides(self):
-        """Les sévérités sont parmi le set documenté."""
-        severites_attendues = {SEVERITE_ERREUR, SEVERITE_AVERTISSEMENT}
+        """E114 est mono-sévérité : toutes les règles sont en ERREUR."""
         for regle in REGLES_VALEURS:
-            assert regle.severite in severites_attendues
+            assert regle.severite == SEVERITE_ERREUR
 
 
 class TestIndexLookup:
@@ -155,21 +153,21 @@ class TestEvaluerValeurMateriauPolymorphisme:
 
 
 class TestEvaluerValeurCodeLists:
-    """CodeLists ouvertes — sévérité AVERTISSEMENT."""
+    """CodeLists documentées — sévérité ERREUR (politique RPD stricte)."""
 
     def test_type_coffret_valide_aucune_erreur(self):
         assert evaluer_valeur("RPD_Coffret_Reco", "TypeCoffret", "RMBT300", "cof_001") is None
 
-    def test_type_coffret_inconnu_emet_avertissement(self):
+    def test_type_coffret_inconnu_emet_erreur(self):
         erreur = evaluer_valeur("RPD_Coffret_Reco", "TypeCoffret", "ExtensionLocaleXYZ", "cof_001")
         assert erreur is not None
         assert erreur.code == CODE_VALEUR_HORS_CODELIST
-        assert erreur.severite == SEVERITE_AVERTISSEMENT
+        assert erreur.severite == SEVERITE_ERREUR
 
-    def test_classe_support_valeur_inconnue_avertissement(self):
+    def test_classe_support_valeur_inconnue_erreur(self):
         erreur = evaluer_valeur("RPD_Support_Reco", "Classe", "Inconnu123", "sup_001")
         assert erreur is not None
-        assert erreur.severite == SEVERITE_AVERTISSEMENT
+        assert erreur.severite == SEVERITE_ERREUR
 
 
 class TestEvaluerValeurThemeRpd:

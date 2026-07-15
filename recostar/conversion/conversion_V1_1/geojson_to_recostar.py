@@ -14,7 +14,9 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from xml.etree import ElementTree as ET  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree import ElementTree as ET  # nosec B405
 
 # Namespaces XML/GML requis par le schéma RecoStaR
 NAMESPACE_GML = "http://www.opengis.net/gml/3.2"
@@ -55,6 +57,21 @@ REQUIRED_RPD_FILES = frozenset(
         "RPD_SupportModules_Reco",
         "RPD_Terre_Reco",
     ]
+)
+
+# Types d'entites constituant les noeuds du reseau : ce sont les seules entites
+# porteuses du champ cables_href materialisant la relation noeud <-> cable
+# (relation CableElectrique_NoeudReseau du modele RecoStaR).
+TYPES_NOEUDS_RESEAU: tuple[str, ...] = (
+    "RPD_CoupeCircuitAFusibles_Reco",
+    "RPD_JeuBarres_Reco",
+    "RPD_Jonction_Reco",
+    "RPD_ModuleRaccordement_Reco",
+    "RPD_OuvrageCollectifBranchement_Reco",
+    "RPD_PointDeComptage_Reco",
+    "RPD_PosteElectrique_Reco",
+    "RPD_SupportModules_Reco",
+    "RPD_Terre_Reco",
 )
 
 
@@ -1548,20 +1565,9 @@ class GenerateurGML:
             "RPD_PleineTerre_Reco",
             "RPD_ProtectionMecanique_Reco",
         )
-        noeud_types = (
-            "RPD_CoupeCircuitAFusibles_Reco",
-            "RPD_JeuBarres_Reco",
-            "RPD_Jonction_Reco",
-            "RPD_ModuleRaccordement_Reco",
-            "RPD_OuvrageCollectifBranchement_Reco",
-            "RPD_PointDeComptage_Reco",
-            "RPD_PosteElectrique_Reco",
-            "RPD_SupportModules_Reco",
-            "RPD_Terre_Reco",
-        )
         return {
             "cheminement_cable": self._extraire_relations_cable(features_by_type, chemin_types),
-            "cable_noeud": self._extraire_relations_cable_noeud(features_by_type, noeud_types),
+            "cable_noeud": self._extraire_relations_cable_noeud(features_by_type, TYPES_NOEUDS_RESEAU),
             "ouvrage_materiel": self._extraire_relations_ouvrage_materiel(features_by_type),
         }
 

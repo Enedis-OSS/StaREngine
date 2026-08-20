@@ -17,7 +17,7 @@ Usage CLI :
     python controle_e404.py --repertoire <chemin> [--sortie <chemin>]
                             [--version {auto,1.0,1.1}]
 
-Sortie : ecarts_charge_generatrice_profondeur_absente.geojson
+Sortie : ecarts_e404_charge_generatrice_profondeur_absente.geojson
 """
 
 import argparse
@@ -32,7 +32,13 @@ from typing import Any
 from shapely import STRtree, force_2d
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
-from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
+from utils_geojson import (
+    ProfilEcarts,
+    ecrire_geojson_si_anomalies,
+    lire_geojson,
+    normaliser_geojson_ecarts,
+    obtenir_id_feature,
+)
 
 # Fichier source des points de leve
 FICHIER_SOURCE: str = "RPD_PointLeveOuvrageReseau_Reco.geojson"
@@ -45,10 +51,28 @@ FICHIERS_CHEMINEMENT_SOUTERRAIN: tuple[str, ...] = (
 )
 
 # Nom du fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_charge_generatrice_profondeur_absente.geojson"
+FICHIER_SORTIE: str = "ecarts_e404_charge_generatrice_profondeur_absente.geojson"
 
-# Niveau de priorite affecte a toutes les anomalies
-PRIORITE_ANOMALIE: str = "bloquant"
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E404"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "cheminement_sans_profondeur_charge_generatrice": (
+        "Aucune profondeur n'est renseignée sur les cheminements traversés par cette charge génératrice."
+    ),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_point",),
+)
+
+
+# Niveau de priorite affecte a toutes les anomalies. Majeur : l'ecart est
+# signale et compte dans le rapport, mais ne declasse pas la famille
+# (cf. PRIORITES_DECLASSANTES dans synthese_controles).
+PRIORITE_ANOMALIE: str = "majeur"
 
 # Identifiant du type d'anomalie produit par ce controle
 TYPE_ANOMALIE: str = "cheminement_sans_profondeur_charge_generatrice"
@@ -351,7 +375,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 # ---------------------------------------------------------------------------
@@ -397,7 +421,7 @@ def executer_controle_cli(
     dossier_sortie = str(Path(sortie).resolve()) if sortie is not None else repertoire_resolu
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
@@ -407,7 +431,7 @@ def executer_controle_cli(
         "nombre_points_charge_analyses": len(points_charge),
         "nombre_cheminements_analyses": len(cheminements),
         "fichiers_cheminement_absents": fichiers_absents,
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

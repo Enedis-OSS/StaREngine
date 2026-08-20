@@ -10,7 +10,7 @@ de ses entites signalee comme anomalie.
 Usage CLI :
     python controle_e300.py --repertoire <chemin> [--sortie <chemin>]
 
-Sortie : ecarts_projection.geojson
+Sortie : ecarts_e300_projection.geojson
 """
 
 import argparse
@@ -21,9 +21,11 @@ from pathlib import Path
 from typing import Any
 
 from utils_geojson import (
-    ecrire_geojson,
+    ProfilEcarts,
+    ecrire_geojson_si_anomalies,
     lire_geojson,
     lister_fichiers_geojson,
+    normaliser_geojson_ecarts,
     obtenir_id_feature,
 )
 
@@ -31,7 +33,21 @@ from utils_geojson import (
 FICHIER_METADATA: str = "_metadata.json"
 
 # Nom du fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_projection.geojson"
+FICHIER_SORTIE: str = "ecarts_e300_projection.geojson"
+
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E300"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "projection_incorrecte": ("L'entité n'est pas dans la projection attendue du jeu de données."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_entite",),
+)
+
 
 # Niveau de priorite affecte aux entites signalees
 PRIORITE_ANOMALIE: str = "bloquant"
@@ -163,7 +179,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 def _construire_crs_depuis_epsg(epsg: str) -> dict[str, Any]:
@@ -222,7 +238,7 @@ def executer_controle_cli(
     geojson_ecarts = construire_geojson_ecarts(toutes_anomalies, crs_sortie)
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
@@ -230,7 +246,7 @@ def executer_controle_cli(
         "nombre_anomalies": len(toutes_anomalies),
         "fichiers_analyses": fichiers_analyses,
         "projection_attendue": projection_attendue,
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

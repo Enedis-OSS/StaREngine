@@ -18,7 +18,7 @@ signaler les superpositions physiques independamment des ecarts altimetriques.
 Usage CLI :
     python controle_e400.py --repertoire <chemin> [--sortie <chemin>]
 
-Sortie : ecarts_superpositions_cheminements.geojson
+Sortie : ecarts_e400_superpositions_cheminements.geojson
 """
 
 import argparse
@@ -32,7 +32,13 @@ from typing import Any
 from shapely import STRtree, force_2d, is_valid
 from shapely.geometry import mapping, shape
 from shapely.geometry.base import BaseGeometry
-from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
+from utils_geojson import (
+    ProfilEcarts,
+    ecrire_geojson_si_anomalies,
+    lire_geojson,
+    normaliser_geojson_ecarts,
+    obtenir_id_feature,
+)
 
 # Fichiers de cheminement analyses par ce controle
 FICHIERS_CHEMINEMENT: tuple[str, ...] = (
@@ -43,7 +49,21 @@ FICHIERS_CHEMINEMENT: tuple[str, ...] = (
 )
 
 # Nom du fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_superpositions_cheminements.geojson"
+FICHIER_SORTIE: str = "ecarts_e400_superpositions_cheminements.geojson"
+
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E400"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "superposition_cheminements": ("Deux cheminements se superposent géométriquement."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_entite_a", "id_entite_b"),
+)
+
 
 # Niveau de priorite des anomalies detectees
 PRIORITE_ANOMALIE: str = "bloquant"
@@ -287,7 +307,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 # ---------------------------------------------------------------------------
@@ -321,7 +341,7 @@ def executer_controle_cli(
 
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
@@ -329,7 +349,7 @@ def executer_controle_cli(
         "nombre_anomalies": len(anomalies),
         "nombre_entites_analysees": len(toutes_entites),
         "fichiers_absents": fichiers_absents,
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

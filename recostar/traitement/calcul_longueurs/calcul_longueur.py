@@ -18,6 +18,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from utils_geometrie import corriger_z_nuls  # type: ignore[import-not-found]
+
 # --- Fonctions utilitaires ---
 
 
@@ -175,44 +177,9 @@ def construire_index_statuts(
 
 # --- Fonctions de calcul geometrique ---
 
-# Tolerance absolue pour considerer une coordonnee Z comme nulle (marqueur Z=0.0)
-_TOLERANCE_Z: float = 1e-9
-
-
-def _est_valeur_nulle(valeur: float) -> bool:
-    """Verifie si une valeur flottante est consideree comme nulle (Z=0.0)."""
-    return abs(valeur) < _TOLERANCE_Z
-
-
-def _corriger_z_nuls(coordonnees: list[list[float]]) -> list[float]:
-    """Corrige les valeurs Z nulles en les remplacant par le Z valide le plus proche.
-
-    Parcours avant puis arriere pour propager les valeurs Z valides (non nulles)
-    vers les sommets dont Z vaut 0.0. Si aucun Z valide n'est trouve, la valeur
-    reste a 0.0.
-    """
-    nb = len(coordonnees)
-    z_corrige = [coord[2] if len(coord) > 2 else 0.0 for coord in coordonnees]
-
-    _est_z_nul = _est_valeur_nulle
-
-    # Propagation avant : remplacer Z=0.0 par le dernier Z valide rencontre
-    dernier_z_valide = 0.0
-    for i in range(nb):
-        if not _est_z_nul(z_corrige[i]):
-            dernier_z_valide = z_corrige[i]
-        elif not _est_z_nul(dernier_z_valide):
-            z_corrige[i] = dernier_z_valide
-
-    # Propagation arriere : combler les Z=0.0 restants en debut de polyligne
-    dernier_z_valide = 0.0
-    for i in range(nb - 1, -1, -1):
-        if not _est_z_nul(z_corrige[i]):
-            dernier_z_valide = z_corrige[i]
-        elif not _est_z_nul(dernier_z_valide):
-            z_corrige[i] = dernier_z_valide
-
-    return z_corrige
+# La correction des Z nuls est mutualisee dans utils_geometrie_commun : les
+# controles E504 et E505 doivent mesurer la longueur d'un cable exactement comme
+# ce module, sous peine de juger une grandeur que le livrable ne produit pas.
 
 
 def _calculer_longueur_3d(coordonnees: list[list[float]]) -> float:
@@ -225,7 +192,7 @@ def _calculer_longueur_3d(coordonnees: list[list[float]]) -> float:
     longueur = 0.0
     sqrt = math.sqrt
     nb_sommets = len(coordonnees)
-    z_corrige = _corriger_z_nuls(coordonnees)
+    z_corrige = corriger_z_nuls(coordonnees)
 
     for i in range(1, nb_sommets):
         precedent = coordonnees[i - 1]

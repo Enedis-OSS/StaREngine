@@ -12,7 +12,7 @@ aux coordonnees projetees en metres. Les geometries non surfaciques
 Usage CLI :
     python controle_e302.py --repertoire <chemin> [--sortie <chemin>]
 
-Sortie : ecarts_geometrie_supplementaire.geojson
+Sortie : ecarts_e302_geometrie_supplementaire.geojson
 """
 
 import argparse
@@ -23,8 +23,10 @@ from pathlib import Path
 from typing import Any
 
 from utils_geojson import (
-    ecrire_geojson,
+    ProfilEcarts,
+    ecrire_geojson_si_anomalies,
     lire_geojson,
+    normaliser_geojson_ecarts,
     obtenir_id_feature,
 )
 
@@ -32,7 +34,21 @@ from utils_geojson import (
 NOM_FICHIER_CIBLE: str = "RPD_GeometrieSupplementaire_Reco.geojson"
 
 # Nom du fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_geometrie_supplementaire.geojson"
+FICHIER_SORTIE: str = "ecarts_e302_geometrie_supplementaire.geojson"
+
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E302"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "aire_excessive": ("La géométrie supplémentaire dépasse la superficie maximale admise."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_entite",),
+)
+
 
 # Niveau de priorite affecte aux entites signalees
 PRIORITE_ANOMALIE: str = "bloquant"
@@ -145,7 +161,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 def executer_controle_cli(
@@ -188,7 +204,7 @@ def executer_controle_cli(
     geojson_ecarts = construire_geojson_ecarts(anomalies, crs)
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
@@ -196,7 +212,7 @@ def executer_controle_cli(
         "nombre_anomalies": len(anomalies),
         "entites_analysees": nb_analysees,
         "seuil_aire_m2": SEUIL_AIRE_M2,
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

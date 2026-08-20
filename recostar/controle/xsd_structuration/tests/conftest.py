@@ -5,7 +5,11 @@ Fixtures partagées pour les tests du contrôle E110.
 import os
 import sys
 from pathlib import Path
-from xml.etree.ElementTree import Element  # nosec B405
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (
+    Element,  # nosec B405
+)
 
 import pytest
 
@@ -192,6 +196,22 @@ def membre_metadata_conforme():
 def membre_reseau_utilite_conforme():
     """featureMember ReseauUtilite complet (PDF §9)."""
     return creer_reseau_utilite_conforme()
+
+
+@pytest.fixture
+def membre_metadata_srs_invalide():
+    """featureMember Metadata complet mais dont le SRS est hors énumération."""
+    return creer_feature_member_avec_valeurs(
+        "Metadata",
+        "metadata_srs_ko",
+        [
+            ("Datecreation", "2026-05-25"),
+            ("Logiciel", "TestSuite 1.0"),
+            ("Producteur", "EntrepriseTest"),
+            ("Responsable", "MaitreOuvrageTest"),
+            ("SRS", "EPSG:4326"),
+        ],
+    )
 
 
 @pytest.fixture

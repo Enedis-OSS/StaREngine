@@ -421,12 +421,21 @@ class TestCli:
 
     @patch("controle_e203._requeter_api_ign")
     def test_repertoire_sortie_distinct(self, mock_api: MagicMock, repertoire_test: str, tmp_path: Any) -> None:
-        mock_api.return_value = reponse_api_mock([310.1, 311.1, 310.6, 310.3, 310.1])
+        mock_api.return_value = reponse_api_mock([315.0, 311.2, 310.3, 310.0, 315.0])
         dossier_sortie = tmp_path / "sortie"
 
         resultat = executer_controle_cli(repertoire_test, str(dossier_sortie))
         assert resultat["succes"] is True
         assert os.path.isfile(os.path.join(str(dossier_sortie), FICHIER_SORTIE))
+
+    @patch("controle_e203._requeter_api_ign")
+    def test_aucun_fichier_sans_anomalie(self, mock_api: MagicMock, repertoire_test: str) -> None:
+        mock_api.return_value = reponse_api_mock([310.1, 311.1, 310.6, 310.3, 310.1])
+
+        resultat = executer_controle_cli(repertoire_test)
+        assert resultat["nombre_anomalies"] == 0
+        assert resultat["sortie"] is None
+        assert not os.path.isfile(os.path.join(repertoire_test, FICHIER_SORTIE))
 
     def test_fichier_source_absent_retourne_erreur(self, tmp_path: Any) -> None:
         resultat = executer_controle_cli(str(tmp_path))
@@ -558,7 +567,8 @@ class TestCliVersions:
         assert resultat["nombre_anomalies"] == 0
         # L'API ne doit pas etre interrogee en l'absence de sommet a controler
         mock_api.assert_not_called()
-        assert os.path.isfile(os.path.join(str(tmp_path), FICHIER_SORTIE))
+        assert resultat["sortie"] is None
+        assert not os.path.isfile(os.path.join(str(tmp_path), FICHIER_SORTIE))
 
     @patch("controle_e203._requeter_api_ign")
     def test_v1_0_controle_toutes_entites(self, mock_api: MagicMock, tmp_path: Any) -> None:

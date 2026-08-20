@@ -5,7 +5,11 @@ Couvre l'analyseur d'en-tête, la conversion d'erreurs et la génération du rap
 
 import json
 from pathlib import Path
-from xml.etree.ElementTree import Element  # nosec B405
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (
+    Element,  # nosec B405
+)
 
 import pytest
 from controle_e113 import (
@@ -19,6 +23,10 @@ from controle_e113 import (
     _resoudre_chemin_sortie,
     _verifier_namespaces,
     generer_rapport,
+)
+from priorites_structuration import (
+    PRIORITE_BLOQUANT,
+    PRIORITE_MAJEUR,
 )
 from regles_entete import (
     CODE_CHAMP_HORS_ORDRE,
@@ -237,6 +245,39 @@ class TestAnalyseurSchemaLocation:
         assert len(cibles) == 1
         assert "main" in (cibles[0].message or "")
 
+    def test_schema_location_main_priorite_majeure(
+        self,
+        chemin_gml_entete_tmp,
+        membre_metadata_conforme,
+        membre_reseau_utilite_conforme,
+    ):
+        """Seule dérogation de E113 : la branche 'main' est majeure, pas bloquante.
+
+        Le message et le code d'erreur restent ceux d'origine : seule la
+        priorité change.
+        """
+        url_main = (
+            "http://StaR-Elec.com https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/main/RecoStaR/SchemaStarElecRecoStar.xsd"
+        )
+        chemin = chemin_gml_entete_tmp(
+            [membre_metadata_conforme, membre_reseau_utilite_conforme],
+            schema_location_override=url_main,
+        )
+        erreurs = AnalyseurEntete(chemin).analyser()
+        assert len(erreurs) == 1
+        (erreur,) = erreurs
+        assert erreur.priorite == PRIORITE_MAJEUR
+        assert erreur.message == (
+            "schemaLocation pointe vers la branche 'main' du XSD : "
+            "il doit cibler le tag de version (fragment '/raw/RecoStar-v1.1/')"
+        )
+        # La dérogation ne doit pas rendre le fichier conforme au sens du
+        # rapport : l'anomalie est bien comptée, elle ne déclasse simplement pas.
+        rapport = _construire_rapport(chemin, erreurs)
+        assert rapport["nb_erreurs"] == 1
+        assert rapport["nb_par_priorite"] == {PRIORITE_MAJEUR: 1}
+        assert rapport["conformite"] == "CONFORME"
+
     def test_schema_location_autre_version(
         self,
         chemin_gml_entete_tmp,
@@ -255,6 +296,75 @@ class TestAnalyseurSchemaLocation:
         )
         erreurs = AnalyseurEntete(chemin).analyser()
         assert any(e.code == CODE_SCHEMA_LOCATION_VERSION_INCORRECTE for e in erreurs)
+
+    def test_schema_location_autre_version_reste_bloquant(
+        self,
+        chemin_gml_entete_tmp,
+        membre_metadata_conforme,
+        membre_reseau_utilite_conforme,
+    ):
+        """Même code d'erreur que la branche 'main', mais priorité inchangée.
+
+        Ce cas partage CODE_SCHEMA_LOCATION_VERSION_INCORRECTE avec la branche
+        'main' : la dérogation ne doit surtout pas déborder sur lui.
+        """
+        url_v1_0 = (
+            "http://StaR-Elec.com "
+            "https://gitlab.com/StaR-Elec/StaR-Elec/-/raw/RecoStar-v1.0/"
+            "RecoStaR/SchemaStarElecRecoStar.xsd"
+        )
+        chemin = chemin_gml_entete_tmp(
+            [membre_metadata_conforme, membre_reseau_utilite_conforme],
+            schema_location_override=url_v1_0,
+        )
+        erreurs = AnalyseurEntete(chemin).analyser()
+        cibles = [e for e in erreurs if e.code == CODE_SCHEMA_LOCATION_VERSION_INCORRECTE]
+        assert len(cibles) == 1
+        assert cibles[0].priorite == PRIORITE_BLOQUANT
+        assert _construire_rapport(chemin, erreurs)["conformite"] == "NON_CONFORME"
+
+    def test_schema_location_absent_reste_bloquant(
+        self,
+        chemin_gml_entete_tmp,
+        membre_metadata_conforme,
+        membre_reseau_utilite_conforme,
+    ):
+        chemin = chemin_gml_entete_tmp(
+            [membre_metadata_conforme, membre_reseau_utilite_conforme],
+            inclure_schema_location=False,
+        )
+        erreurs = AnalyseurEntete(chemin).analyser()
+        cibles = [e for e in erreurs if e.code == CODE_SCHEMA_LOCATION_MANQUANT]
+        assert len(cibles) == 1
+        assert cibles[0].priorite == PRIORITE_BLOQUANT
+
+
+class TestPrioriteAutresErreursEntete:
+    """Toutes les autres anomalies d'en-tête conservent la priorité bloquante."""
+
+    def test_toutes_bloquantes_sur_entete_degrade(
+        self,
+        chemin_gml_entete_tmp,
+        membre_metadata_srs_invalide,
+    ):
+        """En-tête dégradé : URI fautive, objets manquants, SRS hors énumération.
+
+        Trois familles d'erreurs distinctes, toutes bloquantes : la dérogation
+        accordée à la branche 'main' ne doit déborder sur aucune d'elles.
+        """
+        chemin = chemin_gml_entete_tmp(
+            [membre_metadata_srs_invalide],
+            uri_recostar_override="http://Star-Elec.com",
+        )
+        erreurs = AnalyseurEntete(chemin).analyser()
+        codes = {e.code for e in erreurs}
+        assert {
+            CODE_NAMESPACE_URI_INCORRECTE,
+            CODE_OBJET_ENTETE_MANQUANT,
+            CODE_SRS_INVALIDE,
+        } <= codes
+        assert {e.priorite for e in erreurs} == {PRIORITE_BLOQUANT}
+        assert _construire_rapport(chemin, erreurs)["conformite"] == "NON_CONFORME"
 
 
 class TestAnalyseurMetadata:
@@ -428,6 +538,7 @@ class TestGenererRapport:
             "conformite",
             "nb_erreurs",
             "nb_par_severite",
+            "nb_par_priorite",
             "erreurs",
         }
         assert set(rapport.keys()) == attendus

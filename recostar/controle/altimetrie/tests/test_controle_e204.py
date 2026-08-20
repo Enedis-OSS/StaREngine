@@ -323,6 +323,10 @@ class TestConstruireGeojsonEcarts:
         assert "p2" in props["ids_entites"]
         assert CHAMP_TYPE_LEVE not in props
 
+    def test_priorite_est_mineure(self) -> None:
+        """Contrat explicite : un doublon spatial est signale sans declasser la famille."""
+        assert PRIORITE_ANOMALIE == "mineur"
+
     def test_structure_feature_v1_0_inclut_type_leve(self) -> None:
         anomalies = [
             {

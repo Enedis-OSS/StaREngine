@@ -4,7 +4,12 @@ Couvre l'extraction des valeurs GML, l'analyse des RPD et la génération du rap
 """
 
 import json
-from xml.etree.ElementTree import Element, SubElement  # nosec B405
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
+    Element,
+    SubElement,
+)
 
 from controle_e111 import (
     AnalyseurGML,
@@ -262,6 +267,7 @@ class TestGenererRapport:
             "conformite",
             "nb_erreurs",
             "nb_par_severite",
+            "nb_par_priorite",
             "erreurs",
         }
         assert attendus == set(contenu.keys())

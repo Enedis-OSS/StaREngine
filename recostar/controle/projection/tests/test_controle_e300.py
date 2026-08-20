@@ -338,13 +338,18 @@ class TestCli:
         assert resultat["fichiers_analyses"] == 1
         assert resultat["projection_attendue"] == "EPSG:3947"
 
-    def test_ecrit_fichier_sortie(self, repertoire_conforme: str) -> None:
+    def test_aucun_fichier_sans_anomalie(self, repertoire_conforme: str) -> None:
         resultat = executer_controle_cli(repertoire_conforme)
+        assert resultat["sortie"] is None
+        assert not os.path.isfile(os.path.join(repertoire_conforme, FICHIER_SORTIE))
+
+    def test_ecrit_fichier_sortie(self, repertoire_non_conforme: str) -> None:
+        resultat = executer_controle_cli(repertoire_non_conforme)
         assert os.path.isfile(resultat["sortie"])
         with open(resultat["sortie"], encoding="utf-8") as fichier:
             contenu = json.load(fichier)
         assert contenu["type"] == "FeatureCollection"
-        assert len(contenu["features"]) == 0
+        assert len(contenu["features"]) == 2
 
     def test_fichier_mauvaise_projection_signale(self, repertoire_non_conforme: str) -> None:
         resultat = executer_controle_cli(repertoire_non_conforme)
@@ -371,9 +376,9 @@ class TestCli:
         assert "crs" in contenu
         assert "3947" in contenu["crs"]["properties"]["name"]
 
-    def test_repertoire_sortie_distinct(self, repertoire_conforme: str, tmp_path: Any) -> None:
+    def test_repertoire_sortie_distinct(self, repertoire_non_conforme: str, tmp_path: Any) -> None:
         dossier_sortie = str(tmp_path / "sortie")
-        resultat = executer_controle_cli(repertoire_conforme, dossier_sortie)
+        resultat = executer_controle_cli(repertoire_non_conforme, dossier_sortie)
         assert resultat["succes"] is True
         assert os.path.isfile(os.path.join(dossier_sortie, FICHIER_SORTIE))
 

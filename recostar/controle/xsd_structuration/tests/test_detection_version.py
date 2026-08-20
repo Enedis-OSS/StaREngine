@@ -1,9 +1,10 @@
 """
 Tests de la détection automatique de version (detection_version).
 
-Couvre les cas nominaux (jetons canoniques v1.0, v1.1) et les cas limites
-(tag legacy v1.10 non reconnu, schemaLocation absent, jeton inconnu, XML
-malformé, fichier inexistant) qui doivent tous retourner None sans exception.
+Couvre les cas nominaux (jetons canoniques v1.0, v1.1), le repli par nom de
+branche (`main` → V1.0) et les cas limites (tag legacy v1.10 non reconnu,
+schemaLocation absent, jeton inconnu, branche inconnue, XML malformé, fichier
+inexistant) qui doivent tous retourner None sans exception.
 """
 
 from pathlib import Path
@@ -52,6 +53,30 @@ def test_detection_v1_0_non_confondue_avec_v1_1(chemin_gml_entete_tmp):
     """Le jeton v1.0 ne doit pas être confondu avec v1.1 (piège de sous-chaîne)."""
     chemin = chemin_gml_entete_tmp([], schema_location_override=_schema_location("RecoStar-v1.0"))
     assert detecter_version(chemin) == "1.0"
+
+
+# ---------------------------------------------------------------------------
+# Repli sur la branche : `main` désigne la V1.0
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("branche", ["main", "MAIN", "Main"])
+def test_detection_branche_main_vaut_v1_0(chemin_gml_entete_tmp, branche):
+    """Une URL sans tag pointant la branche `main` est rattachée à la V1.0."""
+    chemin = chemin_gml_entete_tmp([], schema_location_override=_schema_location(branche))
+    assert detecter_version(chemin) == "1.0"
+
+
+def test_detection_tag_prioritaire_sur_branche(chemin_gml_entete_tmp):
+    """Un tag de version explicite prime sur le repli par nom de branche."""
+    chemin = chemin_gml_entete_tmp([], schema_location_override=_schema_location("RecoStar-v1.1"))
+    assert detecter_version(chemin) == "1.1"
+
+
+def test_detection_branche_inconnue(chemin_gml_entete_tmp):
+    """Une branche non répertoriée (autre que `main`) reste indétectable."""
+    chemin = chemin_gml_entete_tmp([], schema_location_override=_schema_location("develop"))
+    assert detecter_version(chemin) is None
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,7 @@
 import os
 import sys
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
 from xml.etree import ElementTree as ET  # nosec B405
 
 import pytest

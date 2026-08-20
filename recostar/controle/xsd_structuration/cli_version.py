@@ -8,7 +8,8 @@ dupliquer cette logique (argument, détection automatique, repli) dans chaque
 script.
 
 Comportement de l'option `--version {auto,1.0,1.1}` :
-- `auto` (défaut) : la version est déduite du fichier GML via `detection_version`.
+- `auto` (défaut) : la version est déduite du fichier GML via `detection_version`
+  (tag `RecoStar-vX.Y` du schemaLocation, à défaut branche `main` → V1.0).
   Si la détection échoue (en-tête absent ou non reconnu), on se replie sur la
   version par défaut en signalant le repli, afin que les contrôles s'exécutent
   malgré tout (en particulier E113 qui doit pouvoir diagnostiquer l'en-tête).

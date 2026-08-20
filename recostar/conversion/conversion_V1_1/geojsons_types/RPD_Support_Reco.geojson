@@ -11,7 +11,6 @@
     {
       "type": "Feature",
       "properties": {
-        "fid": null,
         "ogr_pkid": "__REPERE_A_SUPPRIMER__",
         "id": null,
         "NatureSupport_href": null,

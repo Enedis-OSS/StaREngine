@@ -24,8 +24,10 @@ Usage (diagnostic) :
 import argparse
 import sys
 from pathlib import Path
-from xml.etree.ElementTree import (
-    Element,  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
+    Element,
 )
 
 import defusedxml.ElementTree as DefusedET  # type: ignore

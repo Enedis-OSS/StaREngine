@@ -14,7 +14,9 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from xml.etree import ElementTree as ET  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree import ElementTree as ET  # nosec B405
 
 # Namespaces XML/GML requis par le schéma RecoStaR
 NAMESPACE_GML = "http://www.opengis.net/gml/3.2"
@@ -55,6 +57,21 @@ REQUIRED_RPD_FILES = frozenset(
         "RPD_SupportModules_Reco",
         "RPD_Terre_Reco",
     ]
+)
+
+# Types d'entites constituant les noeuds du reseau : ce sont les seules entites
+# porteuses du champ cables_href materialisant la relation noeud <-> cable
+# (relation CableElectrique_NoeudReseau du modele RecoStaR).
+TYPES_NOEUDS_RESEAU: tuple[str, ...] = (
+    "RPD_CoupeCircuitAFusibles_Reco",
+    "RPD_JeuBarres_Reco",
+    "RPD_Jonction_Reco",
+    "RPD_ModuleRaccordement_Reco",
+    "RPD_OuvrageCollectifBranchement_Reco",
+    "RPD_PointDeComptage_Reco",
+    "RPD_PosteElectrique_Reco",
+    "RPD_SupportModules_Reco",
+    "RPD_Terre_Reco",
 )
 
 
@@ -148,13 +165,14 @@ class ConvertisseurGeometrie:
 class MappeurEntites:
     """Transforme les entités GeoJSON en éléments XML GML RecoStaR conformes au XSD"""
 
-    __slots__ = ("geo_converter", "srs", "seen_ids", "geom_counter")
+    __slots__ = ("geo_converter", "srs", "seen_ids", "geom_counter", "commentaire_vide")
 
-    def __init__(self, srs: str = DEFAULT_SRS):
+    def __init__(self, srs: str = DEFAULT_SRS, commentaire_vide: bool = False):
         self.geo_converter = ConvertisseurGeometrie(srs)
         self.srs = srs
         self.seen_ids = set()  # Vérification unicité des IDs en O(1)
         self.geom_counter = {}  # Compteur pour générer des IDs de géométrie uniques
+        self.commentaire_vide = commentaire_vide  # Émission d'un Commentaire vide si absent
 
     def _ajouter_propriete(self, parent: ET.Element, name: str, value, uom: str | None = None):
         """Ajoute une balise enfant avec valeur. Ignore si la valeur est None ou vide"""
@@ -175,6 +193,25 @@ class MappeurEntites:
             elem.text = str(value)
         else:
             elem.text = str(value)
+
+    def _ajouter_commentaire(self, parent: ET.Element, props: dict):
+        """Ajoute la balise Commentaire (évolution V1.1 du standard).
+
+        Le champ est optionnel dans le XSD (minOccurs="0") pour toutes les
+        entités héritant d'ElementReseauType, ainsi que pour
+        RPD_GeometrieSupplementaire_Reco qui le déclare en propre.
+
+        Trois cas :
+        - valeur renseignée dans le GeoJSON : balise portant le texte ;
+        - valeur absente et mode commentaire_vide actif : balise vide, prête
+          à être renseignée manuellement dans le GML produit ;
+        - valeur absente sans le mode : aucune balise (comportement historique).
+        """
+        valeur = props.get("Commentaire")
+        if valeur is not None and valeur != "":
+            self._ajouter_propriete(parent, "Commentaire", valeur)
+        elif self.commentaire_vide:
+            ET.SubElement(parent, f"{{{NAMESPACE_RECOSTAR}}}Commentaire")
 
     def _ajouter_reference(self, parent: ET.Element, name: str, href: str, multiline_reseau: bool = False):
         """Ajoute une référence xlink:href. Ignore si la référence href est vide"""
@@ -209,7 +246,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # Propriétés selon XSD (ordre alphabétique XSD)
         self._ajouter_propriete(element, "DomaineTension", props.get("DomaineTension"))
@@ -249,7 +286,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # FonctionCable (requis)
         self._ajouter_reference(element, "FonctionCable", props.get("FonctionCable_href"))
@@ -286,7 +323,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # Capacite (optionnel, entier)
         self._ajouter_propriete(element, "Capacite", props.get("Capacite"))
@@ -318,7 +355,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # Référence géométrie supplémentaire si présente
         geom_supp = props.get("geometriesupplementaire_href")
@@ -354,7 +391,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # Référence géométrie supplémentaire si présente
         geom_supp = props.get("geometriesupplementaire_href")
@@ -410,7 +447,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # 2. CoupeType? (optionnel)
         coupe_type = props.get("CoupeType")
@@ -470,6 +507,9 @@ class MappeurEntites:
         # ORDRE STRICT SELON XSD :
         # 1. reseau+ (hérité ElementReseauType)
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
+
+        # Commentaire (hérité d'ElementReseau, optionnel)
+        self._ajouter_commentaire(element, props)
 
         # 2. Geometrie (requis, gml:CurvePropertyType → LineString)
         if feature.get("geometry"):
@@ -656,7 +696,7 @@ class MappeurEntites:
         geometry = feature.get("geometry")
 
         # 1. Commentaire (optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # 2. Ligne3D (optionnel)
         # 2.a. Compatibilité descendante : propriété WKT explicite.
@@ -694,7 +734,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # ORDRE XSD STRICT : conteneur, DomaineTension, Geometrie?,
         # PrecisionXY?, PrecisionZ?, Statut, TypeJonction, angle?
@@ -744,7 +784,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # Référence conteneur (optionnel selon XSD - NoeudReseauType)
         conteneur_href = props.get("conteneur_href")
@@ -767,7 +807,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # Référence conteneur
         conteneur_href = props.get("conteneur_href")
@@ -855,7 +895,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # Géométrie LineString avec ID unique
         if feature.get("geometry"):
@@ -886,7 +926,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # CoupeType (optionnel)
         coupe_type = props.get("CoupeType")
@@ -931,7 +971,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # Référence géométrie supplémentaire si présente
         geom_supp = props.get("geometriesupplementaire_href")
@@ -967,7 +1007,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # Référence géométrie supplémentaire si présente
         geom_supp = props.get("geometriesupplementaire_href")
@@ -1003,7 +1043,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # ORDRE IMPORTANT: conteneur DOIT être AVANT les propriétés spécifiques(NoeudReseauType avant RPD_PosteElectrique_RecoType)
         # conteneur_href (hérité de NoeudReseauType)
@@ -1041,7 +1081,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # CoupeType (optionnel)
         coupe_type = props.get("CoupeType")
@@ -1092,7 +1132,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # conteneur_href (optionnel)
         conteneur_href = props.get("conteneur_href")
@@ -1115,7 +1155,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # conteneur_href (optionnel)
         conteneur_href = props.get("conteneur_href")
@@ -1138,7 +1178,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # conteneur_href (optionnel)
         conteneur_href = props.get("conteneur_href")
@@ -1176,7 +1216,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # 2. Commentaire (hérité ElementReseauType, optionnel V1.1)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # 3. conteneur (hérité NoeudReseauType, optionnel)
         conteneur_href = props.get("conteneur_href")
@@ -1208,7 +1248,7 @@ class MappeurEntites:
         self._ajouter_reference(element, "reseau", "Reseau", multiline_reseau=True)
 
         # Commentaire (hérité d'ElementReseau, optionnel)
-        self._ajouter_propriete(element, "Commentaire", props.get("Commentaire"))
+        self._ajouter_commentaire(element, props)
 
         # conteneur_href (optionnel)
         conteneur_href = props.get("conteneur_href")
@@ -1316,8 +1356,8 @@ class GenerateurGML:
 
     __slots__ = ("mapper", "srs", "metadata", "_metadata_chargees")
 
-    def __init__(self, srs: str = DEFAULT_SRS):
-        self.mapper = MappeurEntites(srs)
+    def __init__(self, srs: str = DEFAULT_SRS, commentaire_vide: bool = False):
+        self.mapper = MappeurEntites(srs, commentaire_vide=commentaire_vide)
         self.srs = srs
         self.metadata = {}
         self._metadata_chargees: dict = {}
@@ -1548,20 +1588,9 @@ class GenerateurGML:
             "RPD_PleineTerre_Reco",
             "RPD_ProtectionMecanique_Reco",
         )
-        noeud_types = (
-            "RPD_CoupeCircuitAFusibles_Reco",
-            "RPD_JeuBarres_Reco",
-            "RPD_Jonction_Reco",
-            "RPD_ModuleRaccordement_Reco",
-            "RPD_OuvrageCollectifBranchement_Reco",
-            "RPD_PointDeComptage_Reco",
-            "RPD_PosteElectrique_Reco",
-            "RPD_SupportModules_Reco",
-            "RPD_Terre_Reco",
-        )
         return {
             "cheminement_cable": self._extraire_relations_cable(features_by_type, chemin_types),
-            "cable_noeud": self._extraire_relations_cable_noeud(features_by_type, noeud_types),
+            "cable_noeud": self._extraire_relations_cable_noeud(features_by_type, TYPES_NOEUDS_RESEAU),
             "ouvrage_materiel": self._extraire_relations_ouvrage_materiel(features_by_type),
         }
 
@@ -2060,6 +2089,17 @@ def main():
         help="Reformate tous les gml:id en UUIDs prefixes par 'id' (ex: id7515b3fc-...).",
     )
 
+    parser.add_argument(
+        "--commentaire",
+        dest="commentaire_vide",
+        action="store_true",
+        default=False,
+        help=(
+            "Ajoute une balise Commentaire vide aux entites qui n'en possedent pas "
+            "(evolution V1.1 du standard). Les commentaires deja renseignes sont conserves."
+        ),
+    )
+
     args = parser.parse_args()
 
     # Validation du répertoire d'entrée
@@ -2092,7 +2132,7 @@ def main():
         print(f"Aucun CRS détecté, utilisation du défaut : {srs_final}")
 
     # Recréation du générateur avec le CRS résolu
-    generator = GenerateurGML(srs_final)
+    generator = GenerateurGML(srs_final, commentaire_vide=args.commentaire_vide)
     generator.definir_metadonnees(
         logiciel=args.logiciel,
         producteur=args.producteur,

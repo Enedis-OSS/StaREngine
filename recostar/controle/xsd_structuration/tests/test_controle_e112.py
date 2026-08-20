@@ -173,6 +173,7 @@ class TestErreurXsd:
         attendus = {
             "code",
             "severite",
+            "priorite",
             "ligne",
             "colonne",
             "xpath",
@@ -428,6 +429,7 @@ class TestGenererRapport:
             "conformite",
             "nb_erreurs",
             "nb_par_severite",
+            "nb_par_priorite",
             "erreurs",
         }
         assert set(rapport.keys()) == attendus

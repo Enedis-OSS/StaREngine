@@ -133,3 +133,60 @@ def test_resolution_auto_repli_si_indetectable(chemin_gml_entete_tmp):
     """Sans schemaLocation, le mode auto se replie sur la version par défaut."""
     chemin = chemin_gml_entete_tmp([], inclure_schema_location=False)
     assert resoudre_profil_cli(chemin, "auto").code == versions.VERSION_DEFAUT
+
+
+# ---------------------------------------------------------------------------
+# E114 : le champ portant le type de levé est renommé entre versions
+# ---------------------------------------------------------------------------
+
+
+def test_e114_type_leve_controle_seulement_en_v1_0(chemin_gml_tmp):
+    """`TypeLeve` (nom V1.0) est contrôlé en V1.0 ; ce champ n'existe plus en V1.1."""
+    membre = creer_feature_member_avec_valeurs(
+        "RPD_PointLeveOuvrageReseau_Reco",
+        "point_leve_001",
+        [("TypeLeve", "ValeurInvalide")],
+    )
+    chemin = chemin_gml_tmp([membre])
+
+    champs_v0 = {e.champ for e in AnalyseurValeurs(chemin, PROFIL_V1_0).analyser()}
+    champs_v1 = {e.champ for e in AnalyseurValeurs(chemin, PROFIL_V1_1).analyser()}
+
+    assert "TypeLeve" in champs_v0
+    assert "TypeLeve" not in champs_v1
+
+
+def test_e114_type_leve_valide_accepte_en_v1_0(chemin_gml_tmp):
+    """Une valeur de l'énumération LeveType reste acceptée en V1.0."""
+    membre = creer_feature_member_avec_valeurs(
+        "RPD_PointLeveOuvrageReseau_Reco",
+        "point_leve_002",
+        [("TypeLeve", "ChargeGeneratrice")],
+    )
+    chemin = chemin_gml_tmp([membre])
+    assert AnalyseurValeurs(chemin, PROFIL_V1_0).analyser() == []
+
+
+# ---------------------------------------------------------------------------
+# E110 : le type télécom n'existe qu'en V1.1
+# ---------------------------------------------------------------------------
+
+
+def test_e110_type_telecom_absent_du_profil_v1_0():
+    """RPD_CableTelecommunication_Reco est connu de la V1.1 seulement."""
+    assert "RPD_CableTelecommunication_Reco" in PROFIL_V1_1.noms_rpd
+    assert "RPD_CableTelecommunication_Reco" not in PROFIL_V1_0.noms_rpd
+
+
+def test_e110_geometrie_supplementaire_renommee_entre_versions(chemin_gml_tmp):
+    """Ligne2.5D/Surface2.5D (V1.0) deviennent Ligne3D/Surface3D (V1.1)."""
+    membre = creer_feature_member(
+        "RPD_GeometrieSupplementaire_Reco",
+        "geom_sup_001",
+        ["Ligne2.5D", "PrecisionXY", "PrecisionZ"],
+    )
+    chemin = chemin_gml_tmp([membre])
+
+    assert AnalyseurOrdre(chemin, PROFIL_V1_0).analyser() == []
+    types_v1 = {e.type_erreur for e in AnalyseurOrdre(chemin, PROFIL_V1_1).analyser()}
+    assert "ELEMENT_INATTENDU" in types_v1

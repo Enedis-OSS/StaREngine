@@ -4,8 +4,17 @@ Controle altimetrique des sommets des cables.
 Detecte les incoherences altimetriques locales le long des cables en analysant
 des fenetres glissantes de 4 sommets consecutifs. Pour chaque fenetre, l'ecart
 entre les 2 sommets centraux est compare a la tendance altimetrique definie par
-les sommets extremes. Si l'ecart residuel est superieur a 25 cm, les sommets
+les sommets extremes. Si l'ecart residuel est superieur a 40 cm, les sommets
 centraux sont signales en anomalie.
+
+Chaque cable est traite comme une entite unique, sur l'integralite de ses
+sommets :
+- LineString : analyse directe de ses sommets.
+- MultiLineString : les troncons sont recolles en une polyligne continue via
+  shapely.ops.linemerge (reordonnancement, orientation et deduplication des
+  noeuds partages, Z preserve), puis analyses comme un seul cable. Un cable dont
+  les troncons sont reellement disjoints (linemerge ne produit pas un LineString
+  unique) est ecarte : il ne forme pas un ensemble continu.
 
 Gestion des versions RecoStaR :
 - v1.0 : controle des couches RPD_CableElectrique_Reco et RPD_CableTerre_Reco.
@@ -23,7 +32,7 @@ Usage CLI :
     python controle_e202.py --repertoire <chemin> [--sortie <chemin>]
                             [--version {auto,1.0,1.1}]
 
-Sortie : ecarts_controle_alti_sommets.geojson
+Sortie : ecarts_e202_controle_alti_sommets.geojson
 """
 
 import argparse
@@ -41,7 +50,14 @@ from controle_e204 import (
     VERSIONS_SUPPORTEES,
     determiner_version_depuis_repertoire,
 )
-from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
+from utils_geojson import (
+    ProfilEcarts,
+    ecrire_geojson_si_anomalies,
+    lire_geojson,
+    normaliser_geojson_ecarts,
+    obtenir_id_feature,
+)
+from utils_geometrie import recoller_parties_lineaires
 
 # Couches de cables controlees, par fichier source
 FICHIER_CABLE_ELECTRIQUE: str = "RPD_CableElectrique_Reco.geojson"
@@ -66,13 +82,29 @@ VALEUR_STATUT_CONTROLE: str = "UnderCommissionning"
 FICHIER_AERIEN: str = "RPD_Aerien_Reco.geojson"
 
 # Nom du fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_controle_alti_sommets.geojson"
+FICHIER_SORTIE: str = "ecarts_e202_controle_alti_sommets.geojson"
+
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E202"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "ecart_altimetrique_sommet": ("L'écart altimétrique résiduel du sommet de câble dépasse le seuil autorisé."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_cable",),
+)
+
 
 # Seuil d'ecart altimetrique residuel au-dela duquel une anomalie est declaree (metres)
-SEUIL_ECART_ALTI: float = 0.25
+SEUIL_ECART_ALTI: float = 0.40
 
-# Niveau de priorite affecte aux sommets signales en anomalie
-PRIORITE_ANOMALIE: str = "bloquant"
+# Niveau de priorite affecte aux sommets signales en anomalie. Majeur : l'ecart
+# est signale et compte dans le rapport, mais ne declasse pas la famille en
+# « Non conforme » (cf. PRIORITES_DECLASSANTES dans synthese_controles).
+PRIORITE_ANOMALIE: str = "majeur"
 
 # Nombre de sommets ignores en debut et en fin de chaque cable
 NB_SOMMETS_IGNORES: int = 3
@@ -185,53 +217,51 @@ def _analyser_sommets_cable(
     return anomalies_par_indice
 
 
-def _normaliser_parties(
+def _reconstituer_sommets_cable(
     geometrie: dict[str, Any],
-) -> list[list[list[float]]] | None:
-    """Normalise une geometrie lineaire en liste de parties (lignes de sommets).
+) -> list[list[float]] | None:
+    """Retourne la sequence de sommets du cable traite comme entite unique.
 
-    Un LineString donne une unique partie ; un MultiLineString donne une partie
-    par sous-ligne. Chaque partie est analysee independamment afin qu'une fenetre
-    glissante ne franchisse jamais la discontinuite entre deux parties. Retourne
-    None si le type de geometrie n'est pas lineaire.
+    Le recollement est delegue au module commun (recoller_parties_lineaires),
+    qui reordonne les troncons, gere leur orientation et deduplique les noeuds
+    partages en preservant le Z. Ce controle exige un cable **d'un seul tenant** :
+    des troncons reellement disjoints donnent plusieurs polylignes, et le cable
+    est alors ecarte — il ne forme pas un ensemble continu. Une geometrie non
+    lineaire ne donne aucune partie et retourne donc None de la meme facon.
     """
-    type_geom = geometrie.get("type")
-    coordonnees = geometrie.get("coordinates") or []
-    if type_geom == "LineString":
-        return [coordonnees]
-    if type_geom == "MultiLineString":
-        return list(coordonnees)
-    return None
+    parties = recoller_parties_lineaires(geometrie)
+    return parties[0] if len(parties) == 1 else None
 
 
-def _partie_est_analysable(partie: list[list[float]]) -> bool:
-    """Indique si une partie possede assez de sommets 3D pour etre analysee.
+def _cable_est_analysable(sommets: list[list[float]]) -> bool:
+    """Indique si le cable possede assez de sommets 3D pour etre analyse.
 
-    Une partie trop courte (moins de TAILLE_FENETRE sommets) ou comportant un
-    sommet sans composante Z est ignoree, sans disqualifier les autres parties.
+    Un cable trop court (moins de TAILLE_FENETRE sommets) ou comportant un
+    sommet sans composante Z est ignore.
     """
-    if len(partie) < TAILLE_FENETRE:
+    if len(sommets) < TAILLE_FENETRE:
         return False
-    return all(len(point) >= 3 for point in partie)
+    return all(len(point) >= 3 for point in sommets)
 
 
 def _cable_est_eligible(
     cable: dict[str, Any],
     ids_exclus: set[str],
-) -> list[list[list[float]]] | None:
-    """Retourne les parties lineaires du cable s'il est eligible au controle.
+) -> list[list[float]] | None:
+    """Retourne les sommets du cable s'il est eligible au controle.
 
-    Un cable est eligible s'il possede une geometrie lineaire (LineString ou
-    MultiLineString) et si son identifiant n'est pas reference par un cheminement
-    aerien. La validite altimetrique de chaque partie est verifiee ensuite, lors
-    de l'analyse, par _partie_est_analysable.
+    Un cable est eligible si son identifiant n'est pas reference par un
+    cheminement aerien et si sa geometrie peut etre reconstituee en une polyligne
+    unique (LineString, ou MultiLineString connexe). La validite altimetrique
+    (nombre de sommets, presence de Z) est verifiee ensuite par
+    _cable_est_analysable.
     """
     identifiant = obtenir_id_feature(cable)
     if identifiant is None or identifiant in ids_exclus:
         return None
 
     geometrie = cable.get("geometry") or {}
-    return _normaliser_parties(geometrie)
+    return _reconstituer_sommets_cable(geometrie)
 
 
 def controler_altimetrie_sommets(
@@ -240,34 +270,29 @@ def controler_altimetrie_sommets(
 ) -> list[dict[str, Any]]:
     """Execute le controle altimetrique sur l'ensemble des cables eligibles.
 
-    Retourne une liste d'anomalies avec, pour chaque sommet signale, son
-    identifiant de cable, son indice global dans la geometrie, ses coordonnees et
-    l'ecart residuel associe. L'indice global est sequentiel sur l'ensemble des
-    sommets du cable, parties d'un MultiLineString concatenees dans l'ordre.
+    Chaque cable LineString est analyse comme une entite unique : la fenetre
+    glissante parcourt l'integralite de ses sommets. Retourne une liste
+    d'anomalies avec, pour chaque sommet signale, son identifiant de cable, son
+    indice sequentiel dans la geometrie, ses coordonnees et l'ecart residuel.
     """
     anomalies: list[dict[str, Any]] = []
 
     for cable in cables:
-        parties = _cable_est_eligible(cable, ids_cables_exclus)
-        if parties is None:
+        sommets = _cable_est_eligible(cable, ids_cables_exclus)
+        if sommets is None or not _cable_est_analysable(sommets):
             continue
 
         identifiant = obtenir_id_feature(cable)
-        # Decalage global maintenu pour numeroter les sommets a travers les parties
-        decalage = 0
-        for partie in parties:
-            if _partie_est_analysable(partie):
-                anomalies_partie = _analyser_sommets_cable(partie)
-                for indice, ecart in anomalies_partie.items():
-                    anomalies.append(
-                        {
-                            "id_cable": identifiant,
-                            "indice_sommet": decalage + indice,
-                            "coordonnees": partie[indice],
-                            "ecart_residuel": round(ecart, 4),
-                        }
-                    )
-            decalage += len(partie)
+        anomalies_cable = _analyser_sommets_cable(sommets)
+        for indice, ecart in anomalies_cable.items():
+            anomalies.append(
+                {
+                    "id_cable": identifiant,
+                    "indice_sommet": indice,
+                    "coordonnees": sommets[indice],
+                    "ecart_residuel": round(ecart, 4),
+                }
+            )
 
     return anomalies
 
@@ -303,7 +328,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 def charger_ids_cables_aeriens(repertoire: str) -> set[str]:
@@ -384,7 +409,7 @@ def executer_controle_cli(
 
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
@@ -393,7 +418,7 @@ def executer_controle_cli(
         "couches_controlees": couches_traitees,
         "nombre_anomalies": len(anomalies),
         "cables_exclus": len(ids_exclus),
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

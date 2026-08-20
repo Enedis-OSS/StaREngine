@@ -318,9 +318,15 @@ class TestCli:
         assert resultat["entites_analysees"] == 2
 
     def test_fichier_ecarts_cree(self, tmp_path: Any) -> None:
-        _ecrire_cible(str(tmp_path), [_feature_polygon("e1", 5.0)])
+        _ecrire_cible(str(tmp_path), [_feature_polygon("e1", 20.0)])  # 400 m² -> anomalie
         executer_controle_cli(str(tmp_path))
-        assert os.path.isfile(os.path.join(str(tmp_path), "ecarts_geometrie_supplementaire.geojson"))
+        assert os.path.isfile(os.path.join(str(tmp_path), "ecarts_e302_geometrie_supplementaire.geojson"))
+
+    def test_aucun_fichier_sans_anomalie(self, tmp_path: Any) -> None:
+        _ecrire_cible(str(tmp_path), [_feature_polygon("e1", 5.0)])  # 25 m² -> conforme
+        resultat = executer_controle_cli(str(tmp_path))
+        assert resultat["sortie"] is None
+        assert not os.path.isfile(os.path.join(str(tmp_path), "ecarts_e302_geometrie_supplementaire.geojson"))
 
     def test_rapport_contient_champs_obligatoires(self, tmp_path: Any) -> None:
         _ecrire_cible(str(tmp_path), [_feature_polygon("e1", 5.0)])
@@ -341,10 +347,10 @@ class TestCli:
         assert resultat["seuil_aire_m2"] == SEUIL_AIRE_M2
 
     def test_dossier_sortie_distinct(self, tmp_path: Any) -> None:
-        _ecrire_cible(str(tmp_path), [_feature_polygon("e1", 5.0)])
+        _ecrire_cible(str(tmp_path), [_feature_polygon("e1", 20.0)])  # 400 m² -> anomalie
         dossier_sortie = str(tmp_path / "sortie")
         executer_controle_cli(str(tmp_path), dossier_sortie)
-        assert os.path.isfile(os.path.join(dossier_sortie, "ecarts_geometrie_supplementaire.geojson"))
+        assert os.path.isfile(os.path.join(dossier_sortie, "ecarts_e302_geometrie_supplementaire.geojson"))
 
     def test_priorite_bloquant(self, tmp_path: Any) -> None:
         _ecrire_cible(str(tmp_path), [_feature_polygon("e1", 5.0)])

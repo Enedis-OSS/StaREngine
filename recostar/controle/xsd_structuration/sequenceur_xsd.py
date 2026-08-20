@@ -9,6 +9,8 @@ en intégrant les éléments hérités des types parents (via xs:extension).
 
 from typing import NamedTuple
 
+from priorites_structuration import PRIORITE_PAR_DEFAUT
+
 # ---------------------------------------------------------------------------
 # Modèle d'un slot de séquence XSD
 # ---------------------------------------------------------------------------
@@ -295,6 +297,10 @@ class ErreurOrdre:
     # avec les autres contrôles E1xx sans alourdir le constructeur.
     severite = "ERREUR"
 
+    # Priorité fixe : un objet RPD mal ordonné ou incomplet n'est pas conforme
+    # au schéma, aucune dérogation n'est prévue pour ce contrôle.
+    priorite = PRIORITE_PAR_DEFAUT
+
     def __init__(
         self,
         type_rpd: str,
@@ -319,6 +325,7 @@ class ErreurOrdre:
             "type_rpd": self.type_rpd,
             "gml_id": self.gml_id,
             "severite": self.severite,
+            "priorite": self.priorite,
             "type_erreur": self.type_erreur,
             "position": self.position,
             "element_trouve": self.element_trouve,

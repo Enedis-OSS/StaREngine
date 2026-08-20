@@ -32,8 +32,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-# Dimensions de la page (paysage pour le tableau large)
-LARGEUR_PAGE, HAUTEUR_PAGE = landscape(A4)
+# Marge du document (page en paysage, definie a la construction du PDF)
 MARGE = 2.0 * cm
 
 # Labels lisibles pour les types d'entites

@@ -329,6 +329,7 @@ class TestErreurMetier:
             "type_rpd",
             "gml_id",
             "severite",
+            "priorite",
             "regle",
             "champ_attendu",
             "contexte",

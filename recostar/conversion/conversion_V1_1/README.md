@@ -97,6 +97,20 @@ python geojson_to_recostar.py <dossier_geojson> <fichier_gml_sortie> [options]
 | `--responsable` | str | `"TEST"` | Responsable |
 | `--nom` | str | `"TEST"` | Nom du réseau |
 | `--srs` | str | auto-détecté | CRS (ex. `EPSG:2154`) |
+| `--id` | flag | désactivé | Reformate tous les `gml:id` en UUIDs préfixés `id` |
+| `--commentaire` | flag | désactivé | Ajoute une balise `Commentaire` vide aux entités qui n'en possèdent pas |
+
+#### Option `--commentaire`
+
+La V1.1 du standard introduit un champ `Commentaire` optionnel sur les objets. L'option produit la balise vide (`<RecoStaR:Commentaire />`) sur les entités dépourvues de commentaire, afin d'obtenir un GML dans lequel le champ est présent et prêt à être renseigné.
+
+- **Valeurs existantes préservées** : une entité déjà commentée conserve son texte, aucune balise n'est dupliquée.
+- **Portée** : les 21 types héritant d'`ElementReseauType` (balise placée juste après `reseau`, conformément à la séquence XSD) et `RPD_GeometrieSupplementaire_Reco` qui déclare `Commentaire` en propre (première balise de sa séquence).
+- **Types exclus** : `RPD_Materiel_Reco` (`MaterielType`) et `RPD_PointLeveOuvrageReseau_Reco` (`PointLevePCRSType`) ne dérivent pas d'`ElementReseauType` et n'acceptent pas ce champ dans le XSD.
+
+```bash
+python geojson_to_recostar.py ./geojsons ./sortie.gml --commentaire
+```
 
 ### Classes principales — GeoJSON vers GML
 

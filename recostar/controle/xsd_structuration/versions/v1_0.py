@@ -17,6 +17,9 @@ Les parties **métier** (règles conditionnelles E111, valeurs E114) et l'en-tê
   sur le support en V1.0).
 - L'énumération SRS plus courte de la V1.0 remplace celle de la V1.1 dans la
   règle de valeur E_SRS, sans dupliquer le reste du catalogue.
+- Le champ portant le type de levé s'appelle `TypeLeve` en V1.0 (il a disparu
+  en V1.1 au profit de `ChargeGeneratrice`) : la règle E_LEVE_TYPE est reciblée
+  sur ce nom, sinon elle resterait inerte.
 - Les séquences d'en-tête (Metadata, ReseauUtilite) sont identiques entre
   versions : elles sont réutilisées telles quelles.
 """
@@ -53,6 +56,13 @@ FRAGMENT_URL_XSD_V1_0: str = "/raw/RecoStar-v1.0/"
 # condition), sans objet en V1.0 où ces champs sont structurellement requis.
 _ID_REGLE_CABLE_EN_ATTENTE: str = "R001_CABLE_ELEC_EN_ATTENTE"
 
+# Identifiants des règles de valeur reciblées pour la V1.0.
+_ID_REGLE_SRS: str = "E_SRS"
+_ID_REGLE_LEVE_TYPE: str = "E_LEVE_TYPE"
+
+# Nom du champ portant le type de levé en V1.0 (renommé/supprimé en V1.1).
+_CHAMP_TYPE_LEVE_V1_0: str = "TypeLeve"
+
 
 # ---------------------------------------------------------------------------
 # Parties dérivées du XSD V1.0
@@ -77,7 +87,7 @@ def _regle_srs_v1_0() -> RegleValeur:
     """Règle de valeur SRS adaptée à l'énumération (plus courte) de la V1.0."""
     valeurs = SRS_AUTORISES_V1_0
     return RegleValeur(
-        identifiant="E_SRS",
+        identifiant=_ID_REGLE_SRS,
         types_rpd=frozenset({"Metadata"}),
         champ="SRS",
         # Closure sur l'énumération V1.0 : lookup O(1) sur frozenset.
@@ -89,14 +99,28 @@ def _regle_srs_v1_0() -> RegleValeur:
     )
 
 
+def _adapter_regle_v1_0(regle: RegleValeur) -> RegleValeur:
+    """Applique à une règle du catalogue V1.1 le delta V1.0 qui la concerne.
+
+    Seules deux règles diffèrent : l'énumération SRS (plus courte) et le nom du
+    champ portant le type de levé. Les autres règles sont retournées telles
+    quelles, sans copie du catalogue.
+    """
+    if regle.identifiant == _ID_REGLE_SRS:
+        return _regle_srs_v1_0()
+    if regle.identifiant == _ID_REGLE_LEVE_TYPE:
+        # NamedTuple._replace : recible le champ sans redéclarer l'évaluateur.
+        return regle._replace(champ=_CHAMP_TYPE_LEVE_V1_0, source="PDF §10.5.1 (V1.0)")
+    return regle
+
+
 def _catalogue_valeurs_v1_0() -> tuple[RegleValeur, ...]:
-    """Catalogue de valeurs V1.0 = catalogue V1.1, règle E_SRS remplacée.
+    """Catalogue de valeurs V1.0 = catalogue V1.1 avec les deltas V1.0 appliqués.
 
     Les règles ciblant des types absents de la V1.0 (télécom) restent
     inoffensives : elles ne sont jamais déclenchées faute d'objet correspondant.
     """
-    srs = _regle_srs_v1_0()
-    return tuple(srs if regle.identifiant == "E_SRS" else regle for regle in REGLES_VALEURS)
+    return tuple(_adapter_regle_v1_0(regle) for regle in REGLES_VALEURS)
 
 
 _REGLES_PAR_TYPE_V1_0 = indexer_regles_par_type(_regles_metier_v1_0())
@@ -123,4 +147,6 @@ PROFIL_V1_0: ProfilVersion = ProfilVersion(
     namespaces_attendus=NAMESPACES_ATTENDUS,
     fragment_url_xsd=FRAGMENT_URL_XSD_V1_0,
     chemin_xsd=CHEMIN_XSD_V1_0,
+    # La V1.0 est contrôlée par les codes E010 à E014.
+    prefixe_code="E01",
 )

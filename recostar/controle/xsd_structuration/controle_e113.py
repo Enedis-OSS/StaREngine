@@ -1,34 +1,41 @@
 #!/usr/bin/env python3
 """
-Outil de contrôle E113 : vérification des en-têtes et métadonnées
-d'un fichier GML RecoStaR conformément à la spécification V1.1.
+Outil de contrôle des en-têtes et métadonnées d'un fichier GML RecoStaR.
 
-Complémentaire de E110 (structure RPD) et E111 (règles métier RPD), E113
+Complémentaire des contrôles de structure RPD et de règles métier, ce contrôle
 encode les exigences PDF §[1] / §[3] / §9 qui portent sur l'enveloppe
 GML elle-même : namespaces, schemaLocation, présence et conformité du
 Metadata, présence d'au moins un ReseauUtilite, validité du SRS et
 unicité des gml:id sur l'ensemble du fichier.
 
+Le moteur est version-agnostique : namespaces attendus, fragment d'URL du
+schéma et énumération SRS proviennent du `ProfilVersion` fourni. Le code du
+contrôle suit la version contrôlée — **E113** en V1.1, **E013** en V1.0 (point
+d'entrée dédié `controle_e013.py`).
+
 Entrée  : Fichier GML RecoStaR à contrôler
 Sortie  : Fichier JSON listant les erreurs d'en-tête détectées
 
 Usage :
-    python controle_e113.py <fichier.gml> [--output-dir <repertoire>]
+    python controle_e113.py <fichier.gml> [--output-dir <repertoire>] \
+        [--version {auto,1.0,1.1}]
 """
 
-import argparse
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import cast
-from xml.etree.ElementTree import (  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
     Element,
     ElementTree,
 )
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
-from cli_version import ajouter_argument_version, resoudre_profil_cli
+from cli_controle import executer_controle
+from codes_controle import RANG_ENTETE, identite_controle
+from priorites_structuration import statut_conformite, ventiler_par_priorite
 from regles_entete import (
     CARDINALITES_ENTETE,
     CODE_CHAMP_HORS_ORDRE,
@@ -45,6 +52,7 @@ from regles_entete import (
     FRAGMENT_URL_MAIN,
     FRAGMENT_URL_XSD_V1_1,
     NAMESPACES_ATTENDUS,
+    PRIORITE_SCHEMA_LOCATION_BRANCHE_MAIN,
     SEQUENCES_ENTETE,
     SRS_AUTORISES,
     TYPES_ENTETE,
@@ -207,7 +215,9 @@ def _verifier_schema_location(
         ]
 
     # Le PDF §[1] interdit explicitement les pointeurs vers la branche 'main'
-    # : on traite ce cas avec un message dédié.
+    # : on traite ce cas avec un message dédié. Seule cette anomalie déroge à la
+    # priorité bloquante (cf. PRIORITE_SCHEMA_LOCATION_BRANCHE_MAIN) ; détection
+    # et message sont inchangés.
     if FRAGMENT_URL_MAIN in valeur:
         return [
             ErreurEntete(
@@ -219,6 +229,7 @@ def _verifier_schema_location(
                     "schemaLocation pointe vers la branche 'main' du XSD : "
                     f"il doit cibler le tag de version (fragment '{fragment_url}')"
                 ),
+                priorite=PRIORITE_SCHEMA_LOCATION_BRANCHE_MAIN,
             )
         ]
 
@@ -460,25 +471,38 @@ def _construire_rapport(
 ) -> dict:
     """Construit le dictionnaire de rapport E113 à sérialiser en JSON."""
     nb_erreurs = len(erreurs)
-    conformite = "CONFORME" if nb_erreurs == 0 else "NON_CONFORME"
+    # Ventilation par priorité : seul le schemaLocation pointant la branche
+    # 'main' est majeur, les autres écarts d'en-tête restent bloquants. La
+    # conformité ne retient que ces derniers.
+    par_priorite = ventiler_par_priorite(erreurs)
+    conformite = statut_conformite(par_priorite)
     return {
         "fichier": str(chemin_gml.resolve()),
         "date_controle": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "niveau": "Forte",
-        "type_controle": "E113_ENTETE",
+        "type_controle": identite_controle(version, RANG_ENTETE).type_controle,
         "version_controlee": version,
         "conformite": conformite,
         "nb_erreurs": nb_erreurs,
         # E113 ne produit que des erreurs : ventilation alignée sur E114.
         "nb_par_severite": {"ERREUR": nb_erreurs} if nb_erreurs else {},
+        "nb_par_priorite": par_priorite,
         "erreurs": [e.vers_dict() for e in erreurs],
     }
 
 
-def _resoudre_chemin_sortie(chemin_gml: Path, repertoire_sortie: Path | None) -> Path:
-    """Détermine le chemin du fichier JSON de sortie."""
+def _resoudre_chemin_sortie(
+    chemin_gml: Path,
+    repertoire_sortie: Path | None,
+    version: str = VERSION_DEFAUT,
+) -> Path:
+    """Détermine le chemin du fichier JSON de sortie.
+
+    Le suffixe porte le code du contrôle appliqué : `_controle_e113.json` en
+    V1.1, `_controle_e013.json` en V1.0.
+    """
     dossier = repertoire_sortie if repertoire_sortie else chemin_gml.parent
-    nom_json = chemin_gml.stem + "_controle_e113.json"
+    nom_json = chemin_gml.stem + identite_controle(version, RANG_ENTETE).suffixe_rapport
     return (dossier / nom_json).resolve()
 
 
@@ -489,7 +513,7 @@ def generer_rapport(
     version: str = VERSION_DEFAUT,
 ) -> Path:
     """Écrit le rapport au format JSON et retourne le chemin du fichier créé."""
-    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie)
+    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie, version)
     rapport = _construire_rapport(chemin_gml, erreurs, version)
 
     with open(chemin_sortie, "w", encoding="utf-8") as f:
@@ -501,79 +525,31 @@ def generer_rapport(
 # Point d'entrée CLI
 # ---------------------------------------------------------------------------
 
+DESCRIPTION_CLI: str = (
+    "Contrôle de l'en-tête d'un fichier GML RecoStaR : namespaces, "
+    "schemaLocation, Metadata, ReseauUtilite, SRS et unicité des gml:id "
+    "(E113 en V1.1, E013 en V1.0)."
+)
 
-def _construire_parseur() -> argparse.ArgumentParser:
-    """Construit et retourne le parseur d'arguments CLI."""
-    parseur = argparse.ArgumentParser(
-        description=(
-            "Contrôle E113 : vérifie les en-têtes (namespaces, schemaLocation, "
-            "Metadata, ReseauUtilite, SRS, unicité gml:id) d'un fichier GML "
-            "RecoStaR V1.1."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+# Libellé du décompte affiché en fin d'exécution.
+LIBELLE_ANOMALIES: str = "erreur(s) d'entete detectee(s)"
+
+
+def analyser_fichier(chemin_gml: Path, profil: ProfilVersion) -> list[ErreurEntete]:
+    """Analyse un GML avec le profil donné : adaptateur pour l'enveloppe CLI."""
+    return AnalyseurEntete(chemin_gml, profil).analyser()
+
+
+def main(version_imposee: str | None = None) -> None:
+    """Point d'entrée principal du contrôle d'en-tête."""
+    executer_controle(
+        rang=RANG_ENTETE,
+        description=DESCRIPTION_CLI,
+        analyser=analyser_fichier,
+        generer_rapport=generer_rapport,
+        libelle_anomalies=LIBELLE_ANOMALIES,
+        version_imposee=version_imposee,
     )
-    parseur.add_argument(
-        "fichier_gml",
-        type=Path,
-        help="Fichier GML RecoStaR à contrôler",
-    )
-    parseur.add_argument(
-        "--output-dir",
-        type=Path,
-        default=None,
-        metavar="REPERTOIRE",
-        help=("Répertoire de sortie pour le rapport JSON (par défaut : même répertoire que le fichier GML)"),
-    )
-    ajouter_argument_version(parseur)
-    return parseur
-
-
-def _valider_arguments(args: argparse.Namespace) -> None:
-    """Vérifie la validité des arguments CLI. Termine le programme si invalides."""
-    args.fichier_gml = args.fichier_gml.resolve()
-    if not args.fichier_gml.exists():
-        print(
-            f"Erreur : le fichier '{args.fichier_gml}' n'existe pas.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if not args.fichier_gml.is_file():
-        print(
-            f"Erreur : '{args.fichier_gml}' n'est pas un fichier.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if args.output_dir is not None:
-        args.output_dir = args.output_dir.resolve()
-        if not args.output_dir.is_dir():
-            print(
-                f"Erreur : le répertoire de sortie '{args.output_dir}' n'existe pas.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-
-def main() -> None:
-    """Point d'entrée principal du contrôle E113."""
-    parseur = _construire_parseur()
-    args = parseur.parse_args()
-    _valider_arguments(args)
-
-    profil = resoudre_profil_cli(args.fichier_gml, args.version)
-    print(f"Controle E113 du fichier : {args.fichier_gml}")
-    print(f"Version controlee        : {profil.code}")
-
-    analyseur = AnalyseurEntete(args.fichier_gml, profil)
-    erreurs = analyseur.analyser()
-
-    chemin_rapport = generer_rapport(args.fichier_gml, erreurs, args.output_dir, profil.code)
-
-    nb = len(erreurs)
-    statut = "CONFORME" if nb == 0 else f"{nb} erreur(s) d'entete detectee(s)"
-    print(f"Resultat : {statut}")
-    print(f"Rapport genere : {chemin_rapport}")
 
 
 if __name__ == "__main__":

@@ -3,7 +3,10 @@ Controle E205 : coherence points de leve / geometries supplementaires de coffret
 
 Pour chaque geometrie supplementaire referencee par un coffret eligible,
 verifie qu'au moins un point de leve (RPD_PointLeveOuvrageReseau_Reco) est
-en superposition geographique 2D avec la geometrie supplementaire.
+en superposition geographique 2D avec la geometrie supplementaire. La
+superposition est evaluee avec le predicat « dwithin » a
+TOLERANCE_SUPERPOSITION metres, afin d'admettre un point pose sur le contour
+du polygone malgre l'arrondi millimetrique de la donnee source.
 
 La selection des coffrets eligibles depend de la version RecoStaR :
 - v1.0 : tous les coffrets possedant un geometriesupplementaire_href.
@@ -24,7 +27,7 @@ Usage CLI :
     python controle_e205.py --repertoire <chemin> [--sortie <chemin>]
                             [--version {auto,1.0,1.1}]
 
-Sortie : ecarts_point_leve_geom_supp.geojson
+Sortie : ecarts_e205_point_leve_geom_supp.geojson
 """
 
 import argparse
@@ -43,7 +46,11 @@ from controle_e204 import (
 from shapely import STRtree, force_2d
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
-from utils_geojson import ecrire_geojson, lire_geojson
+from utils_geojson import ProfilEcarts, ecrire_geojson_si_anomalies, lire_geojson, normaliser_geojson_ecarts
+
+# Tolerance planimetrique partagee avec E209 : meme cause (arrondi millimetrique
+# de la posList GML), donc meme valeur, definie une seule fois.
+from utils_geometrie import TOLERANCE_SUPERPOSITION
 
 # Fichiers sources analyses par ce controle
 FICHIER_COFFRET: str = "RPD_Coffret_Reco.geojson"
@@ -51,7 +58,21 @@ FICHIER_GEOM_SUPP: str = "RPD_GeometrieSupplementaire_Reco.geojson"
 FICHIER_POINT_LEVE: str = "RPD_PointLeveOuvrageReseau_Reco.geojson"
 
 # Fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_point_leve_geom_supp.geojson"
+FICHIER_SORTIE: str = "ecarts_e205_point_leve_geom_supp.geojson"
+
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E205"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "point_leve_absent": ("La géométrie supplémentaire de coffret n'est superposée à aucun point levé."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_entite",),
+)
+
 
 # Niveau de priorite : bloquant
 PRIORITE_ANOMALIE: str = "bloquant"
@@ -129,7 +150,13 @@ def detecter_geomsupp_sans_point_leve(
 
     Seules les geometries dont l'id figure dans ids_lies sont verifiees.
     Pour chaque geometrie, interroge l'arbre spatial avec le predicat
-    'intersects' : l'absence de resultat constitue une anomalie E205.
+    'dwithin' a TOLERANCE_SUPERPOSITION metres : l'absence de resultat constitue
+    une anomalie E205.
+
+    La tolerance couvre le point de leve pose sur le CONTOUR de la geometrie
+    supplementaire, contact de mesure nulle que l'arrondi millimetrique de la
+    donnee source suffit a rompre. Un point interieur au polygone etait deja
+    detecte sans elle, ce test etant numeriquement robuste.
 
     La detection est planimetrique : les geometries sont forcees en 2D
     avant interrogation pour ignorer les ecarts altimetriques.
@@ -139,6 +166,7 @@ def detecter_geomsupp_sans_point_leve(
     """
     arbre = STRtree(points_leve)
     interroger = arbre.query  # alias local : evite le lookup global en boucle
+    tolerance = TOLERANCE_SUPERPOSITION  # idem : constante lue une seule fois
     anomalies: list[dict[str, Any]] = []
 
     for feat in features_geomsupp:
@@ -153,7 +181,7 @@ def detecter_geomsupp_sans_point_leve(
             geom_2d = force_2d(shape(geom_dict))
         except Exception:  # nosec B112
             continue
-        if len(interroger(geom_2d, predicate="intersects")) == 0:
+        if len(interroger(geom_2d, predicate="dwithin", distance=tolerance)) == 0:
             anomalies.append({"id_geomsupp": id_gs, "geometrie": geom_dict})
 
     return anomalies
@@ -168,12 +196,15 @@ def construire_geojson_ecarts(
     anomalies: list[dict[str, Any]],
     version: str,
     crs: dict[str, Any] | None = None,
+    profil: ProfilEcarts = PROFIL_ECARTS,
 ) -> dict[str, Any]:
     """Construit un FeatureCollection des geometries supplementaires sans point de leve.
 
     Chaque feature conserve la geometrie du polygone de la geometrie
     supplementaire pour permettre la localisation dans QGIS.
     Le champ crs est propage depuis les fichiers sources.
+    Le parametre `profil` permet a E207, qui reutilise ce moteur pour les
+    supports, de produire ses propres code de controle et description.
     """
     features: list[dict[str, Any]] = [
         {
@@ -191,7 +222,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, profil)
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +281,7 @@ def executer_controle_cli(
     dossier_sortie = str(Path(sortie).resolve()) if sortie is not None else repertoire_resolu
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
@@ -258,7 +289,7 @@ def executer_controle_cli(
         "version_detectee": version_effective,
         "nombre_anomalies": len(anomalies),
         "nombre_geomsupp_controlees": len(ids_lies),
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

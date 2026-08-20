@@ -5,13 +5,13 @@ et le moteur d'évaluation.
 """
 
 import pytest
+from priorites_structuration import PRIORITE_BLOQUANT, PRIORITE_MINEUR
 from regles_valeurs import (
     _INDEX_REGLES,
     CODE_FORMAT_INVALIDE,
     CODE_VALEUR_HORS_CODELIST,
     CODE_VALEUR_HORS_ENUMERATION,
     REGLES_VALEURS,
-    SEVERITE_AVERTISSEMENT,
     SEVERITE_ERREUR,
     TYPES_AVEC_REGLES,
     ErreurValeur,
@@ -45,10 +45,9 @@ class TestCatalogueStructure:
         assert len(identifiants) == len(set(identifiants))
 
     def test_severites_valides(self):
-        """Les sévérités sont parmi le set documenté."""
-        severites_attendues = {SEVERITE_ERREUR, SEVERITE_AVERTISSEMENT}
+        """E114 est mono-sévérité : toutes les règles sont en ERREUR."""
         for regle in REGLES_VALEURS:
-            assert regle.severite in severites_attendues
+            assert regle.severite == SEVERITE_ERREUR
 
 
 class TestIndexLookup:
@@ -155,21 +154,21 @@ class TestEvaluerValeurMateriauPolymorphisme:
 
 
 class TestEvaluerValeurCodeLists:
-    """CodeLists ouvertes — sévérité AVERTISSEMENT."""
+    """CodeLists documentées — sévérité ERREUR (politique RPD stricte)."""
 
     def test_type_coffret_valide_aucune_erreur(self):
         assert evaluer_valeur("RPD_Coffret_Reco", "TypeCoffret", "RMBT300", "cof_001") is None
 
-    def test_type_coffret_inconnu_emet_avertissement(self):
+    def test_type_coffret_inconnu_emet_erreur(self):
         erreur = evaluer_valeur("RPD_Coffret_Reco", "TypeCoffret", "ExtensionLocaleXYZ", "cof_001")
         assert erreur is not None
         assert erreur.code == CODE_VALEUR_HORS_CODELIST
-        assert erreur.severite == SEVERITE_AVERTISSEMENT
+        assert erreur.severite == SEVERITE_ERREUR
 
-    def test_classe_support_valeur_inconnue_avertissement(self):
+    def test_classe_support_valeur_inconnue_erreur(self):
         erreur = evaluer_valeur("RPD_Support_Reco", "Classe", "Inconnu123", "sup_001")
         assert erreur is not None
-        assert erreur.severite == SEVERITE_AVERTISSEMENT
+        assert erreur.severite == SEVERITE_ERREUR
 
 
 class TestEvaluerValeurThemeRpd:
@@ -185,6 +184,49 @@ class TestEvaluerValeurThemeRpd:
         assert erreur is not None
         assert erreur.severite == SEVERITE_ERREUR
         assert erreur.regle == "E_THEME_RPD"
+
+    def test_theme_elec_priorite_mineure(self):
+        """La détection et le message sont inchangés : seule la priorité l'est."""
+        erreur = evaluer_valeur("ReseauUtilite", "Theme", "ELEC", "reseau_001")
+        assert erreur is not None
+        assert erreur.priorite == PRIORITE_MINEUR
+        assert erreur.message == (
+            "Valeur 'ELEC' invalide pour ReseauUtilite/Theme. Valeurs autorisées : ELECTRD (source : PDF §9)."
+        )
+        assert erreur.vers_dict()["priorite"] == PRIORITE_MINEUR
+
+
+class TestPrioritesCatalogue:
+    """Une seule règle de valeur déroge à la priorité bloquante."""
+
+    def test_seule_regle_theme_est_mineure(self):
+        derogations = {r.identifiant: r.priorite for r in REGLES_VALEURS if r.priorite != PRIORITE_BLOQUANT}
+        assert derogations == {"E_THEME_RPD": PRIORITE_MINEUR}
+
+    def test_toutes_les_autres_restent_bloquantes(self):
+        autres = [r for r in REGLES_VALEURS if r.identifiant != "E_THEME_RPD"]
+        assert autres, "le catalogue doit contenir d'autres règles"
+        assert {r.priorite for r in autres} == {PRIORITE_BLOQUANT}
+
+    def test_regle_sans_priorite_declaree_est_bloquante(self):
+        """Le défaut du modèle : oublier la priorité ne relâche jamais le contrôle."""
+        regle = RegleValeur(
+            identifiant="X",
+            types_rpd=frozenset({"T"}),
+            champ="C",
+            evaluateur=lambda v: False,
+            code_erreur=CODE_VALEUR_HORS_ENUMERATION,
+            severite=SEVERITE_ERREUR,
+            source="src",
+            description="desc",
+        )
+        assert regle.priorite == PRIORITE_BLOQUANT
+
+    def test_erreur_herite_de_la_priorite_de_sa_regle(self):
+        """Une règle bloquante voisine produit bien une erreur bloquante."""
+        erreur = evaluer_valeur("RPD_CableElectrique_Reco", "DomaineTension", "MTA", "cable_001")
+        assert erreur is not None
+        assert erreur.priorite == PRIORITE_BLOQUANT
 
 
 class TestEvaluerValeurNumeroPRM:
@@ -271,6 +313,7 @@ class TestErreurValeur:
             "valeur_trouvee",
             "code",
             "severite",
+            "priorite",
             "regle",
             "source",
             "message",

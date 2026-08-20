@@ -1,35 +1,43 @@
 #!/usr/bin/env python3
 """
-Outil de contrôle E111 : vérification des règles métier RecoStaR RPD V1.1.
+Outil de contrôle des règles métier conditionnelles RecoStaR RPD.
 
-Complémentaire de E110 (validation structurelle XSD), E111 encode les
-obligations conditionnelles que le schéma XSD ne peut exprimer :
+Complémentaire du contrôle d'ordre de structure (validation structurelle XSD),
+ce contrôle encode les obligations conditionnelles que le schéma XSD ne peut
+exprimer :
 - champs requis selon le statut administratif (« En attente d'exploitation »)
 - champs requis selon le domaine de tension (BT)
 - champs requis selon la nature du support (Poteau vs Façade)
 
+Le moteur est version-agnostique : il applique le catalogue de règles du
+`ProfilVersion` fourni. Le code du contrôle suit la version contrôlée —
+**E111** en V1.1, **E011** en V1.0 (point d'entrée dédié `controle_e011.py`).
+
 Référence : PDF "Structuration des informations attendue pour les
-fichiers de récolement des ouvrages RécoStaR" V1.1.
+fichiers de récolement des ouvrages RécoStaR".
 
 Entrée  : Fichier GML RecoStaR à contrôler
 Sortie  : Fichier JSON listant les erreurs métier détectées
 
 Usage :
-    python controle_e111.py <fichier.gml> [--output-dir <repertoire>]
+    python controle_e111.py <fichier.gml> [--output-dir <repertoire>] \
+        [--version {auto,1.0,1.1}]
 """
 
-import argparse
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
-from xml.etree.ElementTree import (  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
     Element,
     ElementTree,
 )
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
-from cli_version import ajouter_argument_version, resoudre_profil_cli
+from cli_controle import executer_controle
+from codes_controle import RANG_METIER, identite_controle
+from priorites_structuration import statut_conformite, ventiler_par_priorite
 from regles_metier import ErreurMetier, evaluer_regles
 from versions import VERSION_DEFAUT, resoudre_profil
 from versions.profil import ProfilVersion
@@ -164,26 +172,37 @@ def _construire_rapport(
 ) -> dict:
     """Construit le dictionnaire de rapport métier à sérialiser en JSON."""
     nb_erreurs = len(erreurs)
-    # Conformité dérivée directement du nombre d'erreurs détectées.
-    conformite = "CONFORME" if nb_erreurs == 0 else "NON_CONFORME"
+    # Ventilation par priorité : E111 n'accorde aucune dérogation, toutes ses
+    # erreurs sont bloquantes. La conformité en découle sans cas particulier.
+    par_priorite = ventiler_par_priorite(erreurs)
+    conformite = statut_conformite(par_priorite)
     return {
         "fichier": str(chemin_gml.resolve()),
         "date_controle": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "niveau": "Forte",
-        "type_controle": "E111_METIER",
+        "type_controle": identite_controle(version, RANG_METIER).type_controle,
         "version_controlee": version,
         "conformite": conformite,
         "nb_erreurs": nb_erreurs,
         # E111 ne produit que des erreurs : ventilation alignée sur E114.
         "nb_par_severite": {"ERREUR": nb_erreurs} if nb_erreurs else {},
+        "nb_par_priorite": par_priorite,
         "erreurs": [e.vers_dict() for e in erreurs],
     }
 
 
-def _resoudre_chemin_sortie(chemin_gml: Path, repertoire_sortie: Path | None) -> Path:
-    """Détermine le chemin du fichier JSON de sortie."""
+def _resoudre_chemin_sortie(
+    chemin_gml: Path,
+    repertoire_sortie: Path | None,
+    version: str = VERSION_DEFAUT,
+) -> Path:
+    """Détermine le chemin du fichier JSON de sortie.
+
+    Le suffixe porte le code du contrôle appliqué : `_controle_e111.json` en
+    V1.1, `_controle_e011.json` en V1.0.
+    """
     dossier = repertoire_sortie if repertoire_sortie else chemin_gml.parent
-    nom_json = chemin_gml.stem + "_controle_e111.json"
+    nom_json = chemin_gml.stem + identite_controle(version, RANG_METIER).suffixe_rapport
     return (dossier / nom_json).resolve()
 
 
@@ -194,7 +213,7 @@ def generer_rapport(
     version: str = VERSION_DEFAUT,
 ) -> Path:
     """Écrit le rapport au format JSON et retourne le chemin du fichier créé."""
-    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie)
+    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie, version)
     rapport = _construire_rapport(chemin_gml, erreurs, version)
 
     with open(chemin_sortie, "w", encoding="utf-8") as f:
@@ -206,75 +225,29 @@ def generer_rapport(
 # Point d'entrée CLI
 # ---------------------------------------------------------------------------
 
+DESCRIPTION_CLI: str = (
+    "Contrôle des règles métier conditionnelles RecoStaR RPD sur un fichier GML (E111 en V1.1, E011 en V1.0)."
+)
 
-def _construire_parseur() -> argparse.ArgumentParser:
-    """Construit et retourne le parseur d'arguments CLI."""
-    parseur = argparse.ArgumentParser(
-        description=("Contrôle E111 : vérifie les règles métier conditionnelles RecoStaR RPD V1.1 sur un fichier GML."),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+# Libellé du décompte affiché en fin d'exécution.
+LIBELLE_ANOMALIES: str = "erreur(s) metier detectee(s)"
+
+
+def analyser_fichier(chemin_gml: Path, profil: ProfilVersion) -> list[ErreurMetier]:
+    """Analyse un GML avec le profil donné : adaptateur pour l'enveloppe CLI."""
+    return AnalyseurGML(chemin_gml, profil).analyser()
+
+
+def main(version_imposee: str | None = None) -> None:
+    """Point d'entrée principal du contrôle des règles métier."""
+    executer_controle(
+        rang=RANG_METIER,
+        description=DESCRIPTION_CLI,
+        analyser=analyser_fichier,
+        generer_rapport=generer_rapport,
+        libelle_anomalies=LIBELLE_ANOMALIES,
+        version_imposee=version_imposee,
     )
-    parseur.add_argument(
-        "fichier_gml",
-        type=Path,
-        help="Fichier GML RecoStaR à contrôler",
-    )
-    parseur.add_argument(
-        "--output-dir",
-        type=Path,
-        default=None,
-        metavar="REPERTOIRE",
-        help=("Répertoire de sortie pour le rapport JSON (par défaut : même répertoire que le fichier GML)"),
-    )
-    ajouter_argument_version(parseur)
-    return parseur
-
-
-def _valider_arguments(args: argparse.Namespace) -> None:
-    """Vérifie la validité des arguments CLI. Termine le programme si invalides."""
-    args.fichier_gml = args.fichier_gml.resolve()
-    if not args.fichier_gml.exists():
-        print(
-            f"Erreur : le fichier '{args.fichier_gml}' n'existe pas.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if not args.fichier_gml.is_file():
-        print(
-            f"Erreur : '{args.fichier_gml}' n'est pas un fichier.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if args.output_dir is not None:
-        args.output_dir = args.output_dir.resolve()
-        if not args.output_dir.is_dir():
-            print(
-                f"Erreur : le répertoire de sortie '{args.output_dir}' n'existe pas.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-
-def main() -> None:
-    """Point d'entrée principal du contrôle E111."""
-    parseur = _construire_parseur()
-    args = parseur.parse_args()
-    _valider_arguments(args)
-
-    profil = resoudre_profil_cli(args.fichier_gml, args.version)
-    print(f"Controle E111 du fichier : {args.fichier_gml}")
-    print(f"Version controlee        : {profil.code}")
-
-    analyseur = AnalyseurGML(args.fichier_gml, profil)
-    erreurs = analyseur.analyser()
-
-    chemin_rapport = generer_rapport(args.fichier_gml, erreurs, args.output_dir, profil.code)
-
-    nb = len(erreurs)
-    statut = "CONFORME" if nb == 0 else f"{nb} erreur(s) metier detectee(s)"
-    print(f"Resultat : {statut}")
-    print(f"Rapport genere : {chemin_rapport}")
 
 
 if __name__ == "__main__":

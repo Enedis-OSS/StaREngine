@@ -7,18 +7,54 @@ directement exploitable dans QGIS (le `crs` du fichier source est propagé).
 
 Les fichiers d'écarts (`ecarts_*`) sont automatiquement exclus des analyses.
 
+### Nom des fichiers d'écarts
+
+Chaque fichier d'écarts porte le **code du contrôle** qui l'a produit :
+
+```
+ecarts_<code>_<objet>.geojson        ex. ecarts_e600_materiel_jonction_non_reference.geojson
+```
+
+Le code est inséré **après** le préfixe `ecarts_`, et non devant : c'est ce
+préfixe qui fait exclure le fichier des analyses par `lister_fichiers_geojson`.
+Un nom commençant par le code (`e600_ecarts_…`) ferait réingérer les fichiers
+d'écarts comme couches d'entrée par les contrôles qui balaient tout le
+répertoire (E204, E209, E604, E609, E610).
+
+Le fichier d'écarts n'est produit **que si au moins une anomalie est détectée**.
+En l'absence d'anomalie, aucun fichier n'est écrit (le champ `sortie` du rapport
+vaut `null`) et un éventuel fichier issu d'une exécution précédente est supprimé.
+
+### Socle commun des propriétés d'écarts
+
+Quel que soit le contrôle, chaque `feature` du fichier d'écarts porte en tête les
+cinq mêmes propriétés, dans cet ordre :
+
+| Propriété | Description |
+|-----------|-------------|
+| `code_controle` | Code du contrôle ayant produit l'écart (`E200`, `E401`…) |
+| `priorite` | Niveau de priorité de l'anomalie (`bloquant`, `mineur`, `information`) |
+| `id_entite` | Identifiant de l'entité portant la géométrie de la feature |
+| `type_anomalie` | Code technique de l'anomalie, stable et exploitable en filtre |
+| `description` | Phrase décrivant l'anomalie, lisible dans QGIS |
+
+Les propriétés métier spécifiques à chaque contrôle sont conservées à la suite du
+socle. La normalisation est assurée par `normaliser_geojson_ecarts()` à partir du
+`ProfilEcarts` déclaré en tête de chaque script de contrôle.
+
 ## Vue d'ensemble
 
 | Code | Script | Cible | Condition d'anomalie | Priorité | Fichier de sortie |
 |------|--------|-------|----------------------|----------|-------------------|
-| E400 | `controle_e400.py` | Fourreau, PleineTerre, Aerien, ProtectionMecanique | chevauchement géométrique linéaire | `bloquant` | `ecarts_superpositions_cheminements.geojson` |
-| E401 | `controle_e401.py` | CableElectrique, CableTerre, CableTelecommunication, Fourreau, PleineTerre, Aerien, ProtectionMecanique | intégrité des relations `cables_href` | `bloquant` | `ecarts_integrite_cables_cheminements.geojson` |
-| E402 | `controle_e402.py` | CableTerre, Aerien, ProtectionMecanique | câble de terre associé à un cheminement incompatible | `bloquant` | `ecarts_cable_terre_cheminement_incompatible.geojson` |
-| E403 | `controle_e403.py` | CableElectrique, Aerien, Fourreau, PleineTerre, ProtectionMecanique | câble électrique simultanément aérien et souterrain | `bloquant` | `ecarts_cable_electrique_implantation_incoherente.geojson` |
-| E404 | `controle_e404.py` | PointLeveOuvrageReseau, Fourreau, PleineTerre, ProtectionMecanique | cheminement souterrain sans profondeur à une charge génératrice | `bloquant` | `ecarts_charge_generatrice_profondeur_absente.geojson` |
+| E400 | `controle_e400.py` | Fourreau, PleineTerre, Aerien, ProtectionMecanique | chevauchement géométrique linéaire | `bloquant` | `ecarts_e400_superpositions_cheminements.geojson` |
+| E401 | `controle_e401.py` | CableElectrique, CableTerre, CableTelecommunication, Fourreau, PleineTerre, Aerien, ProtectionMecanique | intégrité des relations `cables_href` | `bloquant` | `ecarts_e401_integrite_cables_cheminements.geojson` |
+| E402 | `controle_e402.py` | CableTerre, Aerien, ProtectionMecanique | câble de terre associé à un cheminement incompatible | `bloquant` | `ecarts_e402_cable_terre_cheminement_incompatible.geojson` |
+| E403 | `controle_e403.py` | CableElectrique, Aerien, Fourreau, PleineTerre, ProtectionMecanique | câble électrique simultanément aérien et souterrain | `bloquant` | `ecarts_e403_cable_electrique_implantation_incoherente.geojson` |
+| E404 | `controle_e404.py` | PointLeveOuvrageReseau, Fourreau, PleineTerre, ProtectionMecanique | cheminement souterrain sans profondeur à une charge génératrice | `majeur` | `ecarts_e404_charge_generatrice_profondeur_absente.geojson` |
 
 Les fonctions utilitaires communes (lecture/écriture GeoJSON, extraction
-d'identifiant) sont centralisées dans `utils_geojson.py`.
+d'identifiant) sont centralisées dans `utils_geojson.py`. L'orchestration de
+l'ensemble est assurée par `pipeline_controle_cheminement.py`.
 
 ### Usage CLI
 
@@ -28,6 +64,9 @@ python controle_e401.py --repertoire <chemin> [--sortie <chemin>]
 python controle_e402.py --repertoire <chemin> [--sortie <chemin>]
 python controle_e403.py --repertoire <chemin> [--sortie <chemin>]
 python controle_e404.py --repertoire <chemin> [--sortie <chemin>] [--version {auto,1.0,1.1}]
+
+# Enchaînement de tous les contrôles ci-dessus :
+python pipeline_controle_cheminement.py --repertoire <chemin> [--sortie <chemin>]
 ```
 
 - `--repertoire` : répertoire contenant les fichiers GeoJSON.
@@ -94,7 +133,7 @@ le contrôle altimétrique à d'autres modules.
 - Entités dont la longueur est inférieure à 0,01 m (dégénérées).
 - Géométries invalides au sens GEOS.
 
-**Sortie — `ecarts_superpositions_cheminements.geojson` :** un `Feature` par paire
+**Sortie — `ecarts_e400_superpositions_cheminements.geojson` :** un `Feature` par paire
 de cheminements en superposition. La **géométrie de la feature est la portion de
 chevauchement calculée**, ce qui permet une localisation précise dans QGIS. Propriétés :
 
@@ -147,7 +186,7 @@ La présence de chacun de ces fichiers est optionnelle : le contrôle s'exécute
 
 Le champ `cables_href` est une chaîne de caractères contenant un ou plusieurs identifiants câble séparés par des virgules (ex. `"idabc123"` ou `"idabc123,iddef456"`). Il correspond au champ `id` des entités câble (format `"id"` + UUID v4). La valeur `null` ou l'absence du champ signifient que le cheminement n'est associé à aucun câble.
 
-**Sortie — `ecarts_integrite_cables_cheminements.geojson` :** un `Feature` par anomalie détectée. La **géométrie de la feature est celle de l'entité concernée** (câble pour `cable_non_reference`, cheminement pour les autres types), ce qui permet la localisation dans QGIS. Propriétés communes :
+**Sortie — `ecarts_e401_integrite_cables_cheminements.geojson` :** un `Feature` par anomalie détectée. La **géométrie de la feature est celle de l'entité concernée** (câble pour `cable_non_reference`, cheminement pour les autres types), ce qui permet la localisation dans QGIS. Propriétés communes :
 
 - `type_anomalie` : `cable_non_reference`, `reference_orpheline`, `cheminement_sans_cable` ou `cheminement_multi_cables`
 - `priorite` = `bloquant`
@@ -203,7 +242,7 @@ sans retourner d'erreur.
 Une anomalie est produite par **couple (cheminement, câble de terre)** : un
 cheminement référençant deux câbles de terre génère deux anomalies distinctes.
 
-**Sortie — `ecarts_cable_terre_cheminement_incompatible.geojson` :** un `Feature` par
+**Sortie — `ecarts_e402_cable_terre_cheminement_incompatible.geojson` :** un `Feature` par
 anomalie. La **géométrie de la feature est celle du cheminement incompatible**, ce
 qui permet la localisation dans QGIS. Propriétés :
 
@@ -258,7 +297,7 @@ sans retourner d'erreur.
 La catégorisation aérien/souterrain se fait par comparaison du nom de fichier en O(1),
 sans produit cartésien ni double boucle sur les paires de cheminements.
 
-**Sortie — `ecarts_cable_electrique_implantation_incoherente.geojson` :** un `Feature`
+**Sortie — `ecarts_e403_cable_electrique_implantation_incoherente.geojson` :** un `Feature`
 par câble électrique en situation incohérente. La **géométrie de la feature est celle
 du câble électrique**, ce qui permet la localisation dans QGIS. Propriétés :
 
@@ -340,13 +379,13 @@ flottante entre les géométries).
 5. Si au moins un cheminement trouvé possède `ProfondeurMinNonReg` → conforme.
 6. Si aucun cheminement trouvé ne possède `ProfondeurMinNonReg` → anomalie.
 
-**Sortie — `ecarts_charge_generatrice_profondeur_absente.geojson` :** un `Feature`
+**Sortie — `ecarts_e404_charge_generatrice_profondeur_absente.geojson` :** un `Feature`
 par point de charge génératrice en situation d'anomalie. La **géométrie de la
 feature est celle du point de charge génératrice**, ce qui permet la localisation
 directe dans QGIS. Propriétés :
 
 - `type_anomalie` = `cheminement_sans_profondeur_charge_generatrice`
-- `priorite` = `bloquant`
+- `priorite` = `majeur`
 - `version` : version Recostar appliquée (`1.0` ou `1.1`)
 - `id_point` : identifiant du point de charge génératrice, ou `null` si absent
 - `nb_cheminements_touches` : nombre de cheminements superposés au point
@@ -361,3 +400,20 @@ directe dans QGIS. Propriétés :
 
 - Répertoire introuvable.
 - Fichier `RPD_PointLeveOuvrageReseau_Reco.geojson` introuvable.
+
+---
+
+## Pipeline (`pipeline_controle_cheminement.py`)
+
+Exécute séquentiellement les 5 contrôles dans l'ordre E400 → E401 → E402 → E403 → E404.
+Un échec d'un contrôle (par exemple un fichier source absent) n'interrompt pas
+l'exécution des suivants. E404 déduit seul la version RecoStaR (mode `auto`),
+comme en exécution unitaire.
+
+**Rapport JSON :**
+
+- `succes` ;
+- `controles` : dictionnaire des rapports individuels, indexés par
+  `controle_e400`, `controle_e401`, `controle_e402`, `controle_e403`,
+  `controle_e404` (chacun contenant son champ `priorite`) ;
+- `nombre_anomalies_total` : somme des anomalies des contrôles réussis.

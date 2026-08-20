@@ -10,7 +10,7 @@ Usage CLI :
     python controle_e204.py --repertoire <chemin> [--sortie <chemin>]
                             [--version {auto,1.0,1.1}]
 
-Sortie : ecarts_doublons_spatiaux.geojson
+Sortie : ecarts_e204_doublons_spatiaux.geojson
 """
 
 import argparse
@@ -22,16 +22,38 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
+from utils_geojson import (
+    ProfilEcarts,
+    ecrire_geojson_si_anomalies,
+    lire_geojson,
+    normaliser_geojson_ecarts,
+    obtenir_id_feature,
+)
 
 # Fichier source analyse par ce controle
 FICHIER_SOURCE: str = "RPD_PointLeveOuvrageReseau_Reco.geojson"
 
 # Fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_doublons_spatiaux.geojson"
+FICHIER_SORTIE: str = "ecarts_e204_doublons_spatiaux.geojson"
 
-# Niveau de priorite : non bloquant
-PRIORITE_ANOMALIE: str = "information"
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E204"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "doublons_spatiaux": ("Plusieurs points levés partagent exactement les mêmes coordonnées."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("ids_entites",),
+)
+
+
+# Niveau de priorite : mineur — l'ecart est signale et compte dans le rapport,
+# mais ne declasse pas la famille (cf. PRIORITES_DECLASSANTES dans
+# synthese_controles).
+PRIORITE_ANOMALIE: str = "mineur"
 
 # Gestion des versions RecoStaR (meme convention que xsd_structuration)
 VERSION_DEFAUT: str = "1.1"
@@ -263,7 +285,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +322,7 @@ def executer_controle_cli(
     dossier_sortie = str(Path(sortie).resolve()) if sortie is not None else repertoire_resolu
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     nb_points_en_doublon = sum(a["nb_points"] for a in anomalies)
 
@@ -310,7 +332,7 @@ def executer_controle_cli(
         "version_detectee": version_effective,
         "nombre_anomalies": len(anomalies),
         "nombre_points_en_doublon": nb_points_en_doublon,
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

@@ -1,3 +1,4 @@
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
 from xml.etree import ElementTree as ET  # nosec B405
 
 import pytest
@@ -2553,3 +2554,164 @@ class TestMapperGalerie:
         """Vérifie que la méthode mapper_galerie est disponible sur le mapper."""
         assert hasattr(gml_generator.mapper, "mapper_galerie")
         assert callable(gml_generator.mapper.mapper_galerie)
+
+    def test_mapper_galerie_commentaire_ecrit(self, feature_mapper):
+        """RPD_Galerie_RecoType hérite d'ElementReseauType : Commentaire doit être écrit."""
+        feature = self._feature_galerie()
+        feature["properties"]["Commentaire"] = "Galerie technique sous voirie"
+        elem = feature_mapper.mapper_galerie(feature, "galerie_001")
+
+        commentaire_elem = elem.find(f"{{{NAMESPACE_RECOSTAR}}}Commentaire")
+        assert commentaire_elem is not None
+        assert commentaire_elem.text == "Galerie technique sous voirie"
+
+    def test_mapper_galerie_commentaire_ordre_xsd(self, feature_mapper):
+        """Commentaire doit s'intercaler entre reseau et Geometrie (séquence ElementReseauType)."""
+        feature = self._feature_galerie()
+        feature["properties"]["Commentaire"] = "note"
+        elem = feature_mapper.mapper_galerie(feature, "galerie_001")
+
+        tags = [child.tag.split("}")[1] for child in elem]
+        assert tags[:3] == ["reseau", "Commentaire", "Geometrie"]
+
+    def test_mapper_galerie_commentaire_absent_si_non_fourni(self, feature_mapper):
+        """Sans Commentaire et sans l'option dédiée, aucune balise n'est produite."""
+        feature = self._feature_galerie()
+        elem = feature_mapper.mapper_galerie(feature, "galerie_001")
+        assert elem.find(f"{{{NAMESPACE_RECOSTAR}}}Commentaire") is None
+
+
+# ============================================================
+# Tests de l'option --commentaire (balise Commentaire vide)
+# ============================================================
+
+
+class TestOptionCommentaireVide:
+    """Tests pour le mode commentaire_vide (option CLI --commentaire).
+
+    Le champ Commentaire est une évolution V1.1 du standard : optionnel sur
+    toutes les entités héritant d'ElementReseauType et sur
+    RPD_GeometrieSupplementaire_Reco. L'option produit la balise vide
+    lorsqu'aucune valeur n'est fournie, sans jamais écraser une valeur existante.
+    """
+
+    NS_R = f"{{{NAMESPACE_RECOSTAR}}}"
+
+    @pytest.fixture
+    def mappeur_vide(self):
+        """MappeurEntites avec émission des commentaires vides activée."""
+        return MappeurEntites(DEFAULT_SRS, commentaire_vide=True)
+
+    @staticmethod
+    def _feature_coffret(commentaire=None) -> dict:
+        """Crée une feature GeoJSON Coffret, avec ou sans Commentaire."""
+        props = {
+            "ogr_pkid": "coffret_vide_001",
+            "TypeCoffret_href": "S22",
+            "FonctionCoffret_href": "Distribution",
+            "PrecisionXY": "A",
+            "PrecisionZ": "A",
+            "Statut": "Functional",
+        }
+        if commentaire is not None:
+            props["Commentaire"] = commentaire
+        return {
+            "type": "Feature",
+            "properties": props,
+            "geometry": {"type": "Point", "coordinates": [600000.0, 6800000.0, 100.0]},
+        }
+
+    def test_defaut_desactive(self, feature_mapper):
+        """Par défaut le mode est inactif : comportement historique préservé."""
+        assert feature_mapper.commentaire_vide is False
+        elem = feature_mapper.mapper_coffret(self._feature_coffret(), "coffret_001")
+        assert elem.find(f"{self.NS_R}Commentaire") is None
+
+    def test_balise_vide_produite_si_absente(self, mappeur_vide):
+        """Avec l'option, une balise Commentaire vide est ajoutée quand la valeur manque."""
+        elem = mappeur_vide.mapper_coffret(self._feature_coffret(), "coffret_001")
+
+        commentaire_elem = elem.find(f"{self.NS_R}Commentaire")
+        assert commentaire_elem is not None
+        assert not commentaire_elem.text
+        assert len(commentaire_elem) == 0
+
+    def test_balise_vide_produite_si_valeur_none(self, mappeur_vide):
+        """Une propriété Commentaire explicitement None équivaut à une absence."""
+        elem = mappeur_vide.mapper_coffret(self._feature_coffret(commentaire=None), "coffret_001")
+        assert elem.find(f"{self.NS_R}Commentaire") is not None
+
+    def test_balise_vide_produite_si_chaine_vide(self, mappeur_vide):
+        """Une chaîne vide en entrée produit également la balise vide."""
+        elem = mappeur_vide.mapper_coffret(self._feature_coffret(commentaire=""), "coffret_001")
+
+        commentaire_elem = elem.find(f"{self.NS_R}Commentaire")
+        assert commentaire_elem is not None
+        assert not commentaire_elem.text
+
+    def test_valeur_existante_preservee(self, mappeur_vide):
+        """L'option n'écrase jamais un commentaire déjà renseigné."""
+        elem = mappeur_vide.mapper_coffret(self._feature_coffret("Coffret en façade"), "coffret_001")
+
+        commentaires = elem.findall(f"{self.NS_R}Commentaire")
+        assert len(commentaires) == 1
+        assert commentaires[0].text == "Coffret en façade"
+
+    def test_ordre_xsd_respecte(self, mappeur_vide):
+        """La balise vide se place juste après reseau, conformément à ElementReseauType."""
+        elem = mappeur_vide.mapper_coffret(self._feature_coffret(), "coffret_001")
+
+        tags = [child.tag.split("}")[1] for child in elem]
+        assert tags[:2] == ["reseau", "Commentaire"]
+
+    def test_geometrie_supplementaire_couverte(self, mappeur_vide):
+        """RPD_GeometrieSupplementaire_Reco déclare Commentaire en propre : il est couvert."""
+        feature = {
+            "type": "Feature",
+            "properties": {"ogr_pkid": "geom_supp_001", "PrecisionXY": "A", "PrecisionZ": "B"},
+            "geometry": {"type": "LineString", "coordinates": [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]]},
+        }
+        elem = mappeur_vide.mapper_geometrie_supplementaire(feature, "geom_supp_001")
+
+        tags = [child.tag.split("}")[1] for child in elem]
+        assert tags[0] == "Commentaire"
+
+    def test_materiel_non_concerne(self, mappeur_vide):
+        """RPD_Materiel_RecoType ne dérive pas d'ElementReseauType : aucune balise ajoutée."""
+        feature = {
+            "type": "Feature",
+            "properties": {
+                "Fabricant": "ACME",
+                "Modele": "M1",
+                "NumeroLot": "L1",
+                "NumeroSerie": "S1",
+            },
+            "geometry": None,
+        }
+        elem = mappeur_vide.mapper_materiel(feature, "materiel_001")
+        assert elem.find(f"{self.NS_R}Commentaire") is None
+
+    def test_point_leve_non_concerne(self, mappeur_vide):
+        """RPD_PointLeveOuvrageReseau_RecoType n'accepte pas Commentaire dans le XSD."""
+        feature = {
+            "type": "Feature",
+            "properties": {
+                "ogr_pkid": "plor_001",
+                "NumeroPoint": "P1",
+                "PrecisionXYnum": "0.05",
+                "PrecisionZnum": "0.05",
+                "Producteur": "TEST",
+            },
+            "geometry": {"type": "Point", "coordinates": [600000.0, 6800000.0, 100.0]},
+        }
+        elem = mappeur_vide.mapper_point_leve(feature, "plor_001")
+        assert elem.find(f"{self.NS_R}Commentaire") is None
+
+    def test_generateur_propage_option(self):
+        """GenerateurGML transmet l'option à son MappeurEntites."""
+        generateur = GenerateurGML(DEFAULT_SRS, commentaire_vide=True)
+        assert generateur.mapper.commentaire_vide is True
+
+    def test_generateur_defaut_desactive(self, gml_generator):
+        """Le générateur par défaut n'active pas le mode."""
+        assert gml_generator.mapper.commentaire_vide is False

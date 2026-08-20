@@ -45,6 +45,8 @@ class ProfilVersion:
         fragment_url_xsd      : Fragment d'URL identifiant la version dans le
                                 xsi:schemaLocation (E113 et détection).
         chemin_xsd            : Chemin du XSD officiel de la version (E112).
+        prefixe_code          : Préfixe des codes de contrôle de la version
+                                ("E11" -> E110..E114 ; "E01" -> E010..E014).
     """
 
     code: str
@@ -61,3 +63,4 @@ class ProfilVersion:
     namespaces_attendus: dict[str, str]
     fragment_url_xsd: str
     chemin_xsd: Path
+    prefixe_code: str

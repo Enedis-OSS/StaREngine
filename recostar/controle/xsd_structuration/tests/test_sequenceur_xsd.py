@@ -488,6 +488,7 @@ class TestErreurOrdreVersDict:
             "type_rpd",
             "gml_id",
             "severite",
+            "priorite",
             "type_erreur",
             "position",
             "element_trouve",

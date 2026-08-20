@@ -5,13 +5,17 @@ Couvre l'analyseur de valeurs et la génération du rapport JSON.
 
 import json
 from pathlib import Path
-from xml.etree.ElementTree import Element, SubElement  # nosec B405
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
+    Element,
+    SubElement,
+)
 
 import pytest
 from controle_e114 import (
     AnalyseurValeurs,
     _compter_par_severite,
-    _conformite,
     _construire_rapport,
     _extraire_gml_id,
     _extraire_valeur,
@@ -19,11 +23,16 @@ from controle_e114 import (
     _resoudre_chemin_sortie,
     generer_rapport,
 )
+from priorites_structuration import (
+    PRIORITE_BLOQUANT,
+    PRIORITE_MINEUR,
+    statut_conformite,
+    ventiler_par_priorite,
+)
 from regles_valeurs import (
     CODE_FORMAT_INVALIDE,
     CODE_VALEUR_HORS_CODELIST,
     CODE_VALEUR_HORS_ENUMERATION,
-    SEVERITE_AVERTISSEMENT,
     SEVERITE_ERREUR,
     ErreurValeur,
 )
@@ -201,10 +210,10 @@ class TestAnalyseurValeursErreurs:
         assert cibles[0].code == CODE_VALEUR_HORS_ENUMERATION
 
 
-class TestAnalyseurValeursCodeListsAvertissement:
-    """Les CodeLists émettent des avertissements (sévérité non bloquante)."""
+class TestAnalyseurValeursCodeListsErreur:
+    """Les CodeLists hors liste documentée émettent une ERREUR (bloquante)."""
 
-    def test_type_coffret_etrange_avertissement(self, chemin_gml_tmp):
+    def test_type_coffret_etrange_erreur(self, chemin_gml_tmp):
         membre = creer_feature_member_avec_valeurs(
             "RPD_Coffret_Reco",
             "cof_001",
@@ -221,7 +230,7 @@ class TestAnalyseurValeursCodeListsAvertissement:
         erreurs = AnalyseurValeurs(chemin_gml_tmp([membre])).analyser()
         cibles = [e for e in erreurs if e.champ == "TypeCoffret"]
         assert len(cibles) == 1
-        assert cibles[0].severite == SEVERITE_AVERTISSEMENT
+        assert cibles[0].severite == SEVERITE_ERREUR
         assert cibles[0].code == CODE_VALEUR_HORS_CODELIST
 
 
@@ -381,41 +390,40 @@ class TestCompterParSeverite:
         compteur = _compter_par_severite([self._err(SEVERITE_ERREUR)] * 3)
         assert compteur == {SEVERITE_ERREUR: 3}
 
-    def test_mixte(self):
-        erreurs = [
-            self._err(SEVERITE_ERREUR),
-            self._err(SEVERITE_AVERTISSEMENT),
-            self._err(SEVERITE_AVERTISSEMENT),
-        ]
-        compteur = _compter_par_severite(erreurs)
-        assert compteur == {SEVERITE_ERREUR: 1, SEVERITE_AVERTISSEMENT: 2}
-
 
 class TestConformite:
-    """Conformité = aucun ERREUR ; AVERTISSEMENT seul = encore CONFORME."""
+    """Conformité E114 : seules les entrées bloquantes invalident le fichier."""
 
-    def _err(self, severite: str) -> ErreurValeur:
+    def _err(self, priorite: str = PRIORITE_BLOQUANT) -> ErreurValeur:
         return ErreurValeur(
             "T",
             "id",
             "C",
             "V",
             "CODE",
-            severite,
+            SEVERITE_ERREUR,
             "R",
             "src",
             "msg",
+            priorite,
         )
 
     def test_aucune_erreur_conforme(self):
-        assert _conformite([]) == "CONFORME"
+        assert statut_conformite(ventiler_par_priorite([])) == "CONFORME"
 
-    def test_avertissement_seul_reste_conforme(self):
-        """Une CodeList hors liste documentée n'invalide pas le fichier."""
-        assert _conformite([self._err(SEVERITE_AVERTISSEMENT)]) == "CONFORME"
+    def test_erreur_bloquante_invalide(self):
+        """Une entrée bloquante — le cas de la quasi-totalité des règles."""
+        assert statut_conformite(ventiler_par_priorite([self._err()])) == "NON_CONFORME"
 
-    def test_erreur_invalide(self):
-        assert _conformite([self._err(SEVERITE_ERREUR)]) == "NON_CONFORME"
+    def test_erreur_mineure_seule_reste_conforme(self):
+        """Une entrée mineure (E_THEME_RPD) est signalée sans déclasser."""
+        erreurs = [self._err(PRIORITE_MINEUR)]
+        assert ventiler_par_priorite(erreurs) == {PRIORITE_MINEUR: 1}
+        assert statut_conformite(ventiler_par_priorite(erreurs)) == "CONFORME"
+
+    def test_melange_declasse_sur_la_seule_bloquante(self):
+        erreurs = [self._err(PRIORITE_MINEUR), self._err()]
+        assert statut_conformite(ventiler_par_priorite(erreurs)) == "NON_CONFORME"
 
 
 # ---------------------------------------------------------------------------
@@ -488,6 +496,7 @@ class TestGenererRapport:
             "conformite",
             "nb_erreurs",
             "nb_par_severite",
+            "nb_par_priorite",
             "erreurs",
         }
         assert set(rapport.keys()) == attendus

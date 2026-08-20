@@ -16,7 +16,7 @@ Regle metier :
 Usage CLI :
     python controle_e402.py --repertoire <chemin> [--sortie <chemin>]
 
-Sortie : ecarts_cable_terre_cheminement_incompatible.geojson
+Sortie : ecarts_e402_cable_terre_cheminement_incompatible.geojson
 """
 
 import argparse
@@ -28,7 +28,13 @@ from pathlib import Path
 from typing import Any
 
 from utils_cheminement import extraire_ids_cables_href as _extraire_ids_cables_href
-from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
+from utils_geojson import (
+    ProfilEcarts,
+    ecrire_geojson_si_anomalies,
+    lire_geojson,
+    normaliser_geojson_ecarts,
+    obtenir_id_feature,
+)
 
 # Fichier source des cables de terre
 FICHIER_CABLE_TERRE: str = "RPD_CableTerre_Reco.geojson"
@@ -40,7 +46,21 @@ FICHIERS_CHEMINEMENT_INCOMPATIBLES: tuple[str, ...] = (
 )
 
 # Nom du fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_cable_terre_cheminement_incompatible.geojson"
+FICHIER_SORTIE: str = "ecarts_e402_cable_terre_cheminement_incompatible.geojson"
+
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E402"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "cable_terre_cheminement_incompatible": ("Le câble de terre emprunte un type de cheminement qui lui est interdit."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_cheminement", "id_cable_terre"),
+)
+
 
 # Niveau de priorite affecte a toutes les anomalies
 PRIORITE_ANOMALIE: str = "bloquant"
@@ -199,7 +219,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +255,7 @@ def executer_controle_cli(
 
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
@@ -245,7 +265,7 @@ def executer_controle_cli(
         "nombre_cheminements_analyses": len(cheminements),
         "cable_terre_absent": cable_terre_absent,
         "fichiers_cheminement_absents": fichiers_cheminement_absents,
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

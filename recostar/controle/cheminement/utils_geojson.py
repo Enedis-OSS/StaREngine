@@ -10,8 +10,12 @@ if _controle_dir not in _sys.path:
 from utils_geojson_commun import (  # noqa: E402, F401
     EXTENSION_GEOJSON,
     PREFIXE_ECARTS,
+    ProfilEcarts,
+    compter_anomalies_par_type,
     ecrire_geojson,
+    ecrire_geojson_si_anomalies,
     lire_geojson,
     lister_fichiers_geojson,
+    normaliser_geojson_ecarts,
     obtenir_id_feature,
 )

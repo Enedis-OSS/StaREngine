@@ -172,6 +172,7 @@ class TestErreurEntete:
         attendus = {
             "code",
             "severite",
+            "priorite",
             "element",
             "valeur_trouvee",
             "valeur_attendue",

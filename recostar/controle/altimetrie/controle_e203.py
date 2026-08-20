@@ -20,7 +20,7 @@ Usage CLI :
     python controle_e203.py --repertoire <chemin> [--sortie <chemin>]
                             [--version {auto,1.0,1.1}]
 
-Sortie : ecarts_z_ign.geojson
+Sortie : ecarts_e203_z_ign.geojson
 """
 
 import argparse
@@ -29,6 +29,7 @@ import math
 import os
 import sys
 from collections.abc import Iterator, Sequence
+from itertools import chain
 from pathlib import Path
 from typing import Any
 
@@ -45,13 +46,33 @@ from controle_e204 import (
     determiner_version_depuis_repertoire as determiner_version_effective,
 )
 from pyproj import Transformer
-from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
+from utils_geojson import (
+    ProfilEcarts,
+    ecrire_geojson_si_anomalies,
+    lire_geojson,
+    normaliser_geojson_ecarts,
+    obtenir_id_feature,
+)
 
 # Nom du fichier source analyse
 FICHIER_SOURCE: str = "RPD_GeometrieSupplementaire_Reco.geojson"
 
 # Nom du fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_z_ign.geojson"
+FICHIER_SORTIE: str = "ecarts_e203_z_ign.geojson"
+
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E203"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "ecart_altimetrique_ign": ("L'altitude du sommet s'écarte de l'altitude IGN au-delà du seuil autorisé."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_entite",),
+)
+
 
 # Seuil d'ecart altimetrique au-dela duquel un sommet est signale (metres)
 SEUIL_ECART: float = 0.40
@@ -244,6 +265,39 @@ _EXTRACTEURS: dict[str, Any] = {
 }
 
 
+def _extraire_sommets_feature(feature: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extrait les sommets 3D d'une feature avec leurs metadonnees.
+
+    Retourne une liste vide si la geometrie est absente, d'un type non gere
+    ou depourvue de coordonnees. Les sommets sans Z sont ecartes.
+    """
+    geometrie = feature.get("geometry")
+    if geometrie is None:
+        return []
+
+    extracteur = _EXTRACTEURS.get(geometrie.get("type", ""))
+    if extracteur is None:
+        return []
+
+    coordonnees = geometrie.get("coordinates")
+    if coordonnees is None:
+        return []
+
+    identifiant = obtenir_id_feature(feature)
+    type_geom = geometrie.get("type", "inconnu")
+
+    return [
+        {
+            "id_entite": identifiant,
+            "type_geometrie": type_geom,
+            "indice_sommet": indice,
+            "coordonnees": list(point[:3]),
+        }
+        for indice, point in extracteur(coordonnees)
+        if len(point) >= 3
+    ]
+
+
 def extraire_sommets(
     features: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -252,37 +306,7 @@ def extraire_sommets(
     Retourne une liste de dictionnaires contenant l'identifiant de l'entite,
     l'indice du sommet et ses coordonnees.
     """
-    sommets: list[dict[str, Any]] = []
-
-    for feature in features:
-        geometrie = feature.get("geometry")
-        if geometrie is None:
-            continue
-
-        extracteur = _EXTRACTEURS.get(geometrie.get("type", ""))
-        if extracteur is None:
-            continue
-
-        coordonnees = geometrie.get("coordinates")
-        if coordonnees is None:
-            continue
-
-        identifiant = obtenir_id_feature(feature)
-        type_geom = geometrie.get("type", "inconnu")
-
-        for indice, point in extracteur(coordonnees):
-            if len(point) < 3:
-                continue
-            sommets.append(
-                {
-                    "id_entite": identifiant,
-                    "type_geometrie": type_geom,
-                    "indice_sommet": indice,
-                    "coordonnees": list(point[:3]),
-                }
-            )
-
-    return sommets
+    return list(chain.from_iterable(_extraire_sommets_feature(f) for f in features))
 
 
 def convertir_sommets_wgs84(
@@ -374,7 +398,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 # --------------------------------------------------------------------------- #
@@ -461,7 +485,7 @@ def executer_controle_cli(
     dossier_sortie = str(Path(sortie).resolve()) if sortie is not None else repertoire_resolu
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
@@ -470,7 +494,7 @@ def executer_controle_cli(
         "nombre_sommets": nombre_sommets,
         "nombre_anomalies": len(anomalies),
         "source_ign": source_ign,
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

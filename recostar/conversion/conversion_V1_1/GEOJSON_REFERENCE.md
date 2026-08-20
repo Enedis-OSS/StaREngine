@@ -5,7 +5,7 @@ Document de référence rapide : champs par fichier GeoJSON manipulé par les sc
 **Légende** : ✓ = Obligatoire · — = Optionnel
 
 > **Note** : Les champs `fid` et `id` (gml:id) sont générés automatiquement et ne nécessitent pas d'être fournis en entrée.
-> Le champ `Commentaire` est disponible sur toutes les entités héritant d'ElementReseau (optionnel, non répété dans chaque table).
+> Le champ `Commentaire` est disponible sur toutes les entités héritant d'ElementReseau (optionnel, non répété dans chaque table), ainsi que sur `RPD_GeometrieSupplementaire_Reco` qui le déclare en propre. Il n'existe pas sur `RPD_Materiel_Reco` ni `RPD_PointLeveOuvrageReseau_Reco`. L'option `--commentaire` de `geojson_to_recostar.py` génère la balise vide sur les entités qui n'en fournissent pas.
 > Les champs `cables_href`, `EtatAvantRaccordement` et `materiel_href` sont des champs de relation décrits en [fin de document](#champs-de-relation).
 
 ---

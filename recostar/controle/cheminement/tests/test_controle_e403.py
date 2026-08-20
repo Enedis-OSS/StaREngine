@@ -479,8 +479,40 @@ class TestCli:
         assert resultat["nombre_anomalies"] == 1
 
     def test_fichier_sortie_cree(self, tmp_path):
+        id_ce = "id-ce1"
+        (tmp_path / FICHIER_CABLE_ELECTRIQUE).write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cable_electrique(id_ce)],
+                }
+            )
+        )
+        # Cable rattache a la fois a un cheminement aerien et souterrain : anomalie
+        (tmp_path / FICHIER_AERIEN).write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cheminement("id-a1", id_ce)],
+                }
+            )
+        )
+        (tmp_path / "RPD_Fourreau_Reco.geojson").write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cheminement("id-f1", id_ce)],
+                }
+            )
+        )
         executer_controle_cli(str(tmp_path))
         assert os.path.isfile(tmp_path / FICHIER_SORTIE)
+
+    def test_aucun_fichier_sans_anomalie(self, tmp_path):
+        resultat = executer_controle_cli(str(tmp_path))
+        assert resultat["nombre_anomalies"] == 0
+        assert resultat["sortie"] is None
+        assert not os.path.isfile(tmp_path / FICHIER_SORTIE)
 
     def test_cable_electrique_absent_rapporte(self, tmp_path):
         resultat = executer_controle_cli(str(tmp_path))
@@ -513,6 +545,32 @@ class TestCli:
         assert resultat["nombre_cheminements_analyses"] == 1
 
     def test_sortie_personnalisee(self, tmp_path):
+        id_ce = "id-ce1"
+        (tmp_path / FICHIER_CABLE_ELECTRIQUE).write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cable_electrique(id_ce)],
+                }
+            )
+        )
+        # Cable rattache a la fois a un cheminement aerien et souterrain : anomalie
+        (tmp_path / FICHIER_AERIEN).write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cheminement("id-a1", id_ce)],
+                }
+            )
+        )
+        (tmp_path / "RPD_Fourreau_Reco.geojson").write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cheminement("id-f1", id_ce)],
+                }
+            )
+        )
         dossier_sortie = tmp_path / "sortie"
         dossier_sortie.mkdir()
         executer_controle_cli(str(tmp_path), str(dossier_sortie))

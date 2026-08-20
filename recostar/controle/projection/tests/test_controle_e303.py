@@ -20,21 +20,42 @@ from unittest.mock import patch
 
 from controle_e303 import (
     PRIORITE_ANOMALIE,
-    _appliquer_transformation,
-    _calculer_bbox,
-    _construire_index,
-    _creer_transformateur,
-    _extraire_nom_crs,
-    _extraire_point_representatif,
-    _extraire_prefixe,
-    _point_dans_anneau,
-    _point_dans_emprise,
+    affaire_exclue_du_controle,
     construire_geojson_ecarts,
     detecter_entites_hors_emprise,
     executer_controle_cli,
-    point_dans_emprises,
-    resoudre_repertoires,
 )
+
+# Les briques du referentiel DR et le test de containment sont mutualisees dans
+# utils_emprise_dr_commun : elles sont testees ici via le module delegue.
+from utils_emprise_dr import (
+    appliquer_transformation as _appliquer_transformation,
+)
+from utils_emprise_dr import (
+    calculer_bbox as _calculer_bbox,
+)
+from utils_emprise_dr import (
+    construire_index as _construire_index,
+)
+from utils_emprise_dr import (
+    creer_transformateur as _creer_transformateur,
+)
+from utils_emprise_dr import (
+    extraire_nom_crs as _extraire_nom_crs,
+)
+from utils_emprise_dr import (
+    extraire_point_representatif as _extraire_point_representatif,
+)
+from utils_emprise_dr import (
+    extraire_prefixe as _extraire_prefixe,
+)
+from utils_emprise_dr import (
+    point_dans_anneau as _point_dans_anneau,
+)
+from utils_emprise_dr import (
+    point_dans_emprise as _point_dans_emprise,
+)
+from utils_emprise_dr import point_dans_emprises, resoudre_repertoires
 from utils_tests import construire_feature, ecrire_collection
 
 # --------------------------------------------------------------------------- #
@@ -127,6 +148,46 @@ class TestExtrairePrefixe:
         prefixe, _, erreur = _extraire_prefixe("  RAC-NOR-25-001234  ")
         assert erreur is None
         assert prefixe == "NOR"
+
+
+# --------------------------------------------------------------------------- #
+# Exception metier : exclusion du controle selon le numero d'affaire
+# --------------------------------------------------------------------------- #
+
+
+class TestAffaireExclueDuControle:
+    """Tests du predicat d'exclusion totale de E303 (affaire_exclue_du_controle)."""
+
+    def test_numero_exact_12345678_exclut(self) -> None:
+        assert affaire_exclue_du_controle("12345678") is True
+
+    def test_prefixe_osr_majuscule_exclut(self) -> None:
+        assert affaire_exclue_du_controle("OSR-CVL-25-007998") is True
+
+    def test_prefixe_osr_minuscule_exclut(self) -> None:
+        assert affaire_exclue_du_controle("osr123456") is True
+
+    def test_prefixe_osr_seul_exclut(self) -> None:
+        assert affaire_exclue_du_controle("OSR") is True
+
+    def test_espaces_de_bord_ignores(self) -> None:
+        assert affaire_exclue_du_controle("  12345678  ") is True
+        assert affaire_exclue_du_controle("  OSR-001  ") is True
+
+    def test_numero_rac_standard_non_exclu(self) -> None:
+        assert affaire_exclue_du_controle("RAC-CVL-25-007998") is False
+
+    def test_numero_da_standard_non_exclu(self) -> None:
+        assert affaire_exclue_du_controle("DA21/256553") is False
+
+    def test_numero_proche_mais_different_non_exclu(self) -> None:
+        # Sur-ensemble du numero exclu -> non exclu (egalite stricte)
+        assert affaire_exclue_du_controle("123456789") is False
+        assert affaire_exclue_du_controle("012345678") is False
+
+    def test_osr_en_milieu_de_chaine_non_exclu(self) -> None:
+        # 'OSR' doit etre un prefixe, pas une sous-chaine
+        assert affaire_exclue_du_controle("RAC-OSR-25-001234") is False
 
 
 # --------------------------------------------------------------------------- #
@@ -494,6 +555,33 @@ class TestCli:
         assert resultat["succes"] is False
         assert "introuvable" in resultat["erreur"]
 
+    def test_affaire_exclue_court_circuite_sans_traitement(self, tmp_path: Any) -> None:
+        # Numero exclu -> succes immediat, 0 anomalie, controle_ignore=True.
+        # Aucun mock des references : l'exclusion doit precede tout chargement.
+        resultat = executer_controle_cli(str(tmp_path), "OSR-CVL-25-007998")
+        assert resultat["succes"] is True
+        assert resultat["controle_ignore"] is True
+        assert resultat["nombre_anomalies"] == 0
+        assert resultat["priorite"] == PRIORITE_ANOMALIE
+        assert resultat["numero_affaire"] == "OSR-CVL-25-007998"
+
+    def test_affaire_exclue_prioritaire_sur_repertoire_inexistant(self) -> None:
+        # L'exclusion est verifiee avant la validite du repertoire.
+        resultat = executer_controle_cli("/chemin/inexistant", "12345678")
+        assert resultat["succes"] is True
+        assert resultat["controle_ignore"] is True
+
+    def test_affaire_exclue_ne_cree_pas_de_fichier_ecarts(self, tmp_path: Any) -> None:
+        # Aucune verification effectuee -> aucun fichier de sortie produit.
+        executer_controle_cli(str(tmp_path), "osr123456")
+        assert not os.path.isfile(str(tmp_path / "ecarts_e303_emprise_dr.geojson"))
+
+    @patch("controle_e303._charger_references")
+    def test_affaire_exclue_ne_charge_pas_les_references(self, mock_refs: Any, tmp_path: Any) -> None:
+        # Preuve que le court-circuit intervient avant le chargement des references.
+        executer_controle_cli(str(tmp_path), "OSR-001")
+        mock_refs.assert_not_called()
+
     @patch("controle_e303._charger_references")
     def test_format_affaire_invalide_retourne_erreur(self, mock_refs: Any, tmp_path: Any) -> None:
         mock_refs.return_value = (_REFS_MOCK, None)
@@ -545,12 +633,13 @@ class TestCli:
     def test_fichier_ecarts_cree(self, mock_refs: Any, mock_emprises: Any, tmp_path: Any) -> None:
         mock_refs.return_value = (_REFS_MOCK, None)
         mock_emprises.return_value = (_EMPRISE_8A, None)
+        # Point hors de l'emprise [0, 1_000_000]²
         ecrire_collection(
             str(tmp_path / "couche.geojson"),
-            [construire_feature("e1", "Point", [500000.0, 500000.0])],
+            [construire_feature("e1", "Point", [2_000_000.0, 2_000_000.0])],
         )
         executer_controle_cli(str(tmp_path), "RAC-CVL-25-007998")
-        assert os.path.isfile(str(tmp_path / "ecarts_emprise_dr.geojson"))
+        assert os.path.isfile(str(tmp_path / "ecarts_e303_emprise_dr.geojson"))
 
     @patch("controle_e303._charger_emprises_dr")
     @patch("controle_e303._charger_references")
@@ -592,13 +681,14 @@ class TestCli:
     def test_dossier_sortie_distinct(self, mock_refs: Any, mock_emprises: Any, tmp_path: Any) -> None:
         mock_refs.return_value = (_REFS_MOCK, None)
         mock_emprises.return_value = (_EMPRISE_8A, None)
+        # Point hors de l'emprise [0, 1_000_000]²
         ecrire_collection(
             str(tmp_path / "couche.geojson"),
-            [construire_feature("e1", "Point", [500000.0, 500000.0])],
+            [construire_feature("e1", "Point", [2_000_000.0, 2_000_000.0])],
         )
         dossier_sortie = str(tmp_path / "sortie")
         executer_controle_cli(str(tmp_path), "RAC-CVL-25-007998", dossier_sortie)
-        assert os.path.isfile(os.path.join(dossier_sortie, "ecarts_emprise_dr.geojson"))
+        assert os.path.isfile(os.path.join(dossier_sortie, "ecarts_e303_emprise_dr.geojson"))
 
     @patch("controle_e303._charger_emprises_dr")
     @patch("controle_e303._charger_references")

@@ -276,6 +276,7 @@ Permet de préciser le type de boîte de jonction</xs:documentation>
 			<xs:enumeration value="Jonction" />
 			<xs:enumeration value="RemonteeAeroSouterraine" />
 			<xs:enumeration value="EpanouissementHTA" />
+			<xs:enumeration value="Telecom" />
 		</xs:restriction>
 	</xs:simpleType>
 	<xs:simpleType name="TypeTransfoValueType">
@@ -4371,6 +4372,8 @@ Synonyme : Poteau</xs:documentation>
 						</xs:annotation>
 					</xs:element>
 
+					<xs:element name="DimensionsMassifSupport" type="gml:MeasureType" minOccurs="0" maxOccurs="1" />
+
 					<xs:element name="Effort" type="gml:MeasureType" minOccurs="0" maxOccurs="1" />
 
 					<xs:element name="Enfouissement" type="gml:MeasureType" minOccurs="0" maxOccurs="1" />
@@ -4391,11 +4394,13 @@ Synonyme : Poteau</xs:documentation>
 						</xs:annotation>
 					</xs:element>
 
-					<xs:element name="TeinteSupport" type="xs:string" minOccurs="0" maxOccurs="1" />
-
 					<xs:element name="Geometrie" type="gml:PointPropertyType" />
 
+					<xs:element name="HauteurFixationConsole" type="gml:MeasureType" minOccurs="0" maxOccurs="1" />
+
 					<xs:element name="HauteurPoteau" type="gml:MeasureType" minOccurs="0" maxOccurs="1" />
+
+					<xs:element name="MassifEntraxe" type="gml:MeasureType" minOccurs="0" maxOccurs="1" />
 
 					<xs:element name="MassifSupport" type="RecoStaR:MassifSupportValueType" minOccurs="0" maxOccurs="1" />
 
@@ -4415,13 +4420,9 @@ Synonyme : Poteau</xs:documentation>
 
 					<xs:element name="Statut" type="RecoStaR:ConditionOfFacilityValueType" />
 
-					<xs:element name="HauteurFixationConsole" type="gml:MeasureType" minOccurs="0" maxOccurs="1" />
-
-					<xs:element name="DimensionsMassifSupport" type="gml:MeasureType" minOccurs="0" maxOccurs="1" />
-
 					<xs:element name="SupportLuminaire" type="RecoStaR:SupportLuminaireValeurType" minOccurs="0" maxOccurs="1" />
 
-					<xs:element name="MassifEntraxe" type="gml:MeasureType" minOccurs="0" maxOccurs="1" />
+					<xs:element name="TeinteSupport" type="xs:string" minOccurs="0" maxOccurs="1" />
 
 				</xs:sequence>
 			</xs:extension>

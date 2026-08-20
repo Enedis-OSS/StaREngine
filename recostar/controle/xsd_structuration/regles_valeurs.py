@@ -3,14 +3,16 @@
 Définition déclarative des règles de valeurs RecoStaR RPD V1.1.
 
 Encode trois familles de contraintes sur les valeurs portées par les
-éléments enfants des objets RPD :
+éléments enfants des objets RPD. Toutes sont de sévérité SEVERITE_ERREUR :
+une valeur hors domaine invalide le fichier, quel que soit le domaine.
 
-1. Énumérations strictes (PDF §10, listes fermées) ⟶ SEVERITE_ERREUR.
+1. Énumérations strictes (PDF §10, listes fermées) ⟶ code VALEUR_HORS_ENUMERATION.
    Toute valeur hors liste viole la spécification.
-2. CodeLists ouvertes (PDF §10, extensibles) ⟶ SEVERITE_AVERTISSEMENT.
-   Les valeurs documentées sont les seules attendues en pratique, mais
-   le standard autorise des extensions locales.
-3. Contraintes de format métier (PDF §9 et §6.6) ⟶ SEVERITE_ERREUR ciblée.
+2. CodeLists documentées (PDF §10) ⟶ code VALEUR_HORS_CODELIST.
+   Politique RPD : seules les valeurs documentées sont admises. Le code
+   distinct est conservé pour tracer l'origine « CodeList » de la violation,
+   mais la gravité est identique à celle d'une énumération fermée.
+3. Contraintes de format métier (PDF §9 et §6.6) ⟶ code FORMAT_INVALIDE.
    Cas où la spécification impose une valeur littérale unique (Theme=ELECTRD)
    ou un motif strict (NumeroPRM = 14 chiffres).
 
@@ -28,12 +30,13 @@ import re
 from collections.abc import Callable
 from typing import NamedTuple
 
+from priorites_structuration import PRIORITE_MINEUR, PRIORITE_PAR_DEFAUT
+
 # ---------------------------------------------------------------------------
 # Sévérités et codes d'erreur
 # ---------------------------------------------------------------------------
 
 SEVERITE_ERREUR = "ERREUR"
-SEVERITE_AVERTISSEMENT = "AVERTISSEMENT"
 
 CODE_VALEUR_HORS_ENUMERATION = "VALEUR_HORS_ENUMERATION"
 CODE_VALEUR_HORS_CODELIST = "VALEUR_HORS_CODELIST"
@@ -164,7 +167,7 @@ _ENUM_THEME_RPD: frozenset[str] = frozenset({"ELECTRD"})
 
 
 # ---------------------------------------------------------------------------
-# CodeLists ouvertes (PDF §10, extensibles)
+# CodeLists documentées (PDF §10) — traitées strictement (ERREUR)
 # ---------------------------------------------------------------------------
 
 _CL_FONCTION_CABLE: frozenset[str] = frozenset(
@@ -391,9 +394,13 @@ class RegleValeur(NamedTuple):
         champ            : Nom local du champ (ex: "DomaineTension")
         evaluateur       : Fonction (str -> bool) ; vrai si la valeur est conforme
         code_erreur      : Code de la taxonomie d'erreur (VALEUR_HORS_ENUMERATION…)
-        severite         : SEVERITE_ERREUR ou SEVERITE_AVERTISSEMENT
+        severite         : SEVERITE_ERREUR (unique sévérité RPD)
         source           : Référence PDF pour traçabilité
         description      : Description lisible des valeurs/format attendus
+        priorite         : Niveau de priorité de l'écart (bloquant par défaut)
+
+    `priorite` est le seul champ à défaut : une règle non annotée reste
+    bloquante, seules les dérogations explicites sont à déclarer.
     """
 
     identifiant: str
@@ -404,6 +411,7 @@ class RegleValeur(NamedTuple):
     severite: str
     source: str
     description: str
+    priorite: str = PRIORITE_PAR_DEFAUT
 
 
 def _description_enum(valeurs: frozenset[str]) -> str:
@@ -420,6 +428,7 @@ def _regle_enum(
     severite: str,
     source: str,
     code_erreur: str = CODE_VALEUR_HORS_ENUMERATION,
+    priorite: str = PRIORITE_PAR_DEFAUT,
 ) -> RegleValeur:
     """Fabrique : règle d'appartenance à un ensemble fermé/ouvert de valeurs.
 
@@ -434,6 +443,7 @@ def _regle_enum(
         severite=severite,
         source=source,
         description=_description_enum(valeurs),
+        priorite=priorite,
     )
 
 
@@ -446,6 +456,7 @@ def _regle_motif(
     severite: str,
     source: str,
     description: str,
+    priorite: str = PRIORITE_PAR_DEFAUT,
 ) -> RegleValeur:
     """Fabrique : règle de conformité à une expression régulière.
 
@@ -462,6 +473,7 @@ def _regle_motif(
         severite=severite,
         source=source,
         description=description,
+        priorite=priorite,
     )
 
 
@@ -582,6 +594,10 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         source="PDF §10.6.1",
     ),
     # ----- Contraintes RPD-spécifiques plus strictes que le XSD/CodeList -----
+    # Seule règle du catalogue à déroger à la priorité bloquante : un Theme
+    # hors énumération (« ELEC » au lieu de « ELECTRD ») est une étiquette de
+    # réseau erronée, corrigeable sans reprise du levé et sans conséquence sur
+    # l'exploitation des ouvrages. Détection et message restent inchangés.
     _regle_enum(
         "E_THEME_RPD",
         frozenset({"ReseauUtilite"}),
@@ -589,6 +605,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         _ENUM_THEME_RPD,
         severite=SEVERITE_ERREUR,
         source="PDF §9",
+        priorite=PRIORITE_MINEUR,
     ),
     _regle_motif(
         "F_NUMERO_PRM",
@@ -599,13 +616,13 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         source="PDF §6.6",
         description="14 chiffres exactement (CharacterString 14 chiffres)",
     ),
-    # ----- CodeLists ouvertes (PDF §10) — AVERTISSEMENT -----
+    # ----- CodeLists documentées (PDF §10) — ERREUR -----
     _regle_enum(
         "C_FONCTION_CABLE",
         frozenset({"RPD_CableElectrique_Reco", "RPD_CableTerre_Reco"}),
         "FonctionCable",
         _CL_FONCTION_CABLE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.1.6",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -614,7 +631,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_CableTelecommunication_Reco"}),
         "Fonction",
         _CL_FONCTION_TELECOM,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.1.7",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -623,7 +640,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_CableTelecommunication_Reco"}),
         "TechnoCable",
         _CL_TECHNO_CABLE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.1.8",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -632,7 +649,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_CableTerre_Reco"}),
         "NatureCableTerre",
         _CL_NATURE_CABLE_TERRE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.1.9",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -641,7 +658,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Coffret_Reco"}),
         "ImplantationArmoire",
         _CL_IMPLANTATION_ARMOIRE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.1",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -650,7 +667,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Coffret_Reco"}),
         "TypeCoffret",
         _CL_TYPE_COFFRET,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.2",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -659,7 +676,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Coffret_Reco"}),
         "FonctionCoffret",
         _CL_FONCTION_COFFRET,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.3",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -668,7 +685,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Support_Reco"}),
         "NatureSupport",
         _CL_NATURE_SUPPORT,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.4",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -677,7 +694,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Support_Reco"}),
         "Matiere",
         _CL_MATIERE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.5",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -686,7 +703,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Support_Reco"}),
         "Classe",
         _CL_CLASSE_SUPPORT,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.3.6",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -695,7 +712,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_Terre_Reco"}),
         "NatureTerre",
         _CL_NATURE_TERRE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.4.2",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -704,7 +721,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_PosteElectrique_Reco"}),
         "Categorie",
         _CL_CATEGORIE_POSTE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.4.3",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -713,7 +730,7 @@ REGLES_VALEURS: tuple[RegleValeur, ...] = (
         frozenset({"RPD_PosteElectrique_Reco"}),
         "TypePoste",
         _CL_TYPE_POSTE,
-        severite=SEVERITE_AVERTISSEMENT,
+        severite=SEVERITE_ERREUR,
         source="PDF §10.4.4",
         code_erreur=CODE_VALEUR_HORS_CODELIST,
     ),
@@ -777,6 +794,7 @@ class ErreurValeur:
         "regle",
         "source",
         "message",
+        "priorite",
     )
 
     def __init__(
@@ -790,6 +808,7 @@ class ErreurValeur:
         regle: str,
         source: str,
         message: str,
+        priorite: str = PRIORITE_PAR_DEFAUT,
     ) -> None:
         self.type_rpd = type_rpd
         self.gml_id = gml_id
@@ -800,6 +819,9 @@ class ErreurValeur:
         self.regle = regle
         self.source = source
         self.message = message
+        # Portée par l'instance : la priorité est celle de la règle violée, elle
+        # varie donc d'une erreur à l'autre au sein du même contrôle.
+        self.priorite = priorite
 
     def vers_dict(self) -> dict:
         """Sérialise l'erreur en dictionnaire pour le rapport JSON."""
@@ -810,6 +832,7 @@ class ErreurValeur:
             "valeur_trouvee": self.valeur_trouvee,
             "code": self.code,
             "severite": self.severite,
+            "priorite": self.priorite,
             "regle": self.regle,
             "source": self.source,
             "message": self.message,
@@ -840,6 +863,7 @@ def _construire_erreur(
         message=(
             f"Valeur '{valeur}' invalide pour {type_rpd}/{regle.champ}. {regle.description} (source : {regle.source})."
         ),
+        priorite=regle.priorite,
     )
 
 

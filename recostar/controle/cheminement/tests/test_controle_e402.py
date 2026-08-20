@@ -382,8 +382,32 @@ class TestCli:
         assert resultat["nombre_anomalies"] == 1
 
     def test_fichier_sortie_cree(self, tmp_path):
+        id_terre = "id-t1"
+        (tmp_path / FICHIER_CABLE_TERRE).write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cable_terre(id_terre)],
+                }
+            )
+        )
+        # Cheminement aerien incompatible avec un cable de terre : anomalie
+        (tmp_path / "RPD_Aerien_Reco.geojson").write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cheminement("id-a1", id_terre)],
+                }
+            )
+        )
         executer_controle_cli(str(tmp_path))
         assert os.path.isfile(tmp_path / FICHIER_SORTIE)
+
+    def test_aucun_fichier_sans_anomalie(self, tmp_path):
+        resultat = executer_controle_cli(str(tmp_path))
+        assert resultat["nombre_anomalies"] == 0
+        assert resultat["sortie"] is None
+        assert not os.path.isfile(tmp_path / FICHIER_SORTIE)
 
     def test_cable_terre_absent_rapporte(self, tmp_path):
         resultat = executer_controle_cli(str(tmp_path))
@@ -416,6 +440,24 @@ class TestCli:
         assert resultat["nombre_cheminements_analyses"] == 1
 
     def test_sortie_personnalisee(self, tmp_path):
+        id_terre = "id-t1"
+        (tmp_path / FICHIER_CABLE_TERRE).write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cable_terre(id_terre)],
+                }
+            )
+        )
+        # Cheminement aerien incompatible avec un cable de terre : anomalie
+        (tmp_path / "RPD_Aerien_Reco.geojson").write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cheminement("id-a1", id_terre)],
+                }
+            )
+        )
         dossier_sortie = tmp_path / "sortie"
         dossier_sortie.mkdir()
         executer_controle_cli(str(tmp_path), str(dossier_sortie))

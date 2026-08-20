@@ -11,6 +11,11 @@ Controles enchaines :
     3. Altimetrie des sommets (controle_e202)
     4. Altimetrie IGN (controle_e203)
     5. Doublons spatiaux (controle_e204)
+    6. Point de leve / geometrie supplementaire de coffret (controle_e205)
+    7. Point de leve sur sommets de geometrie supplementaire de batiment (controle_e206)
+    8. Point de leve / geometrie supplementaire de support, v1.1 (controle_e207)
+    9. Rattachement des sommets de cables aux points de leve (controle_e208)
+    10. Points de leve orphelins (controle_e209)
 
 Usage CLI :
     python pipeline_controle_alti.py --repertoire <chemin> [--sortie <chemin>]
@@ -31,6 +36,18 @@ from controle_e204 import executer_controle_cli as executer_controle_doublons_sp
 from controle_e205 import (
     executer_controle_cli as executer_controle_point_leve_geom_supp,
 )
+from controle_e206 import (
+    executer_controle_cli as executer_controle_point_leve_sommets_geom_supp,
+)
+from controle_e207 import (
+    executer_controle_cli as executer_controle_point_leve_geom_supp_support,
+)
+from controle_e208 import (
+    executer_controle_cli as executer_controle_point_leve_sommets_cables,
+)
+from controle_e209 import (
+    executer_controle_cli as executer_controle_points_leve_orphelins,
+)
 
 # Noms des controles dans l'ordre d'execution
 NOMS_CONTROLES: tuple[str, ...] = (
@@ -40,6 +57,10 @@ NOMS_CONTROLES: tuple[str, ...] = (
     "controle_e203",
     "controle_e204",
     "controle_e205",
+    "controle_e206",
+    "controle_e207",
+    "controle_e208",
+    "controle_e209",
 )
 
 
@@ -70,6 +91,10 @@ def executer_pipeline(
         "controle_e203": executer_controle_ign(str(repertoire_resolu), str(dossier_sortie)),
         "controle_e204": executer_controle_doublons_spatiaux(str(repertoire_resolu), str(dossier_sortie)),
         "controle_e205": executer_controle_point_leve_geom_supp(str(repertoire_resolu), str(dossier_sortie)),
+        "controle_e206": executer_controle_point_leve_sommets_geom_supp(str(repertoire_resolu), str(dossier_sortie)),
+        "controle_e207": executer_controle_point_leve_geom_supp_support(str(repertoire_resolu), str(dossier_sortie)),
+        "controle_e208": executer_controle_point_leve_sommets_cables(str(repertoire_resolu), str(dossier_sortie)),
+        "controle_e209": executer_controle_points_leve_orphelins(str(repertoire_resolu), str(dossier_sortie)),
     }
 
     nb_anomalies_total = sum(r.get("nombre_anomalies", 0) for r in resultats_controles.values() if r.get("succes"))

@@ -475,11 +475,30 @@ class TestCli:
         assert resultat["priorite"] == PRIORITE_ANOMALIE
 
     def test_fichier_sortie_cree(self, tmp_path):
+        cable_id = "id-c1"
         (tmp_path / "RPD_CableElectrique_Reco.geojson").write_text(
-            json.dumps({"type": "FeatureCollection", "features": []})
+            json.dumps({"type": "FeatureCollection", "features": [_feature_cable(cable_id)]})
+        )
+        # Cheminement sans cables_href : anomalie garantie
+        (tmp_path / "RPD_Fourreau_Reco.geojson").write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cheminement("id-f1", None)],
+                }
+            )
         )
         executer_controle_cli(str(tmp_path))
         assert os.path.isfile(tmp_path / FICHIER_SORTIE)
+
+    def test_aucun_fichier_sans_anomalie(self, tmp_path):
+        (tmp_path / "RPD_CableElectrique_Reco.geojson").write_text(
+            json.dumps({"type": "FeatureCollection", "features": []})
+        )
+        resultat = executer_controle_cli(str(tmp_path))
+        assert resultat["nombre_anomalies"] == 0
+        assert resultat["sortie"] is None
+        assert not os.path.isfile(tmp_path / FICHIER_SORTIE)
 
     def test_anomalies_par_type_dans_rapport(self, tmp_path):
         cable_id = "id-c1"
@@ -506,6 +525,19 @@ class TestCli:
         assert "RPD_Fourreau_Reco.geojson" in resultat["fichiers_cheminement_absents"]
 
     def test_sortie_personnalisee(self, tmp_path):
+        cable_id = "id-c1"
+        (tmp_path / "RPD_CableElectrique_Reco.geojson").write_text(
+            json.dumps({"type": "FeatureCollection", "features": [_feature_cable(cable_id)]})
+        )
+        # Cheminement sans cables_href : anomalie garantie
+        (tmp_path / "RPD_Fourreau_Reco.geojson").write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [_feature_cheminement("id-f1", None)],
+                }
+            )
+        )
         dossier_sortie = tmp_path / "sortie"
         dossier_sortie.mkdir()
         executer_controle_cli(str(tmp_path), str(dossier_sortie))

@@ -1,29 +1,31 @@
 #!/usr/bin/env python3
 """
-Outil de contrôle E112 : validation XSD native d'un fichier GML RecoStaR.
+Outil de contrôle de validation XSD native d'un fichier GML RecoStaR.
 
-Complémentaire de :
-- E110 (ordre des éléments des objets RPD, réimplémentation Python)
-- E111 (règles métier conditionnelles non exprimables en XSD)
-- E113 (en-tête, namespaces, métadonnées, unicité gml:id)
+Complémentaire des autres contrôles de structuration (ordre des éléments,
+règles métier conditionnelles, en-tête), ce contrôle délègue toute la
+vérification structurelle et typée à lxml.etree.XMLSchema en s'appuyant sur le
+XSD officiel SchemaStarElecRecoStar.xsd de la version contrôlée. Les erreurs
+natives de lxml (en anglais, typées par des codes SCHEMAV_*) sont reclassées
+dans une taxonomie française stable, puis sérialisées dans le format de rapport
+JSON homogène aux autres contrôles.
 
-E112 délègue toute la vérification structurelle et typée à lxml.etree.XMLSchema
-en s'appuyant sur le XSD officiel SchemaStarElecRecoStar.xsd. Les erreurs natives
-de lxml (en anglais, typées par des codes SCHEMAV_*) sont reclassées dans une
-taxonomie française stable, puis sérialisées dans le format de rapport JSON
-homogène à E110/E111/E113.
+Le code du contrôle suit la version contrôlée — **E112** en V1.1, **E012** en
+V1.0 (point d'entrée dédié `controle_e012.py`), le XSD appliqué étant celui du
+`ProfilVersion` résolu.
 
 Dépendance : lxml (>= 4.9). Le XSD RecoStaR importe gml.xsd (OpenGIS) :
-la compilation du schéma exige donc un accès réseau au premier appel.
+la compilation du schéma exige donc un accès réseau au premier appel, sauf en
+mode `--offline` adossé au cache local.
 
 Entrée  : Fichier GML RecoStaR à contrôler
 Sortie  : Fichier JSON listant les erreurs détectées par le validateur XSD
 
 Usage :
-    python controle_e112.py <fichier.gml> [--xsd <chemin.xsd>] [--output-dir <repertoire>]
+    python controle_e112.py <fichier.gml> [--xsd <chemin.xsd>] [--output-dir <repertoire>] \
+        [--version {auto,1.0,1.1}]
 """
 
-import argparse
 import json
 import sys
 from datetime import datetime
@@ -31,7 +33,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import lxml.etree as ET  # type: ignore[import-untyped]
-from cli_version import ajouter_argument_version, resoudre_profil_cli
+from cli_controle import construire_parseur, resoudre_profil_argument, valider_arguments
+from codes_controle import RANG_XSD_NATIF, identite_controle
+from priorites_structuration import (
+    PRIORITE_PAR_DEFAUT,
+    statut_conformite,
+    ventiler_par_priorite,
+)
 from versions import VERSION_DEFAUT
 
 # ---------------------------------------------------------------------------
@@ -150,7 +158,9 @@ class _ResolveurXsdLocal(ET.Resolver):
         super().__init__()
         self._cache_dir = cache_dir
 
-    def resolve(self, url, public_id, context):  # type: ignore[override]
+    # Signature imposée par lxml, qui appelle resolve() positionnellement :
+    # l'identifiant public est inutilisé ici mais ne peut pas être retiré.
+    def resolve(self, url, _public_id, context):  # type: ignore[override]
         if not url or not url.startswith("http"):
             return None
         parsed = urlparse(url)
@@ -184,6 +194,10 @@ class ErreurXsd:
     # Attribut de classe pour homogénéiser le rapport JSON avec E114.
     severite = "ERREUR"
 
+    # Priorité fixe : un fichier rejeté par le XSD officiel n'est pas conforme,
+    # aucune dérogation n'est prévue pour ce contrôle.
+    priorite = PRIORITE_PAR_DEFAUT
+
     def __init__(
         self,
         code: str,
@@ -205,6 +219,7 @@ class ErreurXsd:
         return {
             "code": self.code,
             "severite": self.severite,
+            "priorite": self.priorite,
             "ligne": self.ligne,
             "colonne": self.colonne,
             "xpath": self.xpath,
@@ -349,26 +364,38 @@ def _construire_rapport(
 ) -> dict:
     """Construit le dictionnaire de rapport E112 à sérialiser en JSON."""
     nb_erreurs = len(erreurs)
-    conformite = "CONFORME" if nb_erreurs == 0 else "NON_CONFORME"
+    # Ventilation par priorité : E112 n'accorde aucune dérogation, un rejet par
+    # le XSD officiel reste bloquant. La conformité en découle.
+    par_priorite = ventiler_par_priorite(erreurs)
+    conformite = statut_conformite(par_priorite)
     return {
         "fichier": str(chemin_gml.resolve()),
         "xsd": str(chemin_xsd.resolve()),
         "date_controle": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "niveau": "Forte",
-        "type_controle": "E112_XSD_NATIF",
+        "type_controle": identite_controle(version, RANG_XSD_NATIF).type_controle,
         "version_controlee": version,
         "conformite": conformite,
         "nb_erreurs": nb_erreurs,
         # E112 ne produit que des erreurs : ventilation alignée sur E114.
         "nb_par_severite": {"ERREUR": nb_erreurs} if nb_erreurs else {},
+        "nb_par_priorite": par_priorite,
         "erreurs": [e.vers_dict() for e in erreurs],
     }
 
 
-def _resoudre_chemin_sortie(chemin_gml: Path, repertoire_sortie: Path | None) -> Path:
-    """Détermine le chemin du fichier JSON de sortie."""
+def _resoudre_chemin_sortie(
+    chemin_gml: Path,
+    repertoire_sortie: Path | None,
+    version: str = VERSION_DEFAUT,
+) -> Path:
+    """Détermine le chemin du fichier JSON de sortie.
+
+    Le suffixe porte le code du contrôle appliqué : `_controle_e112.json` en
+    V1.1, `_controle_e012.json` en V1.0.
+    """
     dossier = repertoire_sortie if repertoire_sortie else chemin_gml.parent
-    nom_json = chemin_gml.stem + "_controle_e112.json"
+    nom_json = chemin_gml.stem + identite_controle(version, RANG_XSD_NATIF).suffixe_rapport
     return (dossier / nom_json).resolve()
 
 
@@ -380,7 +407,7 @@ def generer_rapport(
     version: str = VERSION_DEFAUT,
 ) -> Path:
     """Écrit le rapport au format JSON et retourne le chemin du fichier créé."""
-    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie)
+    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie, version)
     rapport = _construire_rapport(chemin_gml, chemin_xsd, erreurs, version)
 
     with open(chemin_sortie, "w", encoding="utf-8") as f:
@@ -392,39 +419,21 @@ def generer_rapport(
 # Point d'entrée CLI
 # ---------------------------------------------------------------------------
 
+DESCRIPTION_CLI: str = (
+    "Contrôle de validation XSD native (via lxml) d'un fichier GML RecoStaR. "
+    "Délègue toute la vérification structurelle et typée au schéma XSD officiel "
+    "de la version contrôlée (E112 en V1.1, E012 en V1.0)."
+)
 
-def _construire_parseur() -> argparse.ArgumentParser:
-    """Construit et retourne le parseur d'arguments CLI."""
-    parseur = argparse.ArgumentParser(
-        description=(
-            "Contrôle E112 : validation XSD native (via lxml) d'un fichier GML "
-            "RecoStaR. Délègue toute la vérification structurelle et typée au "
-            "schéma XSD officiel."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parseur.add_argument(
-        "fichier_gml",
-        type=Path,
-        help="Fichier GML RecoStaR à contrôler",
-    )
+
+def _ajouter_arguments_xsd(parseur) -> None:
+    """Déclare les options propres à la validation XSD native."""
     parseur.add_argument(
         "--xsd",
         type=Path,
         default=None,
         metavar="CHEMIN_XSD",
-        help=(
-            "Chemin vers le fichier XSD à utiliser. Par défaut, le XSD officiel "
-            "de la version contrôlée (voir --version)."
-        ),
-    )
-    ajouter_argument_version(parseur)
-    parseur.add_argument(
-        "--output-dir",
-        type=Path,
-        default=None,
-        metavar="REPERTOIRE",
-        help=("Répertoire de sortie pour le rapport JSON (par défaut : même répertoire que le fichier GML)"),
+        help=("Chemin vers le fichier XSD à utiliser. Par défaut, le XSD officiel de la version contrôlée."),
     )
     parseur.add_argument(
         "--offline",
@@ -443,50 +452,50 @@ def _construire_parseur() -> argparse.ArgumentParser:
         metavar="REPERTOIRE",
         help=(f"Répertoire des XSD externes en cache local (par défaut : {_CHEMIN_CACHE_DEFAUT})."),
     )
-    return parseur
 
 
-def _valider_arguments(args: argparse.Namespace) -> None:
-    """Vérifie la validité des arguments CLI. Termine le programme si invalides."""
-    args.fichier_gml = args.fichier_gml.resolve()
-    if not args.fichier_gml.exists():
-        print(
-            f"Erreur : le fichier '{args.fichier_gml}' n'existe pas.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+def _rapporter_xsd_non_compilable(
+    chemin_gml: Path,
+    chemin_xsd: Path,
+    repertoire_sortie: Path | None,
+    version: str,
+    exc: RuntimeError,
+) -> None:
+    """Émet un rapport d'échec de compilation du XSD puis termine en erreur.
 
-    if not args.fichier_gml.is_file():
-        print(
-            f"Erreur : '{args.fichier_gml}' n'est pas un fichier.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    Le rapport est produit malgré l'échec, pour rester cohérent avec les autres
+    contrôles de la famille qui écrivent toujours un rapport exploitable.
+    """
+    erreur = ErreurXsd(
+        code=CODE_XSD_NON_COMPILABLE,
+        ligne=None,
+        colonne=None,
+        xpath=None,
+        type_lxml=None,
+        message=str(exc),
+    )
+    chemin_rapport = generer_rapport(chemin_gml, chemin_xsd, [erreur], repertoire_sortie, version)
+    print(f"Echec compilation XSD : {exc}", file=sys.stderr)
+    print(f"Rapport genere : {chemin_rapport}")
+    sys.exit(1)
 
-    if args.output_dir is not None:
-        args.output_dir = args.output_dir.resolve()
-        if not args.output_dir.is_dir():
-            print(
-                f"Erreur : le répertoire de sortie '{args.output_dir}' n'existe pas.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
 
-
-def main() -> None:
-    """Point d'entrée principal du contrôle E112."""
-    parseur = _construire_parseur()
+def main(version_imposee: str | None = None) -> None:
+    """Point d'entrée principal du contrôle de validation XSD native."""
+    parseur = construire_parseur(DESCRIPTION_CLI, version_imposee)
+    _ajouter_arguments_xsd(parseur)
     args = parseur.parse_args()
-    _valider_arguments(args)
+    valider_arguments(args)
 
-    profil = resoudre_profil_cli(args.fichier_gml, args.version)
-    # XSD explicite prioritaire ; sinon, XSD officiel de la version détectée.
+    profil = resoudre_profil_argument(args, version_imposee)
+    # XSD explicite prioritaire ; sinon, XSD officiel de la version résolue.
     chemin_xsd = args.xsd if args.xsd is not None else profil.chemin_xsd
     if not chemin_xsd.exists():
         print(f"Erreur : le fichier XSD '{chemin_xsd}' n'existe pas.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Controle E112 du fichier : {args.fichier_gml}")
+    code = identite_controle(profil.code, RANG_XSD_NATIF).code
+    print(f"Controle {code} du fichier : {args.fichier_gml}")
     print(f"Version controlee        : {profil.code}")
     print(f"Schema XSD utilise       : {chemin_xsd}")
     if args.offline:
@@ -495,20 +504,8 @@ def main() -> None:
     try:
         validateur = ValidateurXsd(chemin_xsd, cache_dir=args.cache_dir, mode_offline=args.offline)
     except RuntimeError as exc:
-        # XSD non compilable : on émet quand même un rapport avec une erreur
-        # explicite, pour cohérence avec les autres contrôles E1xx.
-        erreur = ErreurXsd(
-            code=CODE_XSD_NON_COMPILABLE,
-            ligne=None,
-            colonne=None,
-            xpath=None,
-            type_lxml=None,
-            message=str(exc),
-        )
-        chemin_rapport = generer_rapport(args.fichier_gml, chemin_xsd, [erreur], args.output_dir, profil.code)
-        print(f"Echec compilation XSD : {exc}", file=sys.stderr)
-        print(f"Rapport genere : {chemin_rapport}")
-        sys.exit(1)
+        _rapporter_xsd_non_compilable(args.fichier_gml, chemin_xsd, args.output_dir, profil.code, exc)
+        return
 
     erreurs = validateur.valider(args.fichier_gml)
     chemin_rapport = generer_rapport(args.fichier_gml, chemin_xsd, erreurs, args.output_dir, profil.code)

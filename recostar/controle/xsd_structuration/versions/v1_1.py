@@ -50,4 +50,6 @@ PROFIL_V1_1: ProfilVersion = ProfilVersion(
     namespaces_attendus=NAMESPACES_ATTENDUS,
     fragment_url_xsd=FRAGMENT_URL_XSD_V1_1,
     chemin_xsd=CHEMIN_XSD_V1_1,
+    # La V1.1 est contrôlée par les codes E110 à E114.
+    prefixe_code="E11",
 )

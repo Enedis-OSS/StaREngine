@@ -30,20 +30,26 @@ Fichiers cheminement analyses :
 Usage CLI :
     python controle_e401.py --repertoire <chemin> [--sortie <chemin>]
 
-Sortie : ecarts_integrite_cables_cheminements.geojson
+Sortie : ecarts_e401_integrite_cables_cheminements.geojson
 """
 
 import argparse
 import json
 import os
 import sys
-from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from utils_cheminement import extraire_ids_cables_href as _extraire_ids_cables_href
-from utils_geojson import ecrire_geojson, lire_geojson, obtenir_id_feature
+from utils_geojson import (
+    ProfilEcarts,
+    compter_anomalies_par_type,
+    ecrire_geojson_si_anomalies,
+    lire_geojson,
+    normaliser_geojson_ecarts,
+    obtenir_id_feature,
+)
 
 # Fichiers cable dont les entites doivent etre referenceees par les cheminements
 FICHIERS_CABLES: tuple[str, ...] = (
@@ -61,7 +67,24 @@ FICHIERS_CHEMINEMENT: tuple[str, ...] = (
 )
 
 # Nom du fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_integrite_cables_cheminements.geojson"
+FICHIER_SORTIE: str = "ecarts_e401_integrite_cables_cheminements.geojson"
+
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E401"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "cable_non_reference": ("Le câble n'est référencé par aucun cheminement."),
+    "reference_orpheline": ("Le cheminement référence un câble qui n'existe pas dans le jeu de données."),
+    "cheminement_sans_cable": ("Le cheminement ne référence aucun câble."),
+    "cheminement_multi_cables": ("Le cheminement référence plusieurs câbles."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_cable", "id_cheminement"),
+)
+
 
 # Niveau de priorite affecte a toutes les anomalies
 PRIORITE_ANOMALIE: str = "bloquant"
@@ -285,35 +308,39 @@ def detecter_anomalies(
 # ---------------------------------------------------------------------------
 
 
+# Champs reportes dans les proprietes GeoJSON, par type d'anomalie. Table
+# declarative plutot qu'une cascade de if : ajouter un type d'anomalie se fait
+# ici seulement, en regard de son constructeur _anomalie_* correspondant.
+# L'ordre des champs fixe l'ordre des cles dans le GeoJSON produit.
+CHAMPS_PROPRIETES: dict[str, tuple[str, ...]] = {
+    "cable_non_reference": ("fichier_cable", "id_cable"),
+    "reference_orpheline": ("fichier_cheminement", "id_cheminement", "cables_href_invalide"),
+    "cheminement_sans_cable": ("fichier_cheminement", "id_cheminement"),
+    "cheminement_multi_cables": ("fichier_cheminement", "id_cheminement", "nb_cables", "cables_href"),
+}
+
+
 def _construire_proprietes(anomalie: dict[str, Any]) -> dict[str, Any]:
     """Construit le dictionnaire de proprietes GeoJSON d'une anomalie.
 
     Les proprietes communes (type_anomalie, priorite) sont toujours presentes.
-    Les proprietes specifiques dependent du type d'anomalie.
+    Les proprietes specifiques sont celles declarees dans CHAMPS_PROPRIETES
+    pour le type d'anomalie ; un type inconnu ne produit que les communes.
     """
     type_anomalie = anomalie["type_anomalie"]
-    id_chemin = anomalie.get("id_cheminement")
 
     props: dict[str, Any] = {
         "type_anomalie": type_anomalie,
         "priorite": PRIORITE_ANOMALIE,
     }
+    for champ in CHAMPS_PROPRIETES.get(type_anomalie, ()):
+        props[champ] = anomalie[champ]
 
-    if type_anomalie == "cable_non_reference":
-        props["fichier_cable"] = anomalie["fichier_cable"]
-        props["id_cable"] = anomalie["id_cable"]
-    elif type_anomalie == "reference_orpheline":
-        props["fichier_cheminement"] = anomalie["fichier_cheminement"]
-        props["id_cheminement"] = str(id_chemin) if id_chemin is not None else None
-        props["cables_href_invalide"] = anomalie["cables_href_invalide"]
-    elif type_anomalie == "cheminement_sans_cable":
-        props["fichier_cheminement"] = anomalie["fichier_cheminement"]
-        props["id_cheminement"] = str(id_chemin) if id_chemin is not None else None
-    elif type_anomalie == "cheminement_multi_cables":
-        props["fichier_cheminement"] = anomalie["fichier_cheminement"]
-        props["id_cheminement"] = str(id_chemin) if id_chemin is not None else None
-        props["nb_cables"] = anomalie["nb_cables"]
-        props["cables_href"] = anomalie["cables_href"]
+    # L'identifiant de cheminement est optionnel en entree mais toujours
+    # serialise en chaine dans le GeoJSON, pour un typage stable cote QGIS.
+    id_chemin = props.get("id_cheminement")
+    if id_chemin is not None:
+        props["id_cheminement"] = str(id_chemin)
 
     return props
 
@@ -339,20 +366,12 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 # ---------------------------------------------------------------------------
 # Orchestration CLI
 # ---------------------------------------------------------------------------
-
-
-def _compter_par_type(anomalies: list[dict[str, Any]]) -> dict[str, int]:
-    """Compte les anomalies par type pour le rapport JSON."""
-    comptes: defaultdict[str, int] = defaultdict(int)
-    for anomalie in anomalies:
-        comptes[anomalie["type_anomalie"]] += 1
-    return dict(comptes)
 
 
 def executer_controle_cli(
@@ -382,18 +401,18 @@ def executer_controle_cli(
 
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
         "priorite": PRIORITE_ANOMALIE,
         "nombre_anomalies": len(anomalies),
-        "anomalies_par_type": _compter_par_type(anomalies),
+        "anomalies_par_type": compter_anomalies_par_type(anomalies),
         "nombre_cables_analyses": len(cables),
         "nombre_cheminements_analyses": len(cheminements),
         "fichiers_cables_absents": fichiers_cables_absents,
         "fichiers_cheminement_absents": fichiers_cheminement_absents,
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 

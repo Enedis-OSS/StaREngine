@@ -13,6 +13,13 @@ L'ancien tag `RecoStar-v1.10` (émis par les versions antérieures du
 convertisseur, désormais corrigé pour produire `v1.1`) n'est volontairement plus
 détecté : un tel fichier retombe sur le repli de version par défaut côté CLI.
 
+À défaut de tag de version, une URL pointant la **branche `main`** du dépôt
+amont (`/raw/main/`) est rattachée à la **V1.0** : c'est la forme émise par les
+producteurs historiques (dont AtelierStaR-Elec), dont les données suivent le
+schéma V1.0. Cette reconnaissance ne vaut que pour le choix du profil de
+contrôle : l'absence de tag de version reste une non-conformité d'en-tête,
+signalée par le contrôle E013 (`SCHEMA_LOCATION_VERSION_INCORRECTE`).
+
 En cas d'absence, de jeton inconnu ou de XML illisible, la détection retourne
 `None` sans lever d'exception : l'appelant (CLI) décide alors du repli (version
 par défaut) et laisse les contrôles signaler eux-mêmes les anomalies d'en-tête.
@@ -20,8 +27,10 @@ par défaut) et laisse les contrôles signaler eux-mêmes les anomalies d'en-tê
 
 import re
 from pathlib import Path
-from xml.etree.ElementTree import (
-    ParseError,  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
+    ParseError,
 )
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
@@ -42,6 +51,17 @@ _MOTIF_VERSION = re.compile(r"RecoStar-v(\d+(?:\.\d+)*)")
 _VERSIONS_PAR_JETON: dict[str, str] = {
     "1.0": "1.0",
     "1.1": "1.1",
+}
+
+# Repli sur la branche du dépôt : les fichiers historiques ne portent pas de tag
+# de version mais pointent la branche `main`, dont le contenu correspond au
+# schéma V1.0. Insensible à la casse, le nom de branche n'étant pas normalisé
+# selon les producteurs.
+_MOTIF_BRANCHE = re.compile(r"/raw/([^/]+)/", re.IGNORECASE)
+
+# Correspondance nom de branche → code de version du registre.
+_VERSIONS_PAR_BRANCHE: dict[str, str] = {
+    "main": "1.0",
 }
 
 
@@ -65,13 +85,23 @@ def detecter_version(chemin_gml: Path) -> str | None:
     """Déduit le code de version RecoStaR d'un fichier GML.
 
     Retourne le code de version (« 1.0 », « 1.1 ») reconnu dans le
-    schemaLocation, ou None si l'attribut est absent, illisible ou porte un
-    jeton de version inconnu.
+    schemaLocation, ou None si l'attribut est absent, illisible ou ne porte ni
+    jeton de version connu ni nom de branche répertorié.
+
+    Le tag de version est prioritaire ; à défaut, le nom de branche de l'URL
+    sert de repli (`main` → V1.0).
     """
     valeur = _lire_schema_location(chemin_gml)
     if not valeur:
         return None
+
     correspondance = _MOTIF_VERSION.search(valeur)
-    if correspondance is None:
+    if correspondance is not None:
+        version = _VERSIONS_PAR_JETON.get(correspondance.group(1))
+        if version is not None:
+            return version
+
+    branche = _MOTIF_BRANCHE.search(valeur)
+    if branche is None:
         return None
-    return _VERSIONS_PAR_JETON.get(correspondance.group(1))
+    return _VERSIONS_PAR_BRANCHE.get(branche.group(1).lower())

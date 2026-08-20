@@ -15,7 +15,6 @@ from calcul_longueur import (  # type: ignore[import-not-found]
     EntiteReferencee,
     _calculer_centroide,
     _calculer_longueur_3d,
-    _corriger_z_nuls,
     _extraire_coordonnees_cable,
     _extraire_ids_cables,
     _extraire_position_entite,
@@ -91,51 +90,9 @@ class TestCalculerLongueur3D:
         assert _calculer_longueur_3d(coords) == pytest.approx(attendu)
 
 
-# --- Tests de _corriger_z_nuls ---
-
-
-class TestCorrigerZNuls:
-    """Tests de la correction des valeurs Z nulles par propagation."""
-
-    def test_aucun_z_nul(self):
-        """Aucun Z a corriger : les valeurs restent identiques."""
-        coords = [[0.0, 0.0, 10.0], [1.0, 1.0, 20.0], [2.0, 2.0, 30.0]]
-        assert _corriger_z_nuls(coords) == [10.0, 20.0, 30.0]
-
-    def test_z_nul_debut(self):
-        """Z=0.0 en debut : corrige par le premier Z valide suivant."""
-        coords = [[0.0, 0.0, 0.0], [1.0, 1.0, 15.0], [2.0, 2.0, 20.0]]
-        assert _corriger_z_nuls(coords) == [15.0, 15.0, 20.0]
-
-    def test_z_nul_fin(self):
-        """Z=0.0 en fin : corrige par le dernier Z valide precedent."""
-        coords = [[0.0, 0.0, 10.0], [1.0, 1.0, 20.0], [2.0, 2.0, 0.0]]
-        assert _corriger_z_nuls(coords) == [10.0, 20.0, 20.0]
-
-    def test_z_nul_milieu(self):
-        """Z=0.0 au milieu : corrige par propagation avant (Z precedent)."""
-        coords = [[0.0, 0.0, 10.0], [1.0, 1.0, 0.0], [2.0, 2.0, 30.0]]
-        assert _corriger_z_nuls(coords) == [10.0, 10.0, 30.0]
-
-    def test_tous_z_nuls(self):
-        """Tous les Z a 0.0 : aucun Z valide, tout reste a 0.0."""
-        coords = [[0.0, 0.0, 0.0], [1.0, 1.0, 0.0]]
-        assert _corriger_z_nuls(coords) == [0.0, 0.0]
-
-    def test_plusieurs_z_nuls_consecutifs(self):
-        """Plusieurs Z=0.0 consecutifs : propages par le Z precedent valide."""
-        coords = [
-            [0.0, 0.0, 10.0],
-            [1.0, 1.0, 0.0],
-            [2.0, 2.0, 0.0],
-            [3.0, 3.0, 25.0],
-        ]
-        assert _corriger_z_nuls(coords) == [10.0, 10.0, 10.0, 25.0]
-
-    def test_sans_composante_z(self):
-        """Coordonnees 2D sans Z : traites comme Z=0.0."""
-        coords = [[0.0, 0.0], [1.0, 1.0, 10.0]]
-        assert _corriger_z_nuls(coords) == [10.0, 10.0]
+# Les tests unitaires de corriger_z_nuls vivent avec la fonction, dans
+# recostar/controle/tests/test_utils_geometrie_commun.py. Ici, la correction
+# est verifiee a travers _calculer_longueur_3d, son seul point d'usage.
 
 
 class TestCalculerCentroide:

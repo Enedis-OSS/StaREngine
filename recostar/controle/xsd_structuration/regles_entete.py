@@ -15,6 +15,7 @@ Référence : "Structuration des informations attendue pour les fichiers
 de récolement des ouvrages RécoStaR" V1.1.
 """
 
+from priorites_structuration import PRIORITE_MAJEUR, PRIORITE_PAR_DEFAUT
 from sequenceur_xsd import SlotSequence
 
 # ---------------------------------------------------------------------------
@@ -41,6 +42,13 @@ FRAGMENT_URL_XSD_V1_1 = "/raw/RecoStar-v1.1/"
 # Fragment indicatif d'une URL "branche main" -> permet un message d'erreur
 # ciblé recommandant la migration vers le tag de version.
 FRAGMENT_URL_MAIN = "/raw/main/"
+
+# Priorité de la seule anomalie « schemaLocation sur la branche main » : le
+# fichier reste lisible et exploitable, mais il n'est plus ancré sur un tag de
+# version figé — l'écart de structuration est important sans être bloquant.
+# Les autres écarts de schemaLocation (attribut absent, version non référencée)
+# conservent la priorité bloquante par défaut.
+PRIORITE_SCHEMA_LOCATION_BRANCHE_MAIN: str = PRIORITE_MAJEUR
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +162,7 @@ class ErreurEntete:
         "valeur_trouvee",
         "valeur_attendue",
         "message",
+        "priorite",
     )
 
     # Sévérité fixe : le contrôle d'en-tête ne produit que des erreurs.
@@ -167,18 +176,23 @@ class ErreurEntete:
         valeur_trouvee: str | None,
         valeur_attendue: str | None,
         message: str,
+        priorite: str = PRIORITE_PAR_DEFAUT,
     ) -> None:
         self.code = code
         self.element = element
         self.valeur_trouvee = valeur_trouvee
         self.valeur_attendue = valeur_attendue
         self.message = message
+        # Slot plutôt qu'attribut de classe : l'en-tête est le seul contrôle
+        # dont une règle déroge à la priorité par défaut (branche 'main' du XSD).
+        self.priorite = priorite
 
     def vers_dict(self) -> dict:
         """Sérialise l'erreur en dictionnaire pour le rapport JSON."""
         return {
             "code": self.code,
             "severite": self.severite,
+            "priorite": self.priorite,
             "element": self.element,
             "valeur_trouvee": self.valeur_trouvee,
             "valeur_attendue": self.valeur_attendue,

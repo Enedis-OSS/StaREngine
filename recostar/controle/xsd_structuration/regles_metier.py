@@ -18,6 +18,8 @@ dans REGLES_METIER, sans toucher au moteur.
 from collections.abc import Callable, Mapping
 from typing import NamedTuple
 
+from priorites_structuration import PRIORITE_PAR_DEFAUT
+
 # ---------------------------------------------------------------------------
 # Type d'erreur métier
 # ---------------------------------------------------------------------------
@@ -41,6 +43,10 @@ class ErreurMetier:
     # erreur. Attribut de classe pour homogénéiser le rapport JSON avec E114.
     severite = "ERREUR"
 
+    # Priorité fixe : un champ requis sous condition et absent rend l'ouvrage
+    # inexploitable, aucune dérogation n'est prévue pour ce contrôle.
+    priorite = PRIORITE_PAR_DEFAUT
+
     def __init__(
         self,
         type_rpd: str,
@@ -63,6 +69,7 @@ class ErreurMetier:
             "type_rpd": self.type_rpd,
             "gml_id": self.gml_id,
             "severite": self.severite,
+            "priorite": self.priorite,
             "regle": self.regle,
             "champ_attendu": self.champ_attendu,
             "contexte": self.contexte,

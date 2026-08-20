@@ -6,6 +6,7 @@ Couvre :
 - detection de version (mecanisme E204 reutilise : TypeLeve dans PointLeve)
 - chargement des points de leve en geometries Shapely 2D
 - detection spatiale (point present / absent, geomsupp non liee ignoree)
+- tolerance planimetrique de superposition (point pose sur le contour)
 - construction du GeoJSON de sortie (champ version inclus)
 - execution CLI bout en bout via tmp_path (modes auto et explicite)
 """
@@ -25,6 +26,7 @@ from controle_e205 import (
     FICHIER_POINT_LEVE,
     FICHIER_SORTIE,
     PRIORITE_ANOMALIE,
+    TOLERANCE_SUPERPOSITION,
     VALEUR_STATUT_V1_1,
     _charger_points_leve,
     construire_geojson_ecarts,
@@ -64,6 +66,23 @@ _POLY_LOIN = [[[[100.0, 100.0], [101.0, 100.0], [101.0, 101.0], [100.0, 101.0], 
 _POINT_INTERIEUR = [0.5, 0.5]
 _POINT_SUR_BORD = [0.0, 0.0]  # sommet de _POLY_1M
 _POINT_EXTERIEUR = [50.0, 50.0]
+
+# Geometrie supplementaire a l'echelle Lambert-93, dont le premier cote reprend
+# un segment reel de Echantillon3. Le point de leve _POINT_SUR_ARETE est le
+# milieu de ce cote arrondi au millimetre a la source : il tombe 2,3e-4 m a
+# l'EXTERIEUR du polygone, la ou le predicat « intersects » le rejetait.
+_ARETE_A = [668683.578, 6735670.133]
+_ARETE_B = [668683.031, 6735670.398]
+_SOMMET_OPPOSE = [668684.0, 6735671.0]
+_POLY_ARETE = [[[_ARETE_A, _ARETE_B, _SOMMET_OPPOSE, _ARETE_A]]]
+_POINT_SUR_ARETE = [668683.305, 6735670.265]
+
+# Memes reperes, points ecartes vers l'EXTERIEUR du polygone (2,0 mm et 9,6 mm
+# du contour) : de vraies erreurs de saisie, que la tolerance ne doit pas
+# absorber. La direction est opposee a _SOMMET_OPPOSE, sinon l'ecart ferait
+# rentrer le point dans le polygone et le test ne prouverait rien.
+_POINT_ECARTE_2MM = [668683.303, 6735670.264]
+_POINT_ECARTE_1CM = [668683.298, 6735670.258]
 
 
 def _feature_coffret(
@@ -284,6 +303,47 @@ class TestDetecterGeomSuppSansPointLeve:
         # Z tres different du polygone (Z=5) : force_2d doit neutraliser l'ecart
         points = self._points_leve([[0.5, 0.5, 99.0]])
         assert detecter_geomsupp_sans_point_leve(geomsupp, ids_lies, points) == []
+
+
+# ---------------------------------------------------------------------------
+# Tests de la tolerance planimetrique de superposition
+# ---------------------------------------------------------------------------
+
+
+class TestToleranceSuperposition:
+    """Verifie que la tolerance admet un point de leve pose sur le CONTOUR du
+    polygone malgre l'arrondi millimetrique, sans absorber un ecart reel.
+
+    Le contact avec un contour est de mesure nulle, comme le contact avec une
+    ligne : c'est le meme mode de defaillance que celui corrige sur E209. Un
+    point INTERIEUR au polygone n'a jamais ete concerne, ce test etant
+    numeriquement robuste (cf. test_point_interieur_pas_anomalie).
+    """
+
+    def _anomalies(self, coordonnees_point: list[float]) -> int:
+        """Nombre d'anomalies pour un point de leve face a _POLY_ARETE."""
+        points = _charger_points_leve([_feature_point_leve("p1", coordonnees_point)])
+        return len(
+            detecter_geomsupp_sans_point_leve([_feature_geomsupp("gs1", _POLY_ARETE)], frozenset({"gs1"}), points)
+        )
+
+    def test_tolerance_vaut_un_millimetre(self) -> None:
+        assert TOLERANCE_SUPERPOSITION == 0.001
+
+    def test_point_sur_arete_arrondi_au_millimetre_conforme(self) -> None:
+        # Milieu d'un cote arrondi au mm : 2,3e-4 m a l'exterieur du polygone
+        assert self._anomalies(_POINT_SUR_ARETE) == 0
+
+    def test_point_ecarte_de_deux_millimetres_produit_anomalie(self) -> None:
+        assert self._anomalies(_POINT_ECARTE_2MM) == 1
+
+    def test_point_ecarte_d_un_centimetre_produit_anomalie(self) -> None:
+        # La tolerance ne doit pas absorber une vraie erreur de saisie terrain
+        assert self._anomalies(_POINT_ECARTE_1CM) == 1
+
+    def test_point_sur_sommet_reste_conforme(self) -> None:
+        # Cas historiquement couvert : la tolerance ne le degrade pas
+        assert self._anomalies(_ARETE_A) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -524,12 +584,21 @@ class TestCli:
     def test_repertoire_sortie_distinct(self, tmp_path: Any) -> None:
         coffrets = [_feature_coffret("c1", "gs1")]
         geomsupp = [_feature_geomsupp("gs1", _POLY_1M)]
-        points = [_feature_point_leve("p1", _POINT_INTERIEUR, avec_type_leve=True)]
+        points = [_feature_point_leve("p1", _POINT_EXTERIEUR, avec_type_leve=True)]
         _ecrire_trois_fichiers(str(tmp_path), coffrets, geomsupp, points)
         dossier_sortie = str(tmp_path / "sortie")
         resultat = executer_controle_cli(str(tmp_path), dossier_sortie)
         assert resultat["succes"] is True
         assert os.path.isfile(os.path.join(dossier_sortie, FICHIER_SORTIE))
+
+    def test_aucun_fichier_sans_anomalie(self, tmp_path: Any) -> None:
+        coffrets = [_feature_coffret("c1", "gs1")]
+        geomsupp = [_feature_geomsupp("gs1", _POLY_1M)]
+        points = [_feature_point_leve("p1", _POINT_INTERIEUR, avec_type_leve=True)]
+        _ecrire_trois_fichiers(str(tmp_path), coffrets, geomsupp, points)
+        resultat = executer_controle_cli(str(tmp_path))
+        assert resultat["sortie"] is None
+        assert not os.path.isfile(os.path.join(str(tmp_path), FICHIER_SORTIE))
 
     def test_geomsupp_non_liee_non_comptee(self, tmp_path: Any) -> None:
         coffrets = [_feature_coffret("c1", "gs1")]

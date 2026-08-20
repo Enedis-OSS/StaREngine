@@ -1,38 +1,46 @@
 #!/usr/bin/env python3
 """
-Outil de contrôle E114 : vérification des valeurs portées par les éléments
-d'un fichier GML RecoStaR contre les énumérations et CodeLists du PDF §10.
+Outil de contrôle des valeurs portées par les éléments d'un fichier GML
+RecoStaR, contre les énumérations et CodeLists du PDF §10.
 
-Complémentaire des contrôles existants :
-- E110 (ordre des éléments) : présence des champs requis
-- E111 (règles métier) : champs conditionnellement requis (statut, BT…)
-- E112 (XSD natif) : énumérations strictes via xs:enumeration du XSD officiel
-- E113 (en-tête) : namespaces, schemaLocation, Metadata, ReseauUtilite, SRS
+Complémentaire des autres contrôles de structuration :
+- ordre des éléments : présence des champs requis
+- règles métier : champs conditionnellement requis (statut, BT…)
+- XSD natif : énumérations strictes via xs:enumeration du XSD officiel
+- en-tête : namespaces, schemaLocation, Metadata, ReseauUtilite, SRS
 
-E114 vise spécifiquement les valeurs littérales/référencées par xlink:href
-sur les enfants des objets RPD, et complète E112 en couvrant aussi les
-CodeLists ouvertes (que le XSD traite comme des CharacterString) et les
-contraintes RPD plus strictes que le XSD (Theme=ELECTRD, NumeroPRM 14 chiffres).
+Ce contrôle vise spécifiquement les valeurs littérales/référencées par
+xlink:href sur les enfants des objets RPD, et complète la validation XSD native
+en couvrant aussi les CodeLists ouvertes (que le XSD traite comme des
+CharacterString) et les contraintes RPD plus strictes que le XSD
+(Theme=ELECTRD, NumeroPRM 14 chiffres).
+
+Le moteur est version-agnostique : il applique le catalogue de valeurs du
+`ProfilVersion` fourni. Le code du contrôle suit la version contrôlée —
+**E114** en V1.1, **E014** en V1.0 (point d'entrée dédié `controle_e014.py`).
 
 Entrée  : Fichier GML RecoStaR à contrôler
-Sortie  : Fichier JSON listant les erreurs et avertissements détectés
+Sortie  : Fichier JSON listant les erreurs détectées (sévérité ERREUR unique)
 
 Usage :
-    python controle_e114.py <fichier.gml> [--output-dir <repertoire>]
+    python controle_e114.py <fichier.gml> [--output-dir <repertoire>] \
+        [--version {auto,1.0,1.1}]
 """
 
-import argparse
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
-from xml.etree.ElementTree import (  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
     Element,
     ElementTree,
 )
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
-from cli_version import ajouter_argument_version, resoudre_profil_cli
+from cli_controle import executer_controle
+from codes_controle import RANG_VALEURS, identite_controle
+from priorites_structuration import statut_conformite, ventiler_par_priorite
 from regles_valeurs import (
     SEVERITE_ERREUR,
     ErreurValeur,
@@ -115,8 +123,8 @@ class AnalyseurValeurs:
     def analyser(self) -> list[ErreurValeur]:
         """Parcourt les featureMember RPD et évalue chaque champ porteur.
 
-        Retourne la liste exhaustive des erreurs et avertissements détectés
-        (vide si le fichier respecte intégralement les domaines de valeurs).
+        Retourne la liste exhaustive des erreurs détectées (vide si le fichier
+        respecte intégralement les domaines de valeurs).
         """
         arbre: ElementTree[Element] = DefusedET.parse(str(self.chemin_gml))
         racine = arbre.getroot()
@@ -173,21 +181,11 @@ class AnalyseurValeurs:
 
 
 def _compter_par_severite(erreurs: list[ErreurValeur]) -> dict[str, int]:
-    """Compte le nombre d'entrées par sévérité (ERREUR / AVERTISSEMENT)."""
+    """Compte le nombre d'entrées par sévérité (ERREUR uniquement en E114)."""
     compteur: dict[str, int] = {}
     for erreur in erreurs:
         compteur[erreur.severite] = compteur.get(erreur.severite, 0) + 1
     return compteur
-
-
-def _conformite(erreurs: list[ErreurValeur]) -> str:
-    """Conformité = CONFORME si aucune entrée de sévérité ERREUR.
-
-    Les AVERTISSEMENT (CodeLists hors liste documentée) n'invalident pas
-    le fichier : la spec autorise les extensions locales.
-    """
-    nb_erreurs = sum(1 for e in erreurs if e.severite == SEVERITE_ERREUR)
-    return "CONFORME" if nb_erreurs == 0 else "NON_CONFORME"
 
 
 def _construire_rapport(
@@ -197,19 +195,23 @@ def _construire_rapport(
 ) -> dict:
     """Construit le dictionnaire de rapport E114 à sérialiser en JSON."""
     par_severite = _compter_par_severite(erreurs)
-    # nb_erreurs = nombre d'entrées de sévérité ERREUR (les AVERTISSEMENT
-    # n'invalident pas le fichier). Clé harmonisée avec E110-E113 ; le total
-    # des entrées reste dérivable via la somme de nb_par_severite.
+    # nb_erreurs = nombre d'entrées de sévérité ERREUR (unique sévérité E114).
+    # Clé harmonisée avec E110-E113.
     nb_erreurs = par_severite.get(SEVERITE_ERREUR, 0)
+    # E114 est mono-sévérité mais multi-priorités : la règle E_THEME_RPD est
+    # mineure, toutes les autres restent bloquantes. Seules ces dernières
+    # invalident la conformité.
+    par_priorite = ventiler_par_priorite(erreurs)
     return {
         "fichier": str(chemin_gml.resolve()),
         "date_controle": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "niveau": "Forte",
-        "type_controle": "E114_VALEURS",
+        "type_controle": identite_controle(version, RANG_VALEURS).type_controle,
         "version_controlee": version,
-        "conformite": _conformite(erreurs),
+        "conformite": statut_conformite(par_priorite),
         "nb_erreurs": nb_erreurs,
         "nb_par_severite": par_severite,
+        "nb_par_priorite": par_priorite,
         "erreurs": [e.vers_dict() for e in erreurs],
     }
 
@@ -217,10 +219,15 @@ def _construire_rapport(
 def _resoudre_chemin_sortie(
     chemin_gml: Path,
     repertoire_sortie: Path | None,
+    version: str = VERSION_DEFAUT,
 ) -> Path:
-    """Détermine le chemin du fichier JSON de sortie."""
+    """Détermine le chemin du fichier JSON de sortie.
+
+    Le suffixe porte le code du contrôle appliqué : `_controle_e114.json` en
+    V1.1, `_controle_e014.json` en V1.0.
+    """
     dossier = repertoire_sortie if repertoire_sortie else chemin_gml.parent
-    nom_json = chemin_gml.stem + "_controle_e114.json"
+    nom_json = chemin_gml.stem + identite_controle(version, RANG_VALEURS).suffixe_rapport
     return (dossier / nom_json).resolve()
 
 
@@ -231,7 +238,7 @@ def generer_rapport(
     version: str = VERSION_DEFAUT,
 ) -> Path:
     """Écrit le rapport au format JSON et retourne le chemin du fichier créé."""
-    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie)
+    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie, version)
     rapport = _construire_rapport(chemin_gml, erreurs, version)
 
     with open(chemin_sortie, "w", encoding="utf-8") as f:
@@ -243,85 +250,30 @@ def generer_rapport(
 # Point d'entrée CLI
 # ---------------------------------------------------------------------------
 
+DESCRIPTION_CLI: str = (
+    "Contrôle des valeurs des champs des objets RPD d'un fichier GML "
+    "RecoStaR : énumérations, CodeLists et formats (E114 en V1.1, E014 en V1.0)."
+)
 
-def _construire_parseur() -> argparse.ArgumentParser:
-    """Construit et retourne le parseur d'arguments CLI."""
-    parseur = argparse.ArgumentParser(
-        description=(
-            "Contrôle E114 : vérifie les valeurs des champs des objets RPD "
-            "contre les énumérations (§10), CodeLists (§10) et contraintes "
-            "RPD-spécifiques (Theme=ELECTRD, NumeroPRM 14 chiffres) du PDF "
-            "RecoStaR V1.1."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+# Libellé du décompte affiché en fin d'exécution.
+LIBELLE_ANOMALIES: str = "anomalie(s) de valeur detectee(s)"
+
+
+def analyser_fichier(chemin_gml: Path, profil: ProfilVersion) -> list[ErreurValeur]:
+    """Analyse un GML avec le profil donné : adaptateur pour l'enveloppe CLI."""
+    return AnalyseurValeurs(chemin_gml, profil).analyser()
+
+
+def main(version_imposee: str | None = None) -> None:
+    """Point d'entrée principal du contrôle des valeurs."""
+    executer_controle(
+        rang=RANG_VALEURS,
+        description=DESCRIPTION_CLI,
+        analyser=analyser_fichier,
+        generer_rapport=generer_rapport,
+        libelle_anomalies=LIBELLE_ANOMALIES,
+        version_imposee=version_imposee,
     )
-    parseur.add_argument(
-        "fichier_gml",
-        type=Path,
-        help="Fichier GML RecoStaR à contrôler",
-    )
-    parseur.add_argument(
-        "--output-dir",
-        type=Path,
-        default=None,
-        metavar="REPERTOIRE",
-        help=("Répertoire de sortie pour le rapport JSON (par défaut : même répertoire que le fichier GML)"),
-    )
-    ajouter_argument_version(parseur)
-    return parseur
-
-
-def _valider_arguments(args: argparse.Namespace) -> None:
-    """Vérifie la validité des arguments CLI. Termine le programme si invalides."""
-    args.fichier_gml = args.fichier_gml.resolve()
-    if not args.fichier_gml.exists():
-        print(
-            f"Erreur : le fichier '{args.fichier_gml}' n'existe pas.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if not args.fichier_gml.is_file():
-        print(
-            f"Erreur : '{args.fichier_gml}' n'est pas un fichier.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if args.output_dir is not None:
-        args.output_dir = args.output_dir.resolve()
-        if not args.output_dir.is_dir():
-            print(
-                f"Erreur : le répertoire de sortie '{args.output_dir}' n'existe pas.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-
-def main() -> None:
-    """Point d'entrée principal du contrôle E114."""
-    parseur = _construire_parseur()
-    args = parseur.parse_args()
-    _valider_arguments(args)
-
-    profil = resoudre_profil_cli(args.fichier_gml, args.version)
-    print(f"Controle E114 du fichier : {args.fichier_gml}")
-    print(f"Version controlee        : {profil.code}")
-
-    analyseur = AnalyseurValeurs(args.fichier_gml, profil)
-    erreurs = analyseur.analyser()
-
-    chemin_rapport = generer_rapport(args.fichier_gml, erreurs, args.output_dir, profil.code)
-
-    par_severite = _compter_par_severite(erreurs)
-    nb_err = par_severite.get(SEVERITE_ERREUR, 0)
-    nb_avert = par_severite.get("AVERTISSEMENT", 0)
-    if nb_err == 0 and nb_avert == 0:
-        statut = "CONFORME"
-    else:
-        statut = f"{nb_err} erreur(s), {nb_avert} avertissement(s)"
-    print(f"Resultat : {statut}")
-    print(f"Rapport genere : {chemin_rapport}")
 
 
 if __name__ == "__main__":

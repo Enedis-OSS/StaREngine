@@ -1,27 +1,34 @@
 #!/usr/bin/env python3
 """
-Outil de contrôle E110 : vérification de l'ordre de structure des objets RPD
-dans un fichier GML RecoStar, conformément au schéma XSD SchemaStarElecRecoStar.xsd v1.1.
+Outil de contrôle de l'ordre de structure des objets RPD dans un fichier GML
+RecoStaR, conformément au schéma XSD SchemaStarElecRecoStar.xsd.
 
-Entrée  : Fichier GML RecoStar à contrôler
+Le moteur est version-agnostique : il applique les séquences du `ProfilVersion`
+qui lui est fourni. Le code du contrôle suit la version contrôlée — **E110** en
+V1.1, **E010** en V1.0 (point d'entrée dédié `controle_e010.py`).
+
+Entrée  : Fichier GML RecoStaR à contrôler
 Sortie  : Fichier JSON listant les erreurs d'ordre détectées
 
 Usage :
-    python controle_e110.py <fichier.gml> [--output-dir <repertoire>]
+    python controle_e110.py <fichier.gml> [--output-dir <repertoire>] \
+        [--version {auto,1.0,1.1}]
 """
 
-import argparse
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
-from xml.etree.ElementTree import (  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree.ElementTree import (  # nosec B405
     Element,
     ElementTree,
 )
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
-from cli_version import ajouter_argument_version, resoudre_profil_cli
+from cli_controle import executer_controle
+from codes_controle import RANG_ORDRE, identite_controle
+from priorites_structuration import statut_conformite, ventiler_par_priorite
 from sequenceur_xsd import ErreurOrdre, valider_sequence
 from versions import VERSION_DEFAUT, resoudre_profil
 from versions.profil import ProfilVersion
@@ -123,28 +130,39 @@ def _construire_rapport(
 ) -> dict:
     """Construit le dictionnaire de rapport à sérialiser en JSON."""
     nb_erreurs = len(erreurs)
-    # Statut de conformité dérivé directement du nombre d'erreurs détectées :
-    # absence d'erreur d'ordre = fichier conforme au schéma XSD ciblé.
-    conformite = "CONFORME" if nb_erreurs == 0 else "NON_CONFORME"
+    # Ventilation par priorité : E110 n'accorde aucune dérogation, toutes ses
+    # erreurs sont bloquantes. La conformité en découle sans cas particulier.
+    par_priorite = ventiler_par_priorite(erreurs)
+    conformite = statut_conformite(par_priorite)
     return {
         "fichier": str(chemin_gml.resolve()),
         "date_controle": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "niveau": "Forte",
-        "type_controle": "E110_ORDRE",
+        # Le code du contrôle dépend de la version : E110 en V1.1, E010 en V1.0.
+        "type_controle": identite_controle(version, RANG_ORDRE).type_controle,
         "version_controlee": version,
         "conformite": conformite,
         "nb_erreurs": nb_erreurs,
         # E110 ne produit que des erreurs : la ventilation par sévérité est
         # donc soit vide, soit réduite à la clé ERREUR. Format aligné sur E114.
         "nb_par_severite": {"ERREUR": nb_erreurs} if nb_erreurs else {},
+        "nb_par_priorite": par_priorite,
         "erreurs": [e.vers_dict() for e in erreurs],
     }
 
 
-def _resoudre_chemin_sortie(chemin_gml: Path, repertoire_sortie: Path | None) -> Path:
-    """Détermine le chemin du fichier JSON de sortie."""
+def _resoudre_chemin_sortie(
+    chemin_gml: Path,
+    repertoire_sortie: Path | None,
+    version: str = VERSION_DEFAUT,
+) -> Path:
+    """Détermine le chemin du fichier JSON de sortie.
+
+    Le suffixe porte le code du contrôle appliqué : `_controle_e110.json` en
+    V1.1, `_controle_e010.json` en V1.0.
+    """
     dossier = repertoire_sortie if repertoire_sortie else chemin_gml.parent
-    nom_json = chemin_gml.stem + "_controle_e110.json"
+    nom_json = chemin_gml.stem + identite_controle(version, RANG_ORDRE).suffixe_rapport
     return (dossier / nom_json).resolve()
 
 
@@ -155,7 +173,7 @@ def generer_rapport(
     version: str = VERSION_DEFAUT,
 ) -> Path:
     """Écrit le rapport d'erreurs au format JSON et retourne le chemin du fichier créé."""
-    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie)
+    chemin_sortie = _resoudre_chemin_sortie(chemin_gml, repertoire_sortie, version)
     rapport = _construire_rapport(chemin_gml, erreurs, version)
 
     with open(chemin_sortie, "w", encoding="utf-8") as f:
@@ -168,78 +186,29 @@ def generer_rapport(
 # Point d'entrée CLI
 # ---------------------------------------------------------------------------
 
+DESCRIPTION_CLI: str = (
+    "Contrôle de l'ordre de structure des objets RPD dans un fichier GML RecoStaR (E110 en V1.1, E010 en V1.0)."
+)
 
-def _construire_parseur() -> argparse.ArgumentParser:
-    """Construit et retourne le parseur d'arguments CLI."""
-    parseur = argparse.ArgumentParser(
-        description=(
-            "Contrôle E110 : vérifie l'ordre de structure des objets RPD "
-            "dans un fichier GML RecoStar (conformément au XSD v1.1)."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+# Libellé du décompte affiché en fin d'exécution.
+LIBELLE_ANOMALIES: str = "erreur(s) detectee(s)"
+
+
+def analyser_fichier(chemin_gml: Path, profil: ProfilVersion) -> list[ErreurOrdre]:
+    """Analyse un GML avec le profil donné : adaptateur pour l'enveloppe CLI."""
+    return AnalyseurGML(chemin_gml, profil).analyser()
+
+
+def main(version_imposee: str | None = None) -> None:
+    """Point d'entrée principal du contrôle d'ordre de structure."""
+    executer_controle(
+        rang=RANG_ORDRE,
+        description=DESCRIPTION_CLI,
+        analyser=analyser_fichier,
+        generer_rapport=generer_rapport,
+        libelle_anomalies=LIBELLE_ANOMALIES,
+        version_imposee=version_imposee,
     )
-    parseur.add_argument(
-        "fichier_gml",
-        type=Path,
-        help="Fichier GML RecoStar à contrôler",
-    )
-    parseur.add_argument(
-        "--output-dir",
-        type=Path,
-        default=None,
-        metavar="REPERTOIRE",
-        help=("Répertoire de sortie pour le rapport JSON (par défaut : même répertoire que le fichier GML)"),
-    )
-    ajouter_argument_version(parseur)
-    return parseur
-
-
-def _valider_arguments(args: argparse.Namespace) -> None:
-    """Vérifie la validité des arguments CLI. Arrête le programme si invalides."""
-    args.fichier_gml = args.fichier_gml.resolve()
-    if not args.fichier_gml.exists():
-        print(
-            f"Erreur : le fichier '{args.fichier_gml}' n'existe pas.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if not args.fichier_gml.is_file():
-        print(
-            f"Erreur : '{args.fichier_gml}' n'est pas un fichier.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if args.output_dir is not None:
-        args.output_dir = args.output_dir.resolve()
-        if not args.output_dir.is_dir():
-            print(
-                f"Erreur : le répertoire de sortie '{args.output_dir}' n'existe pas.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-
-def main() -> None:
-    """Point d'entrée principal du contrôle E110."""
-    parseur = _construire_parseur()
-    args = parseur.parse_args()
-    _valider_arguments(args)
-
-    profil = resoudre_profil_cli(args.fichier_gml, args.version)
-    print(f"Contrôle E110 du fichier : {args.fichier_gml}")
-    print(f"Version controlee        : {profil.code}")
-
-    analyseur = AnalyseurGML(args.fichier_gml, profil)
-    erreurs = analyseur.analyser()
-
-    chemin_rapport = generer_rapport(args.fichier_gml, erreurs, args.output_dir, profil.code)
-
-    nb = len(erreurs)
-    statut = "CONFORME" if nb == 0 else f"{nb} erreur(s) detectee(s)"
-    print(f"Resultat : {statut}")
-    print(f"Rapport genere : {chemin_rapport}")
 
 
 if __name__ == "__main__":

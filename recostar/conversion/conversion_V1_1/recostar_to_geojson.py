@@ -19,7 +19,9 @@ import sys
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from xml.etree import ElementTree as ET  # nosec B405  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
+from xml.etree import ElementTree as ET  # nosec B405
 
 import defusedxml.ElementTree as DefusedET  # type: ignore
 
@@ -1832,13 +1834,6 @@ class GMLConverter:
 
         self._write_geojson_files(features_by_type, output_dir)
         print("Conversion terminée avec succès!")
-
-
-# Alias français pour compatibilité avec les tests et la convention de nommage
-AideNamespaceGML = GMLNamespaceHelper
-ParseurGeometrie = GeometryParser
-ExtracteurEntites = EntityExtractor
-ConvertisseurGML = GMLConverter
 
 
 def main():

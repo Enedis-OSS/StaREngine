@@ -477,6 +477,10 @@ class TestConstruireGeojsonEcarts:
         assert props["ids_cheminements_touches"] == "id-c1,id-c2"
         assert props["fichiers_cheminements_touches"] == ("RPD_Fourreau_Reco.geojson,RPD_PleineTerre_Reco.geojson")
 
+    def test_priorite_est_majeure(self):
+        """Contrat explicite : une profondeur absente est signalee sans declasser la famille."""
+        assert PRIORITE_ANOMALIE == "majeur"
+
     def test_geometrie_point_aux_coordonnees_du_point(self):
         anomalie = {
             "id_point": "id-p",
@@ -578,12 +582,35 @@ class TestCli:
         assert resultat["nombre_anomalies"] == 1
 
     def test_fichier_sortie_cree(self, tmp_path):
-        self._ecrire_source_v10(tmp_path, [])
+        self._ecrire_source_v10(
+            tmp_path,
+            [_feature_point_v10("id-p1", [5.0, 0.0])],
+        )
+        # Fourreau sans profondeur sous le point de charge : anomalie
+        ecrire_collection(
+            str(tmp_path / "RPD_Fourreau_Reco.geojson"),
+            [_feature_cheminement("id-f1", [[0.0, 0.0], [10.0, 0.0]], profondeur=None)],
+        )
         executer_controle_cli(str(tmp_path))
         assert os.path.isfile(tmp_path / FICHIER_SORTIE)
 
-    def test_sortie_personnalisee(self, tmp_path):
+    def test_aucun_fichier_sans_anomalie(self, tmp_path):
         self._ecrire_source_v10(tmp_path, [])
+        resultat = executer_controle_cli(str(tmp_path))
+        assert resultat["nombre_anomalies"] == 0
+        assert resultat["sortie"] is None
+        assert not os.path.isfile(tmp_path / FICHIER_SORTIE)
+
+    def test_sortie_personnalisee(self, tmp_path):
+        self._ecrire_source_v10(
+            tmp_path,
+            [_feature_point_v10("id-p1", [5.0, 0.0])],
+        )
+        # Fourreau sans profondeur sous le point de charge : anomalie
+        ecrire_collection(
+            str(tmp_path / "RPD_Fourreau_Reco.geojson"),
+            [_feature_cheminement("id-f1", [[0.0, 0.0], [10.0, 0.0]], profondeur=None)],
+        )
         dossier_sortie = tmp_path / "sortie"
         dossier_sortie.mkdir()
         executer_controle_cli(str(tmp_path), str(dossier_sortie))

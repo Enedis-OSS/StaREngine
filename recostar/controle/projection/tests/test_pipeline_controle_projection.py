@@ -34,7 +34,7 @@ def _resultat_succes(nb_anomalies: int = 0) -> dict[str, Any]:
     return {
         "succes": True,
         "nombre_anomalies": nb_anomalies,
-        "sortie": "ecarts_projection.geojson",
+        "sortie": "ecarts_e300_projection.geojson",
     }
 
 

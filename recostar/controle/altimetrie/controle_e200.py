@@ -8,7 +8,7 @@ composante Z sont signalees et exportees dans un fichier GeoJSON d'ecarts.
 Usage CLI :
     python controle_e200.py --repertoire <chemin> [--sortie <chemin>]
 
-Sortie : ecarts_3d.geojson
+Sortie : ecarts_e200_3d.geojson
 """
 
 import argparse
@@ -20,14 +20,30 @@ from pathlib import Path
 from typing import Any
 
 from utils_geojson import (
-    ecrire_geojson,
+    ProfilEcarts,
+    ecrire_geojson_si_anomalies,
     lire_geojson,
     lister_fichiers_geojson,
+    normaliser_geojson_ecarts,
     obtenir_id_feature,
 )
 
 # Nom du fichier GeoJSON de sortie
-FICHIER_SORTIE: str = "ecarts_3d.geojson"
+FICHIER_SORTIE: str = "ecarts_e200_3d.geojson"
+
+# Identite du controle, utilisee pour normaliser les proprietes des ecarts.
+CODE_CONTROLE: str = "E200"
+
+DESCRIPTIONS_ANOMALIES: dict[str, str] = {
+    "absence_coordonnee_z": ("L'entité ne porte pas de coordonnée Z : sa géométrie n'est pas en 3D."),
+}
+
+PROFIL_ECARTS: ProfilEcarts = ProfilEcarts(
+    code_controle=CODE_CONTROLE,
+    descriptions=DESCRIPTIONS_ANOMALIES,
+    champs_id=("id_entite",),
+)
+
 
 # Niveau de priorite affecte aux entites non conformes
 PRIORITE_ANOMALIE: str = "bloquant"
@@ -139,7 +155,7 @@ def construire_geojson_ecarts(
     resultat: dict[str, Any] = {"type": "FeatureCollection", "features": features}
     if crs is not None:
         resultat["crs"] = crs
-    return resultat
+    return normaliser_geojson_ecarts(resultat, PROFIL_ECARTS)
 
 
 def executer_controle_cli(
@@ -181,14 +197,14 @@ def executer_controle_cli(
     geojson_ecarts = construire_geojson_ecarts(toutes_anomalies, crs)
     os.makedirs(dossier_sortie, exist_ok=True)
     chemin_sortie = os.path.join(dossier_sortie, FICHIER_SORTIE)
-    ecrire_geojson(geojson_ecarts, chemin_sortie)
+    chemin_ecrit = ecrire_geojson_si_anomalies(geojson_ecarts, chemin_sortie)
 
     return {
         "succes": True,
         "priorite": PRIORITE_ANOMALIE,
         "nombre_anomalies": len(toutes_anomalies),
         "fichiers_analyses": fichiers_analyses,
-        "sortie": chemin_sortie,
+        "sortie": chemin_ecrit,
     }
 
 
